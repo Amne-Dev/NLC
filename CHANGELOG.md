@@ -6,6 +6,29 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **Offline Profile Names**: Preserved named offline profiles when changing or equipping skins, while repairing legacy profiles that are missing a name.
+
+## [3.0.3] - 2026-10-11
+
+### Added
+
+- **Incremental Windows Updates**: Added verified patch packages that update the launcher executable, background agent, and bundled resources without replacing launcher configuration or Minecraft data.
+
+### Fixed
+
+- **Installation Recovery**: Normalized legacy installation entries, restored stable installation IDs, and repaired active-installation selection after configuration migrations.
+
+## [3.0.2] - 2026-10-10
+
+### Fixed
+
+- **Offline Account Names**: Fixed offline account names reverting unexpectedly during skin-related updates.
+- **Update Notifications**: Fixed the notification-center update action and improved update notification timing.
+
+## [3.0.1] - 2026-10-09
+
+### Fixed
+
 - **Windows Startup Error**: Fixed addon timestamp formatting using the `datetime` module correctly, preventing startup failures when rendering screenshots.
 - **Windows Alt-Tab Input Lockup**: Restored valid modal focus and cleared orphaned input grabs when the launcher regains focus.
 
