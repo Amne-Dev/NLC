@@ -63,8 +63,9 @@ class ToastManager:
             self._container.lift()
         return self._container
 
-    def show(self, message: str, *, kind="success", duration=3600):
-        signature = (kind, str(message))
+    def show(self, message: str, *, kind="success", level: Optional[str] = None, duration=3600):
+        effective_kind = level or kind
+        signature = (effective_kind, str(message))
         if signature in self._signatures:
             return
         self._signatures.add(signature)
@@ -78,7 +79,7 @@ class ToastManager:
             "error": COLORS.get("error_red", "#EF4444"),
             "info": COLORS.get("accent_blue", "#3498DB"),
         }
-        kind_col = colors.get(kind, colors["info"])
+        kind_col = colors.get(effective_kind, colors["info"])
         card_bg = COLORS.get("card_bg", "#222630")
 
         toast_card = tk.Frame(

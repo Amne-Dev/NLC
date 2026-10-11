@@ -138,3 +138,21 @@ def test_toast_manager_downloads_and_sessions(tk_root):
     called = []
     tm.show_update_toast("v2.5.0", on_update=lambda: called.append(True))
     assert len(tm._toasts) > 0
+
+
+def test_toast_manager_level_alias(tk_root):
+    if not tk_root:
+        pytest.skip("Tkinter not available")
+
+    tm = ToastManager(tk_root)
+    # Both level="success" and level="info" should work without TypeError
+    tm.show("Success message", level="success")
+    tm.show("Info message", level="info")
+    assert len(tm._toasts) >= 2
+
+
+def test_update_notification_default_persistence():
+    store = NotificationStore()
+    item = store.add_update("3.0.6", asset_url="https://example.test/patch.zip")
+    assert item.dismiss_after is None
+    assert item.expires_at is None

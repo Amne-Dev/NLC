@@ -143,7 +143,7 @@ class NotificationStore:
         asset_url: Optional[str] = None,
         html_url: Optional[str] = None,
         on_update: Optional[Callable] = None,
-        dismiss_after: float = 10.0
+        dismiss_after: Optional[float] = None
     ) -> NotificationItem:
         return self.add(
             category="update",

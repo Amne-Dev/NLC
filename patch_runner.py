@@ -1,6 +1,7 @@
 import argparse
 import ctypes
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -73,7 +74,8 @@ def _stop_agent():
 
 def _parse_args(argv):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--patch", required=True)
+    parser.add_argument("--patch", default="")
+    parser.add_argument("--replace-binary", default="")
     parser.add_argument("--target", required=True)
     parser.add_argument("--launcher-pid", type=int, default=0)
     parser.add_argument("--elevated", action="store_true")
@@ -81,12 +83,41 @@ def _parse_args(argv):
 
 
 def _validate_args(args):
-    if not os.path.isfile(args.patch):
+    if not args.patch and not args.replace_binary:
+        raise ValueError("Either --patch or --replace-binary must be specified")
+    if args.patch and not os.path.isfile(args.patch):
         raise FileNotFoundError(args.patch)
+    if args.replace_binary and not os.path.isfile(args.replace_binary):
+        raise FileNotFoundError(args.replace_binary)
     if not os.path.isdir(args.target):
         raise FileNotFoundError(args.target)
     if args.launcher_pid < 0:
         raise ValueError("--launcher-pid must be non-negative")
+
+
+def _apply_binary_replacement(source_path: str, target_dir: str):
+    source = os.path.abspath(source_path)
+    target = os.path.join(os.path.abspath(target_dir), APP_EXE)
+    backup = target + ".backup"
+
+    if os.path.exists(target):
+        shutil.copy2(target, backup)
+
+    try:
+        os.replace(source, target)
+    except Exception:
+        if os.path.exists(backup):
+            try:
+                shutil.copy2(backup, target)
+            except Exception:
+                pass
+        raise
+    finally:
+        if os.path.exists(backup):
+            try:
+                os.remove(backup)
+            except Exception:
+                pass
 
 
 def _launch_app(target):
@@ -127,7 +158,10 @@ def main(argv=None):
         time.sleep(0.5)
 
     _stop_agent()
-    apply_patch(args.patch, args.target)
+    if args.patch:
+        apply_patch(args.patch, args.target)
+    elif args.replace_binary:
+        _apply_binary_replacement(args.replace_binary, args.target)
     _launch_app(args.target)
     return 0
 

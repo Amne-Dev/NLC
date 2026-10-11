@@ -188,6 +188,33 @@ jobs:
               archive.writestr("manifest.json", json.dumps(manifest, indent=2))
           '@
 
+      - name: Build CDC Index
+        shell: pwsh
+        run: |
+          python -c @'
+          import base64, json, os, hashlib
+          from pathlib import Path
+          from nlc.cdc_engine import build_cdc_index, sign_cdc_index
+
+          root = Path("release-assets")
+          version = os.environ["APP_VERSION"]
+          exe_path = root / "NewLauncher.exe"
+          runner_path = root / "NLCUpdater.exe"
+
+          index = build_cdc_index(exe_path, version, filename="NewLauncher.exe")
+          if runner_path.exists():
+              index["runner"] = "NLCUpdater.exe"
+              index["runnerSha256"] = hashlib.sha256(runner_path.read_bytes()).hexdigest()
+
+          private_key_text = os.environ.get("NLC_UPDATE_SIGNING_PRIVATE_KEY_B64", "")
+          if private_key_text:
+              sign_cdc_index(index, private_key_text)
+
+          out_path = root / "NewLauncher.exe.cdc.json"
+          out_path.write_text(json.dumps(index, indent=2), encoding="utf-8")
+          print(f"Generated and signed CDC index: {out_path}")
+          '@
+
       - name: Generate WinGet Manifest Candidate
         shell: pwsh
         run: |
@@ -253,5 +280,8 @@ jobs:
         with:
           files: |
             release-assets/NLCSetup.exe
+            release-assets/NewLauncher.exe
+            release-assets/NLCUpdater.exe
+            release-assets/NewLauncher.exe.cdc.json
             release-assets/NLCUpdate-*.zip
             release-assets/SHA256SUMS.txt

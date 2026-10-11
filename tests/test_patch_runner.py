@@ -61,3 +61,30 @@ def test_patch_runner_launch_app_skips_when_missing(monkeypatch, tmp_path):
     monkeypatch.setattr("subprocess.Popen", lambda *a, **k: launched.append(a))
     _launch_app(str(tmp_path))
     assert len(launched) == 0
+
+
+def test_patch_runner_replace_binary_validation(tmp_path):
+    bin_file = tmp_path / "NewLauncher.exe.staged"
+    bin_file.write_bytes(b"staged")
+    args = _parse_args([
+        "--replace-binary", str(bin_file),
+        "--target", str(tmp_path),
+    ])
+    _validate_args(args)
+
+
+def test_apply_binary_replacement(tmp_path):
+    from patch_runner import _apply_binary_replacement, APP_EXE
+
+    target_dir = tmp_path / "install"
+    target_dir.mkdir()
+    existing_exe = target_dir / APP_EXE
+    existing_exe.write_bytes(b"old_binary")
+
+    staged_exe = tmp_path / "NewLauncher.exe.staged"
+    staged_exe.write_bytes(b"new_binary")
+
+    _apply_binary_replacement(str(staged_exe), str(target_dir))
+
+    assert existing_exe.read_bytes() == b"new_binary"
+    assert not staged_exe.exists()

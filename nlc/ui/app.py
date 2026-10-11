@@ -54,6 +54,7 @@ from nlc.core.versions import format_version_display, normalize_version_text
 from nlc.core.launch import safe_extract_zip, patch_minecraft_launcher_launch_helpers
 from nlc.core.instances import sync_instance_assets
 from nlc.core.updater import verify_manifest_signature
+from nlc.cdc_engine import download_and_assemble_cdc, verify_cdc_signature
 from nlc.core.discord_rpc import DiscordRPCManager
 from nlc.net.skin_server import LocalSkinServer
 from nlc.net.ms_auth import MicrosoftDeviceAuth, MSA_CLIENT_ID, MSA_REDIRECT_URI
@@ -2731,7 +2732,7 @@ class MinecraftLauncher(
         accent = _named_accents.get(name_or_hex, name_or_hex)
         self.apply_theme(getattr(self, "theme_id", "dark_slate"), custom_accent=accent)
 
-    def perform_auto_update(self, asset_url, version, asset_name=""):
+    def perform_auto_update(self, asset_url, version, asset_name="", extra_data=None):
         if self._update_in_progress:
             return
         self._update_in_progress = True
@@ -2742,8 +2743,136 @@ class MinecraftLauncher(
         # Show Progress Bar
         self.root.after(0, self.show_update_progress)
         
-        threading.Thread(target=self._download_update_thread, args=(asset_url, version, asset_name), daemon=True).start()
+        candidate = asset_name or os.path.basename(urllib.parse.urlsplit(asset_url).path)
+        if candidate.lower().endswith(".cdc.json"):
+            threading.Thread(target=self._download_cdc_update_thread, args=(asset_url, version, extra_data or {}), daemon=True).start()
+        else:
+            threading.Thread(target=self._download_update_thread, args=(asset_url, version, asset_name), daemon=True).start()
 
+    def _download_cdc_update_thread(self, cdc_url, version, extra_data):
+        try:
+            updates_dir = os.path.join(self.config_dir, "updates")
+            if not os.path.exists(updates_dir):
+                os.makedirs(updates_dir)
+
+            self.root.after(0, lambda: self.update_progress_label.config(text="Fetching update recipe...") if hasattr(self, "update_progress_label") else None)
+
+            # 1. Download CDC index JSON
+            r = requests.get(cdc_url, timeout=(8, 25))
+            r.raise_for_status()
+            remote_index = r.json()
+
+            # 2. Verify signature
+            verify_cdc_signature(remote_index)
+
+            # 3. Locate installed local binary
+            local_exe = (
+                sys.executable
+                if getattr(sys, "frozen", False)
+                else os.path.abspath("NewLauncher.exe")
+            )
+            staged_exe = os.path.join(updates_dir, "NewLauncher.exe.staged")
+            exe_url = extra_data.get("exe_url") or cdc_url.rsplit(".", 2)[0]
+
+            self.root.after(0, lambda: self.update_progress_label.config(text="Applying differential slices...") if hasattr(self, "update_progress_label") else None)
+
+            last_ui_tick = [0.0]
+            def _progress(done, total):
+                now = time.monotonic()
+                if (now - last_ui_tick[0]) >= 0.08 or done == total:
+                    last_ui_tick[0] = now
+                    self.root.after(0, lambda c=done, t=total: self.update_download_progress(c, t))
+
+            # 4. Assemble from local chunks + HTTP Range requests
+            download_and_assemble_cdc(
+                local_path=local_exe,
+                remote_index=remote_index,
+                download_url=exe_url,
+                output_path=staged_exe,
+                progress_callback=_progress,
+            )
+
+            # 5. Ensure runner exists
+            runner_path = os.path.join(updates_dir, "NLCUpdater.exe")
+            runner_url = extra_data.get("runner_url")
+            runner_hash = str(remote_index.get("runnerSha256", "")).lower()
+
+            need_download_runner = False
+            if not os.path.exists(runner_path):
+                need_download_runner = True
+            elif runner_hash:
+                with open(runner_path, "rb") as rf:
+                    if hashlib.sha256(rf.read()).hexdigest().lower() != runner_hash:
+                        need_download_runner = True
+
+            if need_download_runner and runner_url:
+                self.root.after(0, lambda: self.update_progress_label.config(text="Downloading updater runner...") if hasattr(self, "update_progress_label") else None)
+                with requests.get(runner_url, stream=True, timeout=(8, 25)) as r_run:
+                    r_run.raise_for_status()
+                    runner_part = runner_path + ".part"
+                    with open(runner_part, "wb") as f_run:
+                        for chunk in r_run.iter_content(64 * 1024):
+                            f_run.write(chunk)
+                    os.replace(runner_part, runner_path)
+
+            self.root.after(0, self.hide_update_progress)
+            self.root.after(0, lambda: self._set_update_status("Update ready.", COLORS['success_green']))
+            self.root.after(0, lambda: self._on_cdc_download_complete(staged_exe, runner_path))
+
+        except Exception as e:
+            logger.error("CDC update failed: %s", e)
+            self.root.after(0, self.hide_update_progress)
+            self.root.after(0, self._reset_update_state)
+            self.root.after(0, lambda err=str(e): self._set_update_status(f"Update failed: {err}", COLORS['error_red']))
+
+    def _on_cdc_download_complete(self, staged_exe, runner_path):
+        btns = [
+            ("Yes, Install", True, "primary"),
+            ("I'll do it myself", "manual", "secondary"),
+            ("No", False, "secondary")
+        ]
+        mbox = CustomMessagebox("Update Available", "Update downloaded successfully.\nInstall now? (The launcher will restart)",
+                                type="yesno", buttons=btns, parent=self.root)
+        result = mbox.result
+
+        if result is True:
+            self._launch_cdc_updater(staged_exe, runner_path)
+        elif result == "manual":
+            webbrowser.open("https://github.com/Amne-Dev/New-launcher/releases/latest")
+            self._reset_update_state()
+        else:
+            self._reset_update_state()
+
+    def _launch_cdc_updater(self, staged_exe, runner_path):
+        try:
+            if os.name != "nt":
+                raise RuntimeError("Windows patch updates are only supported on Windows.")
+            if not os.path.isfile(staged_exe):
+                raise FileNotFoundError(staged_exe)
+            if not os.path.isfile(runner_path):
+                raise FileNotFoundError(runner_path)
+
+            install_dir = (
+                os.path.dirname(os.path.abspath(sys.executable))
+                if getattr(sys, "frozen", False)
+                else os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+            )
+
+            self._set_update_status("Launching updater...", COLORS['accent_blue'])
+            creationflags = (
+                getattr(subprocess, "DETACHED_PROCESS", 0)
+                | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+            )
+            subprocess.Popen(
+                [runner_path, "--replace-binary", staged_exe, "--target", install_dir, "--launcher-pid", str(os.getpid())],
+                cwd=os.path.dirname(runner_path),
+                close_fds=True,
+                creationflags=creationflags,
+            )
+            self._begin_update_shutdown()
+        except Exception as e:
+            custom_showerror("Error", f"Could not launch updater: {e}")
+            self._reset_update_state()
 
     def _download_update_thread(self, url, version="", asset_name=""):
         try:
@@ -4708,19 +4837,34 @@ class MinecraftLauncher(
                 if update_available:
                     assets = data.get("assets", [])
                     preferred_asset = None
+                    extra_data = {}
 
-                    # Select a patch built specifically for the installed version.
-                    expected_patch_name = (
-                        f"nlcupdate-{CURRENT_VERSION.lower()}-to-{latest_tag.lower()}.zip"
-                    )
-                    for asset in assets:
-                        name = str(asset.get("name", "")).lower()
-                        if (
-                            os.name == "nt"
-                            and name == expected_patch_name
-                        ):
-                            preferred_asset = asset
-                            break
+                    # 1. Check for Content-Defined Chunking (CDC) index on Windows
+                    if os.name == "nt":
+                        cdc_asset = next((a for a in assets if str(a.get("name", "")).lower() == "newlauncher.exe.cdc.json"), None)
+                        exe_asset = next((a for a in assets if str(a.get("name", "")).lower() == "newlauncher.exe"), None)
+                        runner_asset = next((a for a in assets if str(a.get("name", "")).lower() == "nlcupdater.exe"), None)
+                        if cdc_asset and exe_asset:
+                            preferred_asset = cdc_asset
+                            extra_data["exe_url"] = exe_asset.get("browser_download_url")
+                            if runner_asset:
+                                extra_data["runner_url"] = runner_asset.get("browser_download_url")
+
+                    # 2. Select a patch built specifically for the installed version.
+                    if preferred_asset is None:
+                        expected_patch_name = (
+                            f"nlcupdate-{CURRENT_VERSION.lower()}-to-{latest_tag.lower()}.zip"
+                        )
+                        for asset in assets:
+                            name = str(asset.get("name", "")).lower()
+                            if (
+                                os.name == "nt"
+                                and name == expected_patch_name
+                            ):
+                                preferred_asset = asset
+                                break
+
+                    # 3. Fallback to full installer
                     if preferred_asset is None:
                         for asset in assets:
                             name = str(asset.get("name", "")).lower()
@@ -4737,6 +4881,7 @@ class MinecraftLauncher(
                             data.get("html_url"),
                             asset_url,
                             asset_name,
+                            extra_data,
                         ),
                     )
                 else:
@@ -4747,24 +4892,27 @@ class MinecraftLauncher(
             self.root.after(0, lambda: self._set_update_status("Error checking updates", COLORS['error_red']))
             print(f"Update check error: {e}")
 
-    def _on_update_found(self, version, html_url, asset_url, asset_name=""):
+    def _on_update_found(self, version, html_url, asset_url, asset_name="", extra_data=None):
         self._set_update_status(f"New version available: {version}", COLORS['accent_blue'])
         
         def do_update():
             normalized_asset_name = str(asset_name).lower()
             is_supported_asset = (
-                normalized_asset_name.endswith(".zip")
-                and "update" in normalized_asset_name
-            ) or (
-                normalized_asset_name.endswith(".exe")
-                and ("setup" in normalized_asset_name or "installer" in normalized_asset_name)
+                normalized_asset_name.endswith(".cdc.json")
+                or (
+                    normalized_asset_name.endswith(".zip")
+                    and "update" in normalized_asset_name
+                ) or (
+                    normalized_asset_name.endswith(".exe")
+                    and ("setup" in normalized_asset_name or "installer" in normalized_asset_name)
+                )
             )
             if asset_url and is_supported_asset:
                 try:
                     self.root.grab_release()
                 except Exception:
                     pass
-                self.root.after(0, lambda u=asset_url, v=version, n=asset_name: self.perform_auto_update(u, v, n))
+                self.root.after(0, lambda u=asset_url, v=version, n=asset_name, ed=extra_data: self.perform_auto_update(u, v, n, ed))
             else:
                 if html_url:
                     webbrowser.open(html_url)
