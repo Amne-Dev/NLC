@@ -79,6 +79,17 @@ provides one. The patch updates the launcher executable, agent, and bundled reso
 patch is unavailable, the regular setup executable remains available as a
 fallback.
 
+### Windows Patch Releases
+
+Windows patch assets are version-specific (`NLCUpdate-<base>-to-<target>.zip`).
+The release workflow includes only launcher files changed since the previous
+release, plus the standalone patch runner. The workflow requires the
+`NLC_UPDATE_SIGNING_PRIVATE_KEY_B64` and `NLC_UPDATE_PUBLIC_KEY_B64` GitHub
+secrets; releases are rejected when either signing value is missing.
+
+Clients on unsupported versions fall back to `NLCSetup.exe`. Do not rename or
+reuse a patch ZIP for another source version.
+
 ## Modpacks, Mods, and Skins
 
 The **Modrinth** area lets you discover modpacks and mods without leaving the launcher. Installed modpacks stay linked to their Minecraft installation, and individual mods can be enabled or disabled from the management view.

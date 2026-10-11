@@ -1,6 +1,7 @@
 minecraft-launcher-lib
 requests
 Pillow
+cryptography
 pypresence
 skinpy
 pystray

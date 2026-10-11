@@ -5,7 +5,7 @@ import subprocess
 import sys
 import time
 
-from nlc.core.updater import apply_patch
+from nlc.update_engine import apply_patch
 
 
 APP_EXE = "NewLauncher.exe"
@@ -26,7 +26,10 @@ def _relaunch_as_admin(argv):
         return _is_admin()
     try:
         executable = os.path.abspath(sys.executable)
-        params = subprocess.list2cmdline(argv)
+        elevated_argv = list(argv)
+        if "--elevated" not in elevated_argv:
+            elevated_argv.append("--elevated")
+        params = subprocess.list2cmdline(elevated_argv)
         result = ctypes.windll.shell32.ShellExecuteW(
             None,
             "runas",
@@ -77,8 +80,18 @@ def _parse_args(argv):
     return parser.parse_args(argv)
 
 
+def _validate_args(args):
+    if not os.path.isfile(args.patch):
+        raise FileNotFoundError(args.patch)
+    if not os.path.isdir(args.target):
+        raise FileNotFoundError(args.target)
+    if args.launcher_pid < 0:
+        raise ValueError("--launcher-pid must be non-negative")
+
+
 def main(argv=None):
     args = _parse_args(argv or sys.argv[1:])
+    _validate_args(args)
     if os.name != "nt":
         raise RuntimeError("The Windows patch runner can only run on Windows.")
 

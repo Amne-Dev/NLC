@@ -53,6 +53,7 @@ from nlc.storage.config import (
 from nlc.core.versions import format_version_display, normalize_version_text
 from nlc.core.launch import safe_extract_zip, patch_minecraft_launcher_launch_helpers
 from nlc.core.instances import sync_instance_assets
+from nlc.core.updater import verify_manifest_signature
 from nlc.core.discord_rpc import DiscordRPCManager
 from nlc.net.skin_server import LocalSkinServer
 from nlc.net.ms_auth import MicrosoftDeviceAuth, MSA_CLIENT_ID, MSA_REDIRECT_URI
@@ -2869,6 +2870,7 @@ class MinecraftLauncher(
 
             with zipfile.ZipFile(patch_path) as archive:
                 manifest = json.loads(archive.read("manifest.json"))
+                verify_manifest_signature(manifest)
                 if str(manifest.get("baseVersion", "")) != CURRENT_VERSION:
                     raise RuntimeError(
                         f"This patch is for version {manifest.get('baseVersion', 'unknown')}, "

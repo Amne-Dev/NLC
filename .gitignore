@@ -36,4 +36,5 @@ New-launcher.sln
 # Scratch & Temporary Files
 *.bak
 *.tmp
+nlc_update_*.b64
 /installer
