@@ -2731,7 +2731,7 @@ class MinecraftLauncher(
         accent = _named_accents.get(name_or_hex, name_or_hex)
         self.apply_theme(getattr(self, "theme_id", "dark_slate"), custom_accent=accent)
 
-    def perform_auto_update(self, asset_url, version):
+    def perform_auto_update(self, asset_url, version, asset_name=""):
         if self._update_in_progress:
             return
         self._update_in_progress = True
@@ -2742,10 +2742,10 @@ class MinecraftLauncher(
         # Show Progress Bar
         self.root.after(0, self.show_update_progress)
         
-        threading.Thread(target=self._download_update_thread, args=(asset_url,), daemon=True).start()
+        threading.Thread(target=self._download_update_thread, args=(asset_url, version, asset_name), daemon=True).start()
 
 
-    def _download_update_thread(self, url):
+    def _download_update_thread(self, url, version="", asset_name=""):
         try:
             # Save to a persistent directory (avoid Temp/MEI issues)
             updates_dir = os.path.join(self.config_dir, "updates")
@@ -2753,7 +2753,13 @@ class MinecraftLauncher(
                 os.makedirs(updates_dir)
             
             # Determine filename
-            filename = "NLCUpdate.zip" if os.name == "nt" else "NewLauncher_Update.exe"
+            candidate = asset_name or os.path.basename(urllib.parse.urlsplit(url).path)
+            if candidate:
+                filename = candidate
+            elif os.name == "nt":
+                filename = f"NLCUpdate-{CURRENT_VERSION}-to-{version}.zip" if version else "NLCUpdate.zip"
+            else:
+                filename = "NewLauncher_Update.exe"
             path = os.path.join(updates_dir, filename)
             part_path = path + ".part"
             
@@ -4758,7 +4764,7 @@ class MinecraftLauncher(
                     self.root.grab_release()
                 except Exception:
                     pass
-                self.root.after(0, lambda u=asset_url, v=version: self.perform_auto_update(u, v))
+                self.root.after(0, lambda u=asset_url, v=version, n=asset_name: self.perform_auto_update(u, v, n))
             else:
                 if html_url:
                     webbrowser.open(html_url)

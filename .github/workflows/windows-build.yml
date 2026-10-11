@@ -123,10 +123,11 @@ jobs:
           if not previous_tag:
               raise SystemExit("A previous version tag is required to build a differential patch.")
           previous_version = previous_tag.removeprefix("v")
+          target_ref = current_tag if current_tag in tags else "HEAD"
           changed = set()
           if previous_tag:
               changed = set(subprocess.check_output(
-                  ["git", "diff", "--name-only", previous_tag, current_tag],
+                  ["git", "diff", "--name-only", previous_tag, target_ref],
                   text=True,
               ).splitlines())
 

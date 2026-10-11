@@ -89,6 +89,19 @@ def _validate_args(args):
         raise ValueError("--launcher-pid must be non-negative")
 
 
+def _launch_app(target):
+    launcher_path = os.path.join(target, APP_EXE)
+    if os.path.isfile(launcher_path):
+        try:
+            creationflags = (
+                getattr(subprocess, "DETACHED_PROCESS", 0)
+                | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+            )
+            subprocess.Popen([launcher_path], cwd=target, close_fds=True, creationflags=creationflags)
+        except Exception as e:
+            print(f"Failed to restart launcher: {e}", file=sys.stderr)
+
+
 def main(argv=None):
     args = _parse_args(argv or sys.argv[1:])
     _validate_args(args)
@@ -115,6 +128,7 @@ def main(argv=None):
 
     _stop_agent()
     apply_patch(args.patch, args.target)
+    _launch_app(args.target)
     return 0
 
 
