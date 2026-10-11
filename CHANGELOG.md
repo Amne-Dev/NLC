@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.5] - 2026-10-11
+
+### Added
+
+- **Version-Aware Windows Patching**: Windows updates now select a matching differential patch and use a lightweight patch runner.
+
 ## [3.0.4] - 2026-10-11
 
 ### Fixed

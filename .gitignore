@@ -36,3 +36,4 @@ New-launcher.sln
 # Scratch & Temporary Files
 *.bak
 *.tmp
+/installer

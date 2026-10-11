@@ -507,7 +507,12 @@ class NotificationCenterDrawer:
             self.render_feed()
 
     def render_feed(self):
-        if not self._drawer_frame or not self._drawer_frame.winfo_exists():
+        if (
+            not self._drawer_frame
+            or not self._drawer_frame.winfo_exists()
+            or not getattr(self, "feed_frame", None)
+            or not self.feed_frame.winfo_exists()
+        ):
             return
 
         items = self.store.get_items(self.current_category)
@@ -569,7 +574,7 @@ class NotificationCenterDrawer:
                     return
                 remaining = (item.expires_at or 0) - time.time()
                 if remaining <= 0:
-                    self.store.remove(item.id)
+                    self.parent.after_idle(lambda: self.store.remove(item.id))
                     return
                 fraction = min(1.0, remaining / max(item.dismiss_after or 1.0, 0.001))
                 try:

@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set Up Python
         uses: actions/setup-python@v5
@@ -38,14 +40,16 @@ jobs:
         shell: pwsh
         run: |
           $version = python -c "from config import CURRENT_VERSION; print(CURRENT_VERSION)"
-          if (-not $version) {
-            throw "Could not read CURRENT_VERSION from config.py"
-          }
+          if (-not $version) { throw "Could not read CURRENT_VERSION from config.py" }
           "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Build Agent
         shell: pwsh
         run: python -m PyInstaller --noconfirm --clean agent.spec
+
+      - name: Build Patch Runner
+        shell: pwsh
+        run: python -m PyInstaller --noconfirm --clean patch_runner.spec
 
       - name: Build Launcher
         shell: pwsh
@@ -60,9 +64,9 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path installer | Out-Null
           Copy-Item -Force dist\NLCSetup.exe installer\NLCSetup.exe
-
           New-Item -ItemType Directory -Force -Path release-assets | Out-Null
           Copy-Item -Force dist\agent.exe release-assets\agent.exe
+          Copy-Item -Force dist\NLCUpdater.exe release-assets\NLCUpdater.exe
           Copy-Item -Force dist\NewLauncher.exe release-assets\NewLauncher.exe
           Copy-Item -Force dist\NLCSetup.exe release-assets\NLCSetup.exe
           Copy-Item -Force logo.ico release-assets\logo.ico
@@ -73,6 +77,7 @@ jobs:
         run: |
           $files = @(
             "release-assets\agent.exe",
+            "release-assets\NLCUpdater.exe",
             "release-assets\NewLauncher.exe",
             "release-assets\NLCSetup.exe"
           )
@@ -86,15 +91,55 @@ jobs:
         shell: pwsh
         run: |
           python -c @'
-          import hashlib, json, zipfile
+          import hashlib, json, os, subprocess, zipfile
           from pathlib import Path
+
           root = Path("release-assets")
-          names = ["NewLauncher.exe", "agent.exe"]
+          version = os.environ["APP_VERSION"]
+          current_tag = "v" + version
+          tags = subprocess.check_output(
+              ["git", "tag", "--sort=-version:refname"], text=True
+          ).splitlines()
+          previous_tag = next((tag for tag in tags if tag != current_tag), "")
+          previous_version = previous_tag.removeprefix("v") or "unknown"
+          changed = set()
+          if previous_tag:
+              changed = set(subprocess.check_output(
+                  ["git", "diff", "--name-only", previous_tag, current_tag],
+                  text=True,
+              ).splitlines())
+
+          launcher_changed = any(
+              path.startswith("nlc/")
+              or path in {"alt.py", "main.py", "config.py", "requirements.txt"}
+              for path in changed
+          )
+          agent_changed = any(
+              path == "agent.py" or path.startswith("nlc/agent/")
+              for path in changed
+          )
+          assets_changed = any(path in {"logo.ico", "logo.png"} for path in changed)
+          names = ["NLCUpdater.exe"]
+          if launcher_changed or not previous_tag:
+              names.append("NewLauncher.exe")
+          if agent_changed or not previous_tag:
+              names.append("agent.exe")
           for name in ("logo.ico", "logo.png"):
-              if (root / name).exists():
+              if (root / name).exists() and (assets_changed or not previous_tag):
                   names.append(name)
-          manifest = {"formatVersion": 1, "platform": "windows", "files": []}
-          with zipfile.ZipFile(root / "NLCUpdate.zip", "w", zipfile.ZIP_DEFLATED) as archive:
+
+          runner_data = (root / "NLCUpdater.exe").read_bytes()
+          manifest = {
+              "formatVersion": 1,
+              "platform": "windows",
+              "baseVersion": previous_version,
+              "targetVersion": version,
+              "runner": "NLCUpdater.exe",
+              "runnerSha256": hashlib.sha256(runner_data).hexdigest(),
+              "files": [],
+          }
+          patch_name = f"NLCUpdate-{previous_version}-to-{version}.zip"
+          with zipfile.ZipFile(root / patch_name, "w", zipfile.ZIP_DEFLATED) as archive:
               for name in names:
                   data = (root / name).read_bytes()
                   archive.writestr("files/" + name, data)
@@ -104,6 +149,7 @@ jobs:
                       "sha256": hashlib.sha256(data).hexdigest(),
                   })
               archive.writestr("manifest.json", json.dumps(manifest, indent=2))
+          (root / "NLCUpdate.zip").write_bytes((root / patch_name).read_bytes())
           '@
 
       - name: Generate WinGet Manifest Candidate
@@ -113,7 +159,6 @@ jobs:
           New-Item -ItemType Directory -Force -Path $manifestRoot | Out-Null
           $installerHash = (Get-FileHash -Algorithm SHA256 "release-assets\NLCSetup.exe").Hash.ToLower()
           $installerUrl = "https://github.com/Amne-Dev/New-launcher/releases/download/v$env:APP_VERSION/NLCSetup.exe"
-
           @"
           PackageIdentifier: amne-dev.nlc
           PackageVersion: $env:APP_VERSION
@@ -121,7 +166,6 @@ jobs:
           ManifestType: version
           ManifestVersion: 1.12.0
           "@ | Set-Content -Path "$manifestRoot\amne-dev.nlc.yaml"
-
           @"
           PackageIdentifier: amne-dev.nlc
           PackageVersion: $env:APP_VERSION
@@ -136,35 +180,26 @@ jobs:
           ManifestType: installer
           ManifestVersion: 1.12.0
           "@ | Set-Content -Path "$manifestRoot\amne-dev.nlc.installer.yaml"
-
           @"
           PackageIdentifier: amne-dev.nlc
           PackageVersion: $env:APP_VERSION
           PackageLocale: en-US
           Publisher: Amne-Dev
           PublisherUrl: https://github.com/Amne-Dev
-          PublisherSupportUrl: https://discord.gg/yJqFxjTAq2
-          PrivacyUrl: https://web.get-nlc.tech/privacy.html
-          Author: Amne-Dev
           PackageName: NLC
           PackageUrl: https://web.get-nlc.tech/
           License: BSD 3-Clause License
           LicenseUrl: https://raw.githubusercontent.com/Amne-Dev/New-launcher/main/LICENSE
           ShortDescription: A Minecraft launcher for managing accounts, installations, mods, and skins.
-          Description: New Launcher is a desktop Minecraft launcher for Windows that lets users manage offline, Microsoft, and Ely.by accounts, install and launch multiple Minecraft versions, configure loaders and modpacks, manage mods and skins, customize launcher settings, and receive application updates.
+          Description: New Launcher is a desktop Minecraft launcher for Windows.
           Moniker: nlc
           Tags:
-          - modrinth
-          - newlauncher
           - minecraft
           - launcher
           - modpacks
           - mods
           - skins
-          - lightweight
-          ReleaseNotes: https://github.com/Amne-Dev/New-launcher/releases/
           ReleaseNotesUrl: https://github.com/Amne-Dev/New-launcher/releases/
-          InstallationNotes: 'NLC has been installed successfully. Launch it from the Start Menu or run it with: winget run amne-dev.nlc (Enjoy!)'
           ManifestType: defaultLocale
           ManifestVersion: 1.12.0
           "@ | Set-Content -Path "$manifestRoot\amne-dev.nlc.locale.en-US.yaml"
@@ -183,4 +218,5 @@ jobs:
           files: |
             release-assets/NLCSetup.exe
             release-assets/NLCUpdate.zip
+            release-assets/NLCUpdate-*.zip
             release-assets/SHA256SUMS.txt

@@ -1432,20 +1432,7 @@ class MinecraftLauncher(
         widget.bind("<Double-Button-1>", lambda _e: self._toggle_window_maximize())
 
     def _get_work_area(self):
-        if os.name == 'nt' and path.lower().endswith(".zip"):
-            install_dir = os.path.dirname(os.path.abspath(sys.executable))
-            setup_path = os.path.join(install_dir, "NLCSetup.exe")
-            if not os.path.isfile(setup_path):
-                raise FileNotFoundError("Installed NLCSetup.exe was not found; use the full installer.")
-            creationflags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-            subprocess.Popen(
-                [setup_path, "--patch", path, "--target", install_dir, "--elevated"],
-                cwd=install_dir,
-                close_fds=True,
-                creationflags=creationflags,
-            )
-            launched = True
-        elif os.name == 'nt':
+        if os.name == 'nt':
             try:
                 class _RECT(ctypes.Structure):
                     _fields_ = [
@@ -2749,7 +2736,7 @@ class MinecraftLauncher(
         self._update_in_progress = True
 
         # 1. Download
-        self.update_status_lbl.config(text=f"Downloading update {version}...", fg=COLORS['accent_blue'])
+        self._set_update_status(f"Downloading update {version}...", COLORS['accent_blue'])
         
         # Show Progress Bar
         self.root.after(0, self.show_update_progress)
@@ -2795,9 +2782,9 @@ class MinecraftLauncher(
                             else:
                                 self.root.after(
                                     0,
-                                    lambda b=wrote: self.update_status_lbl.config(
-                                        text=f"Downloading update... {b // (1024 * 1024)} MB",
-                                        fg=COLORS['accent_blue']
+                                    lambda b=wrote: self._set_update_status(
+                                        f"Downloading update... {b // (1024 * 1024)} MB",
+                                        COLORS['accent_blue']
                                     )
                                 )
 
@@ -2820,7 +2807,7 @@ class MinecraftLauncher(
             
             # On Finish
             self.root.after(0, self.hide_update_progress)
-            self.root.after(0, lambda: self.update_status_lbl.config(text="Update downloaded.", fg=COLORS['success_green']))
+            self.root.after(0, lambda: self._set_update_status("Update downloaded.", COLORS['success_green']))
             self.root.after(0, lambda: self._on_download_complete(path))
             
         except Exception as e:
@@ -2832,7 +2819,7 @@ class MinecraftLauncher(
                 pass
             self.root.after(0, self.hide_update_progress)
             self.root.after(0, self._reset_update_state)
-            self.root.after(0, lambda err=str(e): self.update_status_lbl.config(text=f"Update failed: {err}", fg=COLORS['error_red']))
+            self.root.after(0, lambda err=str(e): self._set_update_status(f"Update failed: {err}", COLORS['error_red']))
 
     def _on_download_complete(self, path):
          # Define custom buttons for the dialog
@@ -2848,7 +2835,9 @@ class MinecraftLauncher(
         result = mbox.result
 
         if result is True:
-            if path.endswith(".exe"):
+            if path.lower().endswith(".zip"):
+                self._launch_patch_updater(path)
+            elif path.lower().endswith(".exe"):
                 self._launch_updater_and_exit(path)
             else:
                 custom_showinfo("Manual Install", f"Update saved to:\n{path}\nPlease run it manually.")
@@ -2862,12 +2851,65 @@ class MinecraftLauncher(
     def _reset_update_state(self):
         self._update_in_progress = False
 
+    def _launch_patch_updater(self, patch_path):
+        try:
+            if os.name != "nt":
+                raise RuntimeError("Windows patch updates are only supported on Windows.")
+            if not os.path.isfile(patch_path):
+                raise FileNotFoundError(patch_path)
+
+            install_dir = (
+                os.path.dirname(os.path.abspath(sys.executable))
+                if getattr(sys, "frozen", False)
+                else os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+            )
+            updates_dir = os.path.join(self.config_dir, "updates")
+            runner_path = os.path.join(updates_dir, "NLCUpdater.exe")
+            runner_part_path = runner_path + ".part"
+
+            with zipfile.ZipFile(patch_path) as archive:
+                manifest = json.loads(archive.read("manifest.json"))
+                if str(manifest.get("baseVersion", "")) != CURRENT_VERSION:
+                    raise RuntimeError(
+                        f"This patch is for version {manifest.get('baseVersion', 'unknown')}, "
+                        f"but this launcher is version {CURRENT_VERSION}."
+                    )
+                runner_name = str(manifest.get("runner", "NLCUpdater.exe"))
+                runner_hash = str(manifest.get("runnerSha256", "")).lower()
+                runner_data = archive.read(f"files/{runner_name}")
+            if not runner_hash or hashlib.sha256(runner_data).hexdigest() != runner_hash:
+                raise RuntimeError("Patch runner checksum verification failed.")
+            with open(runner_part_path, "wb") as runner_file:
+                runner_file.write(runner_data)
+            os.replace(runner_part_path, runner_path)
+
+            self._set_update_status("Launching patch runner...", COLORS['accent_blue'])
+            creationflags = (
+                getattr(subprocess, "DETACHED_PROCESS", 0)
+                | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+            )
+            subprocess.Popen(
+                [runner_path, "--patch", patch_path, "--target", install_dir, "--launcher-pid", str(os.getpid())],
+                cwd=updates_dir,
+                close_fds=True,
+                creationflags=creationflags,
+            )
+            self._begin_update_shutdown()
+        except Exception as e:
+            try:
+                if 'runner_part_path' in locals() and os.path.exists(runner_part_path):
+                    os.remove(runner_part_path)
+            except Exception:
+                pass
+            custom_showerror("Error", f"Could not launch patch installer: {e}")
+            self._reset_update_state()
+
     def _launch_updater_and_exit(self, path):
         try:
             if not os.path.isfile(path):
                 raise FileNotFoundError(path)
 
-            self.update_status_lbl.config(text="Launching installer...", fg=COLORS['accent_blue'])
+            self._set_update_status("Launching installer...", COLORS['accent_blue'])
             self.root.after(0, self.hide_update_progress)
 
             launched = False
@@ -4619,11 +4661,11 @@ class MinecraftLauncher(
     def _set_update_status(self, text: str, fg: str):
         self._update_status_text = text
         self._update_status_color = fg
-        if hasattr(self, 'update_status_lbl') and self.update_status_lbl and self.update_status_lbl.winfo_exists():
-            try:
+        try:
+            if hasattr(self, 'update_status_lbl') and self.update_status_lbl and self.update_status_lbl.winfo_exists():
                 self.update_status_lbl.config(text=text, fg=fg)
-            except Exception:
-                pass
+        except Exception:
+            pass
 
     def check_for_updates(self):
         self._set_update_status("Checking for updates...", COLORS['text_secondary'])
@@ -4659,13 +4701,15 @@ class MinecraftLauncher(
                     assets = data.get("assets", [])
                     preferred_asset = None
 
-                    # Prefer the small verified patch package on Windows.
+                    # Select a patch built specifically for the installed version.
+                    expected_patch_name = (
+                        f"nlcupdate-{CURRENT_VERSION.lower()}-to-{latest_tag.lower()}.zip"
+                    )
                     for asset in assets:
-                        name = str(asset.get("name", ""))
+                        name = str(asset.get("name", "")).lower()
                         if (
                             os.name == "nt"
-                            and name.lower().endswith(".zip")
-                            and "update" in name.lower()
+                            and name == expected_patch_name
                         ):
                             preferred_asset = asset
                             break

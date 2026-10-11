@@ -4,6 +4,7 @@ Renders directly within the main window frame to eliminate Wayland (0,0) floatin
 """
 
 import logging
+import time
 import tkinter as tk
 from typing import Optional, Callable, Dict, Any
 from nlc.ui.theme import COLORS, FONT_FAMILY
@@ -469,7 +470,7 @@ class ToastManager:
             padx=14,
             pady=10,
             width=352,
-            height=68
+            height=104
         )
         toast_card.pack_propagate(False)
         toast_card.pack(side="top", pady=4, anchor="e")
@@ -553,6 +554,26 @@ class ToastManager:
         )
         b_later.pack(side="left")
 
+        dismiss_line = tk.Frame(toast_card, bg=upd_col, height=2)
+        dismiss_line.place(relx=0, rely=1.0, relwidth=1.0, height=2, anchor="sw")
+        dismiss_started = time.monotonic()
+        dismiss_duration = 60.0
+
+        def update_dismiss_line():
+            if not dismiss_line.winfo_exists():
+                return
+            remaining = max(0.0, dismiss_duration - (time.monotonic() - dismiss_started))
+            dismiss_line.place(
+                relx=0,
+                rely=1.0,
+                relwidth=remaining / dismiss_duration,
+                height=2,
+                anchor="sw"
+            )
+            if remaining > 0:
+                dismiss_line.after(100, update_dismiss_line)
+
+        update_dismiss_line()
         self._toasts.append(toast_card)
         toast_card.after(60000, dismiss)
 

@@ -3,6 +3,10 @@ echo Building Agent...
 pyinstaller --clean agent.spec
 if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
 
+echo Building Patch Runner...
+pyinstaller --clean patch_runner.spec
+if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
+
 echo Building Launcher...
 pyinstaller --clean alt.spec
 if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
