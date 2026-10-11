@@ -49,6 +49,8 @@ class NotificationItem:
     data: Dict[str, Any] = field(default_factory=dict)
     action_label: Optional[str] = None
     action_callback: Optional[Callable] = None
+    dismiss_after: Optional[float] = None
+    expires_at: Optional[float] = None
 
 
 class NotificationStore:
@@ -67,7 +69,8 @@ class NotificationStore:
         item_id: Optional[str] = None,
         data: Optional[Dict[str, Any]] = None,
         action_label: Optional[str] = None,
-        action_callback: Optional[Callable] = None
+        action_callback: Optional[Callable] = None,
+        dismiss_after: Optional[float] = None
     ) -> NotificationItem:
         nid = item_id or str(uuid.uuid4())
         # Check if item with ID already exists
@@ -81,6 +84,9 @@ class NotificationStore:
                 existing.action_label = action_label
             if action_callback is not None:
                 existing.action_callback = action_callback
+            if dismiss_after is not None:
+                existing.dismiss_after = dismiss_after
+                existing.expires_at = time.time() + dismiss_after
             self._notify()
             return existing
 
@@ -95,7 +101,9 @@ class NotificationStore:
             read=False,
             data=data or {},
             action_label=action_label,
-            action_callback=action_callback
+            action_callback=action_callback,
+            dismiss_after=dismiss_after,
+            expires_at=(time.time() + dismiss_after) if dismiss_after is not None else None
         )
         self._items.insert(0, item)
         # Cap store at 50 historical items
@@ -134,7 +142,8 @@ class NotificationStore:
         version: str,
         asset_url: Optional[str] = None,
         html_url: Optional[str] = None,
-        on_update: Optional[Callable] = None
+        on_update: Optional[Callable] = None,
+        dismiss_after: float = 10.0
     ) -> NotificationItem:
         return self.add(
             category="update",
@@ -143,7 +152,8 @@ class NotificationStore:
             status="active",
             data={"version": version, "asset_url": asset_url, "html_url": html_url},
             action_label="Update Now",
-            action_callback=on_update
+            action_callback=on_update,
+            dismiss_after=dismiss_after
         )
 
     @staticmethod
@@ -465,13 +475,18 @@ class NotificationCenterDrawer:
         self._update_tab_buttons()
         self.render_feed()
 
-    def _invoke_action(self, callback: Callable):
-        """Close the drawer before running an action from a notification card."""
-        self.close()
+    def _invoke_action(self, item: NotificationItem):
+        """Run a notification action and close the drawer after dispatching it."""
         try:
-            callback()
+            if item.action_callback:
+                item.action_callback()
         except Exception:
             logger.exception("Notification action failed")
+            return
+        self.close()
+
+    def _dismiss_item(self, item_id: str):
+        self.store.remove(item_id)
 
     def _update_tab_buttons(self):
         accent = COLORS.get('accent_color', '#2ECC71')
@@ -543,6 +558,33 @@ class NotificationCenterDrawer:
             pady=10
         )
         card.pack(fill="x", pady=4, padx=(0, 8))
+
+        countdown = None
+        if item.expires_at is not None:
+            countdown = tk.Frame(card, bg=COLORS.get('warning_orange', '#F39C12'), height=2)
+            countdown.place(relx=0, rely=0, relwidth=1.0, height=2, anchor="nw")
+
+            def update_countdown():
+                if not countdown.winfo_exists():
+                    return
+                remaining = (item.expires_at or 0) - time.time()
+                if remaining <= 0:
+                    self.store.remove(item.id)
+                    return
+                fraction = min(1.0, remaining / max(item.dismiss_after or 1.0, 0.001))
+                try:
+                    countdown.place(
+                        relx=0,
+                        rely=0,
+                        relwidth=fraction,
+                        height=2,
+                        anchor="nw"
+                    )
+                except tk.TclError:
+                    return
+                countdown.after(100, update_countdown)
+
+            update_countdown()
 
         # Left Graphic Icon or Radial Progress
         left_box = tk.Frame(card, bg=card_bg, width=44, height=44)
@@ -625,10 +667,13 @@ class NotificationCenterDrawer:
         )
         msg_lbl.pack(fill="x", pady=(2, 0))
 
-        # Inline Action button if provided
+        # Inline action and dismiss buttons
+        action_row = None
         if item.action_label and item.action_callback:
+            action_row = tk.Frame(info, bg=card_bg)
+            action_row.pack(anchor="w", pady=(6, 0))
             act_btn = tk.Button(
-                info,
+                action_row,
                 text=item.action_label,
                 font=(FONT_FAMILY, 8, "bold"),
                 bg=accent,
@@ -638,8 +683,28 @@ class NotificationCenterDrawer:
                 padx=8,
                 pady=2,
                 cursor="hand2",
-                command=lambda callback=item.action_callback: self._invoke_action(callback)
+                command=lambda notification=item: self._invoke_action(notification)
             )
-            act_btn.pack(anchor="w", pady=(6, 0))
+            act_btn.pack(side="left")
+
+        dismiss_btn = tk.Button(
+            action_row or info,
+            text="Dismiss",
+            font=(FONT_FAMILY, 8),
+            bg=card_bg,
+            fg=COLORS.get('text_muted', '#6B7280'),
+            bd=0,
+            relief="flat",
+            padx=8,
+            pady=2,
+            cursor="hand2",
+            command=lambda notification_id=item.id: self._dismiss_item(notification_id)
+        )
+        dismiss_btn.pack(
+            side="left" if action_row else "top",
+            anchor="w",
+            pady=(6, 0) if not action_row else (0, 0),
+            padx=(8, 0) if action_row else (0, 0)
+        )
 
         _bind_mousewheel(self.canvas, card)

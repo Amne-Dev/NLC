@@ -71,6 +71,24 @@ def test_notification_store_listener():
     assert len(notified) == 2
 
 
+def test_update_notification_action_and_expiration():
+    store = NotificationStore()
+    called = []
+
+    item = store.add_update(
+        "3.0.5",
+        asset_url="https://example.test/NLCUpdate.zip",
+        on_update=lambda: called.append(True),
+        dismiss_after=10.0,
+    )
+
+    assert item.action_callback is not None
+    assert item.dismiss_after == 10.0
+    assert item.expires_at is not None
+    item.action_callback()
+    assert called == [True]
+
+
 def test_notification_drawer_lifecycle(tk_root):
     if not tk_root:
         pytest.skip("Tkinter not available")

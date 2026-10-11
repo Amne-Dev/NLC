@@ -4662,13 +4662,17 @@ class MinecraftLauncher(
                     # Prefer the small verified patch package on Windows.
                     for asset in assets:
                         name = str(asset.get("name", ""))
-                        if name.lower() == "nlcupdate.zip" and os.name == "nt":
+                        if (
+                            os.name == "nt"
+                            and name.lower().endswith(".zip")
+                            and "update" in name.lower()
+                        ):
                             preferred_asset = asset
                             break
                     if preferred_asset is None:
                         for asset in assets:
                             name = str(asset.get("name", "")).lower()
-                            if name == "nlcsetup.exe" or (name.endswith(".exe") and ("setup" in name or "installer" in name)):
+                            if name.endswith(".exe") and ("setup" in name or "installer" in name):
                                 preferred_asset = asset
                                 break
 
@@ -4695,7 +4699,14 @@ class MinecraftLauncher(
         self._set_update_status(f"New version available: {version}", COLORS['accent_blue'])
         
         def do_update():
-            is_supported_asset = str(asset_name).lower() in {"nlcupdate.zip", "nlcsetup.exe"}
+            normalized_asset_name = str(asset_name).lower()
+            is_supported_asset = (
+                normalized_asset_name.endswith(".zip")
+                and "update" in normalized_asset_name
+            ) or (
+                normalized_asset_name.endswith(".exe")
+                and ("setup" in normalized_asset_name or "installer" in normalized_asset_name)
+            )
             if asset_url and is_supported_asset:
                 try:
                     self.root.grab_release()
