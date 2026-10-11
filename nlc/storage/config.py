@@ -175,6 +175,10 @@ class ConfigManager:
         elif len(valid_profiles) != len(profiles):
             data["profiles"] = valid_profiles
             changed = True
+        for profile in data["profiles"]:
+            if not isinstance(profile.get("name"), str) or not profile["name"].strip():
+                profile["name"] = DEFAULT_USERNAME
+                changed = True
 
         installations, installations_changed = normalize_installations(data.get("installations"))
         data["installations"] = installations

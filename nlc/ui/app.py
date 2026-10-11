@@ -5062,6 +5062,8 @@ class MinecraftLauncher(
             return
 
         p = self.profiles[self.current_profile_index]
+        if not isinstance(p.get("name"), str) or not p["name"].strip():
+            p["name"] = str(getattr(self, "username", "") or DEFAULT_USERNAME)
         old_skin_path = self.skin_path
         self.skin_path = p.get("skin_path", "")
         self.username = p.get("name", DEFAULT_USERNAME)
@@ -5913,6 +5915,8 @@ class MinecraftLauncher(
     def select_skin(self):
         # Check profile type
         p = self.profiles[self.current_profile_index] if self.profiles else {}
+        if p and not str(p.get("name", "")).strip():
+            p["name"] = str(getattr(self, "username", "") or DEFAULT_USERNAME)
         p_type = p.get("type", "offline")
         
         if p_type == "ely.by":
@@ -5974,8 +5978,10 @@ class MinecraftLauncher(
             
             self.skin_path = path
             if self.profiles and 0 <= self.current_profile_index < len(self.profiles):
-                self.profiles[self.current_profile_index]["skin_path"] = path
-                self.profiles[self.current_profile_index]["skin_model"] = variant
+                profile = self.profiles[self.current_profile_index]
+                profile["name"] = str(profile.get("name", "") or getattr(self, "username", "") or DEFAULT_USERNAME)
+                profile["skin_path"] = path
+                profile["skin_model"] = variant
             
             # Update UI
             if hasattr(self, 'skin_model_var'):

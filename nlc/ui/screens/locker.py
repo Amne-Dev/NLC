@@ -2180,6 +2180,7 @@ class LockerScreenMixin:
 
         p = self.profiles[self.current_profile_index]
         p_type = p.get("type", "offline")
+        p["name"] = str(p.get("name", "") or getattr(self, "username", "") or "Steve")
 
         if p_type == "microsoft":
             token = p.get("access_token")

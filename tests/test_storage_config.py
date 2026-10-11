@@ -82,3 +82,23 @@ def test_config_manager_migrates_installations_and_preserves_active_id(tmp_path)
     persisted = json.loads(cfg_file.read_text(encoding="utf-8"))
     assert persisted["active_installation_id"] == "kept"
     assert persisted["installations"][1]["id"] == data["installations"][1]["id"]
+
+def test_config_manager_repairs_profiles_without_overwriting_names(tmp_path):
+    cfg_file = tmp_path / "launcher_config.json"
+    cfg_file.write_text(json.dumps({
+        "profiles": [
+            {"name": "CustomPlayer", "type": "offline"},
+            {"name": " ", "type": "offline"},
+            {"type": "offline"},
+        ],
+        "installations": [],
+        "addons": {},
+    }), encoding="utf-8")
+
+    data = ConfigManager(cfg_file).load()
+
+    assert [profile["name"] for profile in data["profiles"]] == [
+        "CustomPlayer",
+        "Steve",
+        "Steve",
+    ]
