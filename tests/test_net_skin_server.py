@@ -41,13 +41,26 @@ def test_local_skin_server_lifecycle_and_endpoints(tmp_path):
             content = resp.read()
             assert content.startswith(b"\x89PNG")
 
-        # 3. Test profile endpoint
+        # 3. Test profile endpoint and versioned texture URL
         profile_url = f"{base_url}/sessionserver/session/minecraft/profile/12345678-1234-1234-1234-123456789abc"
         with urllib.request.urlopen(profile_url, timeout=3) as resp:
             assert resp.status == 200
+            assert "no-cache" in resp.headers.get("Cache-Control", "")
             profile_data = json.loads(resp.read().decode("utf-8"))
             assert profile_data["name"] == "TestPlayer"
             assert "properties" in profile_data
+
+            # Verify versioned texture URL
+            b64_textures = profile_data["properties"][0]["value"]
+            import base64
+            tex_json = json.loads(base64.b64decode(b64_textures).decode("utf-8"))
+            skin_url = tex_json["textures"]["SKIN"]["url"]
+            assert "?v=" in skin_url
+
+        # 4. Test versioned texture request
+        with urllib.request.urlopen(skin_url, timeout=3) as resp:
+            assert resp.status == 200
+            assert resp.read().startswith(b"\x89PNG")
     finally:
         server.stop()
         assert not server.is_running()

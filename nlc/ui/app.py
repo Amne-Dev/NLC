@@ -80,6 +80,7 @@ from nlc.ui.screens.mods import ModsScreenMixin
 from nlc.ui.screens.locker import LockerScreenMixin
 from nlc.ui.screens.installations import InstallationsScreenMixin
 from nlc.ui.screens.play import PlayScreenMixin
+from nlc.ui.screens.screenshots import ScreenshotScreenMixin
 
 try:
     from pypresence import Presence
@@ -738,6 +739,7 @@ class MinecraftLauncher(
     LockerScreenMixin,
     InstallationsScreenMixin,
     PlayScreenMixin,
+    ScreenshotScreenMixin,
     DownloadQueueMixin,
 ):
     def __init__(self, root):
@@ -2548,7 +2550,16 @@ class MinecraftLauncher(
         self.sidebar_notif_badge._is_notif_toggle = True
         self.sidebar_notif_badge.bind("<Button-1>", lambda e: self.toggle_notification_center())
 
-        # GitHub Link - Packed to bottom next to be above Notifications
+        # Screenshots Link - Packed to bottom next to be directly above Notifications
+        self._create_sidebar_link(
+            "Screenshots",
+            lambda: self.show_tab("Screenshots"),
+            is_action=True,
+            pack_side="bottom",
+            icon="painting.png"
+        )
+
+        # GitHub Link - Packed to bottom next to be above Screenshots
         self._create_sidebar_link("GitHub", "https://github.com/Amne-Dev/New-launcher", pack_side="bottom", icon="chiseled_bookshelf_occupied.png")
 
         # Download Queue UI (Initially hidden or empty)
@@ -2573,6 +2584,7 @@ class MinecraftLauncher(
         self.create_modpacks_tab()
         self.create_settings_tab()
         self.create_addons_tab()
+        self.create_screenshots_tab()
         
         # Trigger play selection
         if hasattr(self, 'minecraft_btn_frame'):
@@ -4766,6 +4778,9 @@ class MinecraftLauncher(
                 if hasattr(self, 'mods_tab_initialized') and not self.mods_tab_initialized:
                     self.mods_tab_initialized = True
                     self.search_mods_thread(reset=True)
+            elif tab_name == "Screenshots":
+                if hasattr(self, 'render_screenshots_gallery'):
+                    self.render_screenshots_gallery()
             elif tab_name == "Settings":
                 if hasattr(self, 'build_settings_sidebar') and not getattr(self, '_in_settings_sidebar', False):
                     self.build_settings_sidebar()

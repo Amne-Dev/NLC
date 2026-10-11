@@ -317,21 +317,39 @@ class AddonsScreenMixin:
         self.saved_servers_list_frame = tk.Frame(server_frame, bg=COLORS['card_bg'])
         self.saved_servers_list_frame.pack(fill="x", pady=(14, 0))
 
-        # Screenshot Browser
+        # Screenshot Browser (Shortcut to dedicated gallery tab)
         _screenshot_card, screenshot_frame = create_collapsible_card(
             content,
             "Screenshot Browser",
-            "Browse recent screenshots from your Minecraft directory.",
+            "Browse and manage recent screenshots from your Minecraft directory in full gallery mode.",
             "screenshot_browser",
             default_open=False,
         )
 
         screenshot_actions = tk.Frame(screenshot_frame, bg=COLORS['card_bg'])
-        screenshot_actions.pack(fill="x", pady=(0, 12))
-        self.screenshot_status_lbl = tk.Label(screenshot_actions, text="", font=("Segoe UI", 9), bg=COLORS['card_bg'], fg=COLORS['text_secondary'])
+        screenshot_actions.pack(fill="x", pady=(0, 6))
+        self.screenshot_status_lbl = tk.Label(
+            screenshot_actions,
+            text="Screenshots have moved to the sidebar for full-screen gallery browsing.",
+            font=("Segoe UI", 9),
+            bg=COLORS['card_bg'],
+            fg=COLORS['text_secondary'],
+        )
         self.screenshot_status_lbl.pack(side="left")
-        self._make_btn(screenshot_actions, "Refresh", style="secondary", font_size=9, command=self.render_screenshot_browser).pack(side="right")
-        self._make_btn(screenshot_actions, "Open Folder", style="secondary", font_size=9, command=lambda: self._open_path(self.get_screenshots_dir())).pack(side="right", padx=(0, 8))
+        self._make_btn(
+            screenshot_actions,
+            "Open Gallery",
+            style="primary",
+            font_size=9,
+            command=lambda: self.show_tab("Screenshots") if hasattr(self, 'show_tab') else None,
+        ).pack(side="right")
+        self._make_btn(
+            screenshot_actions,
+            "Open Folder",
+            style="secondary",
+            font_size=9,
+            command=lambda: self._open_path(self.get_screenshots_dir()),
+        ).pack(side="right", padx=(0, 8))
 
         self.screenshot_grid_frame = tk.Frame(screenshot_frame, bg=COLORS['card_bg'])
         self.screenshot_grid_frame.pack(fill="x")

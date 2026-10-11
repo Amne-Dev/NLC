@@ -70,7 +70,10 @@ class LocalSkinHandler(http.server.BaseHTTPRequestHandler):
         player_uuid = config.get("player_uuid", "")
         skin_model = config.get("skin_model", "classic")
 
-        if self.path == "/":
+        # Strip query parameters for routing
+        path_without_query = self.path.split("?")[0]
+
+        if path_without_query == "/":
             self.send_response(200)
             self.send_header("X-Authlib-Injector-API-Location", "/")
             self.send_header("Content-Type", "application/json")
@@ -87,19 +90,31 @@ class LocalSkinHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(resp).encode("utf-8"))
             return
 
-        if self.path.startswith("/sessionserver/session/minecraft/profile/"):
-            requested_uuid = self.path.split("/")[-1].split("?")[0]
+        if path_without_query.startswith("/sessionserver/session/minecraft/profile/"):
+            requested_uuid = path_without_query.split("/")[-1]
             if not skin_path or not os.path.exists(skin_path):
                 p_id = requested_uuid or (player_uuid.replace("-", "") if player_uuid else "")
                 resp = {"id": p_id, "name": player_name, "properties": []}
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
                 self.end_headers()
                 self.wfile.write(json.dumps(resp).encode("utf-8"))
                 return
 
             host = self.headers.get("Host", "127.0.0.1")
-            texture_info: Dict[str, Any] = {"url": f"http://{host}/textures/skin.png"}
+
+            # Version tag based on skin modification timestamp or file hash
+            # This prevents Minecraft from reusing stale client/world skin caches
+            version_tag = "1"
+            try:
+                mtime = int(os.path.getmtime(skin_path))
+                version_tag = f"{mtime:x}"
+            except Exception:
+                pass
+
+            texture_url = f"http://{host}/textures/skin.png?v={version_tag}"
+            texture_info: Dict[str, Any] = {"url": texture_url}
             if skin_model == "slim":
                 texture_info["metadata"] = {"model": "slim"}
 
@@ -119,11 +134,12 @@ class LocalSkinHandler(http.server.BaseHTTPRequestHandler):
 
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
             self.end_headers()
             self.wfile.write(json.dumps(response_payload).encode("utf-8"))
             return
 
-        if self.path == "/textures/skin.png":
+        if path_without_query == "/textures/skin.png":
             skin_data = self._get_cached_skin_data(skin_path)
             if not skin_data:
                 self.send_error(404)
@@ -131,7 +147,8 @@ class LocalSkinHandler(http.server.BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "image/png")
             self.send_header("Content-Length", str(len(skin_data)))
-            self.send_header("Cache-Control", "public, max-age=3600")
+            # Long cache for specific versioned URL
+            self.send_header("Cache-Control", "public, max-age=31536000, immutable")
             self.end_headers()
             self.wfile.write(skin_data)
             return

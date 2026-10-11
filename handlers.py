@@ -180,7 +180,15 @@ class LocalSkinHandler(http.server.BaseHTTPRequestHandler):
                 texture_model = "slim"
             
             host = self.headers.get('Host')
-            texture_url = f"http://{host}/textures/skin.png"
+
+            version_tag = "1"
+            try:
+                mtime = int(os.path.getmtime(self.skin_path))
+                version_tag = f"{mtime:x}"
+            except Exception:
+                pass
+
+            texture_url = f"http://{host}/textures/skin.png?v={version_tag}"
 
             texture_info: dict[str, Any] = {
                 "url": texture_url
@@ -213,12 +221,14 @@ class LocalSkinHandler(http.server.BaseHTTPRequestHandler):
             
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
+            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
             self.end_headers()
             self.wfile.write(json.dumps(response).encode('utf-8'))
             return
 
         # Texture Request
-        if self.path == "/textures/skin.png":
+        path_without_query = self.path.split('?')[0]
+        if path_without_query == "/textures/skin.png":
             # Use cached skin data
             skin_data = self._get_cached_skin_data(self.skin_path)
             if not skin_data:
@@ -229,7 +239,7 @@ class LocalSkinHandler(http.server.BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header('Content-type', 'image/png')
                 self.send_header('Content-Length', str(len(skin_data)))
-                self.send_header('Cache-Control', 'public, max-age=3600')  # Cache for 1 hour
+                self.send_header('Cache-Control', 'public, max-age=31536000, immutable')
                 self.end_headers()
                 self.wfile.write(skin_data)
             except Exception:

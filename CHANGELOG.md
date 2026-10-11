@@ -2,11 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
-## [3.0.5] - 2026-10-11
+## [3.0.6] - 2026-10-11
 
 ### Added
 
-- **Version-Aware Windows Patching**: Windows updates now select a matching differential patch and use a lightweight patch runner.
+- **Dedicated Screenshots Gallery**: Extracted screenshot browsing out of the Addons tab into a dedicated primary screen (`Screenshots`) positioned in the sidebar right above Notifications. Features non-blocking asynchronous thumbnail generation, persistent two-tier disk + memory LRU caching, high-resolution modal lightbox viewer, and real-time search filtering.
+
+### Changed
+
+- **Installed Mods List Scrolling Performance**: Optimized modpack installed mods view by decoupling geometry and scrollregion re-calculations, preventing layout thrashing and event-loop queue starvation during rapid mouse-wheel scrolling while retaining 100% of badges, icons, mod toggles, and remove actions.
+
+### Fixed
+
+- **Offline Skin Injection & Stale Cache Invalidation**: Fixed singleplayer and custom-skin-plugin servers showing outdated skins by adding dynamic modification hash query tags (`/textures/skin.png?v=<hash>`) to skin URLs and injecting `no-cache` headers into Yggdrasil session profile endpoints, forcing client cache invalidation on skin changes.
+
+### Added
+
+- **FastCDC Differential Updates**: Introduced content-defined chunking (FastCDC with Gear rolling hashing) for Windows executable updates over GitHub Releases. The launcher downloads only missing byte ranges via HTTP `Range` requests (~5–15 MB) instead of full binaries (~95 MB), regardless of internal offset shifts.
+- **Standalone Binary Replacement**: Enhanced `NLCUpdater.exe` with `--replace-binary` for atomic staging swaps, backup preservation, and automated application relaunch.
+- **Ed25519 Index Verification**: Cryptographic signing and verification for CDC chunk index manifests (`NewLauncher.exe.cdc.json`).
+
+### Fixed
+
+- **Notification Center Update Persistence**: Fixed update cards auto-dismissing after 10 seconds; update notifications now remain pinned in the notification drawer until explicitly acted upon or dismissed.
+- **Toast Manager Parameter Compatibility**: Fixed unhandled `TypeError` exceptions across UI modules by allowing `level` as an alias for `kind` in `ToastManager.show()`.
 
 ## [3.0.4] - 2026-10-11
 

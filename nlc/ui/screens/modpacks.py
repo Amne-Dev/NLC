@@ -957,7 +957,7 @@ class ModpacksScreenMixin:
                     except tk.TclError:
                         return
 
-                    batch_end = min(render_state["index"] + 14, len(files))
+                    batch_end = min(render_state["index"] + 16, len(files))
                     for index in range(render_state["index"], batch_end):
                         filename = files[index]
                         if render_as_grid:
@@ -967,14 +967,12 @@ class ModpacksScreenMixin:
                     render_state["index"] = batch_end
                     progress_label.config(text=f"Loading mods… {batch_end} / {len(files)}")
 
-                    scroll_frame.update_idletasks()
-                    canvas.configure(scrollregion=canvas.bbox("all"))
                     if not render_state["restored_position"]:
                         canvas.yview_moveto(0.0 if reset_scroll else current_top)
                         render_state["restored_position"] = True
 
                     if batch_end < len(files):
-                        layout_state["batch_after_id"] = self.root.after(6, render_batch)
+                        layout_state["batch_after_id"] = self.root.after(4, render_batch)
                     else:
                         layout_state["batch_after_id"] = None
                         progress_label.destroy()

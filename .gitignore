@@ -38,3 +38,9 @@ New-launcher.sln
 *.tmp
 nlc_update_*.b64
 /installer
+
+
+/.agents
+/.gemini
+/scripts
+tests/test_memory_system.py
