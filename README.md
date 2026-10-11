@@ -74,6 +74,11 @@ The AppImage is portable and does not require a system-wide installation.
 
 New Launcher can download the files it needs when you create an installation. A Java runtime may also be downloaded automatically when a loader requires it.
 
+On Windows, launcher updates use a verified incremental patch when the release
+provides one. The patch updates the launcher executable, agent, and bundled resources without replacing launcher configuration or Minecraft data. If a
+patch is unavailable, the regular setup executable remains available as a
+fallback.
+
 ## Modpacks, Mods, and Skins
 
 The **Modrinth** area lets you discover modpacks and mods without leaving the launcher. Installed modpacks stay linked to their Minecraft installation, and individual mods can be enabled or disabled from the management view.

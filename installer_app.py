@@ -9,6 +9,7 @@ import tempfile
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import winreg
+from nlc.core.updater import apply_patch
 
 
 APP_NAME = "NLC"
@@ -376,6 +377,27 @@ def run_silent_install(target_dir: str = "") -> int:
 
     _create_start_menu_shortcut(target_dir)
     register_uninstall_entry(target_dir, setup_target)
+    return 0
+
+
+def run_patch(package_path: str, target_dir: str = "") -> int:
+    """Apply an incremental launcher patch without touching user data."""
+    target_dir = os.path.abspath(target_dir.strip() or default_install_dir())
+    can_write, reason = check_write_access(target_dir)
+    if not can_write:
+        raise PermissionError(reason)
+    for process_name in (APP_EXE, AGENT_EXE):
+        try:
+            subprocess.run(
+                ["taskkill", "/IM", process_name, "/F"],
+                capture_output=True,
+                check=False,
+                timeout=8,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    apply_patch(package_path, target_dir)
+    register_uninstall_entry(target_dir, os.path.join(target_dir, SETUP_EXE_NAME))
     return 0
 
 
@@ -1277,6 +1299,7 @@ def _parse_args(argv: list[str]):
     parser.add_argument("--target", default="")
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--elevated", action="store_true")
+    parser.add_argument("--patch", default="")
     args, _ = parser.parse_known_args(argv)
     return args
 
@@ -1297,6 +1320,12 @@ if __name__ == "__main__":
         raise SystemExit(1)
     if cli.uninstall:
         raise SystemExit(run_uninstall(cli.target.strip(), quiet=cli.quiet))
+    if cli.patch:
+        try:
+            raise SystemExit(run_patch(cli.patch, cli.target))
+        except Exception as exc:
+            print(f"Patch update failed: {exc}", file=sys.stderr)
+            raise SystemExit(1)
     if cli.quiet:
         try:
             raise SystemExit(run_silent_install(cli.target))

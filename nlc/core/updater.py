@@ -1,0 +1,110 @@
+"""Verified application patch helpers."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import shutil
+import tempfile
+import zipfile
+from pathlib import Path
+from typing import Any
+
+
+def _safe_relative_path(value: str) -> Path:
+    path = Path(value)
+    if path.is_absolute() or not value or ".." in path.parts or path == Path("."):
+        raise ValueError(f"Unsafe patch path: {value}")
+    return path
+
+
+def load_patch_manifest(package_path: str | Path) -> dict[str, Any]:
+    with zipfile.ZipFile(package_path) as archive:
+        try:
+            manifest = json.loads(archive.read("manifest.json"))
+        except (KeyError, json.JSONDecodeError) as exc:
+            raise ValueError("Patch package has no valid manifest.") from exc
+    if (
+        not isinstance(manifest, dict)
+        or manifest.get("formatVersion") != 1
+        or manifest.get("platform") != "windows"
+        or not isinstance(manifest.get("files"), list)
+    ):
+        raise ValueError("Patch manifest has an invalid file list.")
+    return manifest
+
+
+def apply_patch(package_path: str | Path, target_dir: str | Path) -> None:
+    """Verify and apply launcher-owned files from a patch package."""
+    target = Path(target_dir).resolve()
+    if not target.is_dir():
+        raise FileNotFoundError(f"Install directory not found: {target}")
+
+    manifest = load_patch_manifest(package_path)
+    files = manifest["files"]
+    deletes = manifest.get("delete", [])
+    if not isinstance(deletes, list):
+        raise ValueError("Patch manifest has an invalid delete list.")
+
+    entries = []
+    for entry in files:
+        if not isinstance(entry, dict):
+            raise ValueError("Patch manifest contains an invalid file entry.")
+        relative = _safe_relative_path(str(entry.get("path", "")))
+        checksum = entry.get("sha256")
+        if not isinstance(checksum, str) or len(checksum) != 64:
+            raise ValueError(f"Invalid checksum for {relative}")
+        entries.append((relative, checksum.lower()))
+    delete_paths = [_safe_relative_path(str(item)) for item in deletes]
+
+    staging = Path(tempfile.mkdtemp(prefix="nlc_patch_", dir=target.parent))
+    backups = []
+    replaced = []
+    try:
+        with zipfile.ZipFile(package_path) as archive:
+            for relative, expected_hash in entries:
+                destination = staging / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    with archive.open(f"files/{relative.as_posix()}") as source, destination.open("wb") as output:
+                        shutil.copyfileobj(source, output)
+                except KeyError as exc:
+                    raise ValueError(f"Patch file is missing: {relative}") from exc
+                digest = hashlib.sha256(destination.read_bytes()).hexdigest()
+                if digest != expected_hash:
+                    raise ValueError(f"Checksum mismatch for {relative}")
+
+        backup_root = staging / ".backup"
+        for relative, _ in entries:
+            destination = target / relative
+            if destination.exists():
+                backup = backup_root / relative
+                backup.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(destination, backup)
+                backups.append((backup, destination))
+        for relative, _ in entries:
+            source = staging / relative
+            destination = target / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(source, destination)
+            replaced.append(destination)
+        for relative in delete_paths:
+            destination = target / relative
+            if destination.is_file() or destination.is_symlink():
+                destination.unlink()
+    except Exception:
+        for destination in replaced:
+            try:
+                destination.unlink()
+            except OSError:
+                pass
+        for backup, destination in backups:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                shutil.copy2(backup, destination)
+            except OSError:
+                pass
+        raise
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)

@@ -65,6 +65,8 @@ jobs:
           Copy-Item -Force dist\agent.exe release-assets\agent.exe
           Copy-Item -Force dist\NewLauncher.exe release-assets\NewLauncher.exe
           Copy-Item -Force dist\NLCSetup.exe release-assets\NLCSetup.exe
+          Copy-Item -Force logo.ico release-assets\logo.ico
+          Copy-Item -Force logo.png release-assets\logo.png
 
       - name: Generate Checksums
         shell: pwsh
@@ -79,6 +81,30 @@ jobs:
             "$hash  $([System.IO.Path]::GetFileName($file))"
           }
           $lines | Set-Content -Path release-assets\SHA256SUMS.txt
+
+      - name: Build Incremental Patch
+        shell: pwsh
+        run: |
+          python -c @'
+          import hashlib, json, zipfile
+          from pathlib import Path
+          root = Path("release-assets")
+          names = ["NewLauncher.exe", "agent.exe"]
+          for name in ("logo.ico", "logo.png"):
+              if (root / name).exists():
+                  names.append(name)
+          manifest = {"formatVersion": 1, "platform": "windows", "files": []}
+          with zipfile.ZipFile(root / "NLCUpdate.zip", "w", zipfile.ZIP_DEFLATED) as archive:
+              for name in names:
+                  data = (root / name).read_bytes()
+                  archive.writestr("files/" + name, data)
+                  manifest["files"].append({
+                      "path": name,
+                      "size": len(data),
+                      "sha256": hashlib.sha256(data).hexdigest(),
+                  })
+              archive.writestr("manifest.json", json.dumps(manifest, indent=2))
+          '@
 
       - name: Generate WinGet Manifest Candidate
         shell: pwsh
@@ -156,4 +182,5 @@ jobs:
         with:
           files: |
             release-assets/NLCSetup.exe
+            release-assets/NLCUpdate.zip
             release-assets/SHA256SUMS.txt

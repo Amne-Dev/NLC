@@ -1432,7 +1432,20 @@ class MinecraftLauncher(
         widget.bind("<Double-Button-1>", lambda _e: self._toggle_window_maximize())
 
     def _get_work_area(self):
-        if os.name == 'nt':
+        if os.name == 'nt' and path.lower().endswith(".zip"):
+            install_dir = os.path.dirname(os.path.abspath(sys.executable))
+            setup_path = os.path.join(install_dir, "NLCSetup.exe")
+            if not os.path.isfile(setup_path):
+                raise FileNotFoundError("Installed NLCSetup.exe was not found; use the full installer.")
+            creationflags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+            subprocess.Popen(
+                [setup_path, "--patch", path, "--target", install_dir, "--elevated"],
+                cwd=install_dir,
+                close_fds=True,
+                creationflags=creationflags,
+            )
+            launched = True
+        elif os.name == 'nt':
             try:
                 class _RECT(ctypes.Structure):
                     _fields_ = [
@@ -2752,7 +2765,7 @@ class MinecraftLauncher(
                 os.makedirs(updates_dir)
             
             # Determine filename
-            filename = "NewLauncher_Update.exe"
+            filename = "NLCUpdate.zip" if os.name == "nt" else "NewLauncher_Update.exe"
             path = os.path.join(updates_dir, filename)
             part_path = path + ".part"
             
@@ -2796,8 +2809,11 @@ class MinecraftLauncher(
                 raise RuntimeError("Downloaded file is empty.")
 
             with open(part_path, "rb") as f:
-                mz = f.read(2)
-            if mz != b"MZ":
+                signature = f.read(4)
+            if filename.endswith(".zip"):
+                if signature != b"PK\x03\x04":
+                    raise RuntimeError("Downloaded patch is not a valid ZIP archive.")
+            elif signature[:2] != b"MZ":
                 raise RuntimeError("Downloaded update is not a valid Windows executable.")
 
             os.replace(part_path, path)
@@ -4643,16 +4659,16 @@ class MinecraftLauncher(
                     assets = data.get("assets", [])
                     preferred_asset = None
 
-                    # Auto-update must use the full installer so dependencies are included.
+                    # Prefer the small verified patch package on Windows.
                     for asset in assets:
                         name = str(asset.get("name", ""))
-                        if name.lower() == "nlcsetup.exe":
+                        if name.lower() == "nlcupdate.zip" and os.name == "nt":
                             preferred_asset = asset
                             break
                     if preferred_asset is None:
                         for asset in assets:
                             name = str(asset.get("name", "")).lower()
-                            if name.endswith(".exe") and ("setup" in name or "installer" in name):
+                            if name == "nlcsetup.exe" or (name.endswith(".exe") and ("setup" in name or "installer" in name)):
                                 preferred_asset = asset
                                 break
 
@@ -4679,8 +4695,8 @@ class MinecraftLauncher(
         self._set_update_status(f"New version available: {version}", COLORS['accent_blue'])
         
         def do_update():
-            is_setup_asset = str(asset_name).lower().endswith("setup.exe") or str(asset_name).lower() == "nlcsetup.exe"
-            if asset_url and is_setup_asset:
+            is_supported_asset = str(asset_name).lower() in {"nlcupdate.zip", "nlcsetup.exe"}
+            if asset_url and is_supported_asset:
                 try:
                     self.root.grab_release()
                 except Exception:
