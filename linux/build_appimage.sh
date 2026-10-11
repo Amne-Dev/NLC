@@ -8,7 +8,7 @@ APP_NAME="NewLauncher"
 BUILD_DIR="build_linux"
 DIST_DIR="dist_linux"
 APP_DIR="AppDir"
-APPIMAGE_OUT="${APP_NAME}-3.0.2-x86_64.AppImage"
+APPIMAGE_OUT="${APP_NAME}-3.0.3-x86_64.AppImage"
 APPIMAGE_OUT_ABS="$(pwd)/${APPIMAGE_OUT}"
 
 echo "=== Starting AppImage Build ==="

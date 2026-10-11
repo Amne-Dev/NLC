@@ -11,7 +11,7 @@ from typing import Optional, Tuple
 logger = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT: Tuple[float, float] = (5.0, 30.0)  # (connect_timeout, read_timeout)
-USER_AGENT = "NLC-Launcher/3.0.2 (Minecraft; +https://github.com/Amne-Dev/New-launcher)"
+USER_AGENT = "NLC-Launcher/3.0.3 (Minecraft; +https://github.com/Amne-Dev/New-launcher)"
 
 _GLOBAL_SESSION: Optional[requests.Session] = None
 

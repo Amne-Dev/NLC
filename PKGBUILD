@@ -1,5 +1,5 @@
 pkgname=new-launcher
-pkgver=3.0.2
+pkgver=3.0.3
 pkgrel=1
 pkgdesc='Minecraft Java launcher for managing installations, modpacks, mods, skins, and profiles'
 arch=('any')
