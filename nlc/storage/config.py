@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_RAM = 4096
 DEFAULT_USERNAME = "Steve"
-CURRENT_VERSION = "3.0.3"
+CURRENT_VERSION = "3.0.4"
 INSTALL_MARK = "✅ "
 
 LOADERS = ["Vanilla", "Forge", "Fabric", "BatMod", "LabyMod", "Lunar Client"]
