@@ -120,9 +120,9 @@ jobs:
               ["git", "tag", "--sort=-version:refname"], text=True
           ).splitlines()
           previous_tag = next((tag for tag in tags if tag != current_tag), "")
-            if not previous_tag:
+          if not previous_tag:
               raise SystemExit("A previous version tag is required to build a differential patch.")
-            previous_version = previous_tag.removeprefix("v")
+          previous_version = previous_tag.removeprefix("v")
           changed = set()
           if previous_tag:
               changed = set(subprocess.check_output(
@@ -141,9 +141,9 @@ jobs:
           )
           assets_changed = any(path in {"logo.ico", "logo.png"} for path in changed)
           names = ["NLCUpdater.exe"]
-            if launcher_changed:
+          if launcher_changed:
               names.append("NewLauncher.exe")
-            if agent_changed:
+          if agent_changed:
               names.append("agent.exe")
           for name in ("logo.ico", "logo.png"):
               if (root / name).exists() and assets_changed:
@@ -169,21 +169,21 @@ jobs:
                       "size": len(data),
                       "sha256": hashlib.sha256(data).hexdigest(),
                   })
-                    private_key_text = os.environ.get("NLC_UPDATE_SIGNING_PRIVATE_KEY_B64", "")
-                    if not private_key_text:
-                      raise SystemExit("NLC_UPDATE_SIGNING_PRIVATE_KEY_B64 secret is required.")
-                    private_key = Ed25519PrivateKey.from_private_bytes(
-                      base64.b64decode(private_key_text, validate=True)
-                    )
-                    unsigned_manifest = json.dumps(
-                      manifest,
-                      sort_keys=True,
-                      separators=(",", ":"),
-                      ensure_ascii=True,
-                    ).encode("utf-8")
-                    manifest["signature"] = base64.b64encode(
-                      private_key.sign(unsigned_manifest)
-                    ).decode("ascii")
+              private_key_text = os.environ.get("NLC_UPDATE_SIGNING_PRIVATE_KEY_B64", "")
+              if not private_key_text:
+                  raise SystemExit("NLC_UPDATE_SIGNING_PRIVATE_KEY_B64 secret is required.")
+              private_key = Ed25519PrivateKey.from_private_bytes(
+                  base64.b64decode(private_key_text, validate=True)
+              )
+              unsigned_manifest = json.dumps(
+                  manifest,
+                  sort_keys=True,
+                  separators=(",", ":"),
+                  ensure_ascii=True,
+              ).encode("utf-8")
+              manifest["signature"] = base64.b64encode(
+                  private_key.sign(unsigned_manifest)
+              ).decode("ascii")
               archive.writestr("manifest.json", json.dumps(manifest, indent=2))
           '@
 
