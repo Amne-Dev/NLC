@@ -48,7 +48,7 @@ from nlc.ui.animation import AnimationManager
 from nlc.storage.paths import resource_path, get_minecraft_dir, is_version_installed, RESAMPLE_NEAREST, FLIP_LEFT_RIGHT, AFFINE, open_path_in_system
 from nlc.storage.config import (
     CURRENT_VERSION, DEFAULT_RAM, DEFAULT_USERNAME, INSTALL_MARK,
-    LOADERS, MOD_COMPATIBLE_LOADERS, ConfigManager
+    LOADERS, MOD_COMPATIBLE_LOADERS, ConfigManager, normalize_installations
 )
 from nlc.core.versions import format_version_display, normalize_version_text
 from nlc.core.launch import safe_extract_zip, patch_minecraft_launcher_launch_helpers
@@ -5130,7 +5130,7 @@ class MinecraftLauncher(
         if os.path.exists(self.config_file):
             try:
                 with open(self.config_file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
+                    data = ConfigManager(self.config_file).load()
                     if not isinstance(data, dict):
                         raise ValueError("Configuration root must be a JSON object.")
 
@@ -5140,7 +5140,7 @@ class MinecraftLauncher(
                     raw_profiles = data.get("profiles", [])
                     data["profiles"] = [item for item in raw_profiles if isinstance(item, dict)] if isinstance(raw_profiles, list) else []
                     raw_installations = data.get("installations", [])
-                    data["installations"] = [item for item in raw_installations if isinstance(item, dict)] if isinstance(raw_installations, list) else []
+                    data["installations"], installations_changed = normalize_installations(raw_installations)
                     if not isinstance(data.get("addons", {}), dict):
                         data["addons"] = {}
 
@@ -5157,37 +5157,21 @@ class MinecraftLauncher(
                     
                     # Installations (Game Configs)
                     self.installations = data.get("installations", [])
-                    if not self.installations:
-                        # Create default
-                        self.installations = [{
-                            "id": str(uuid.uuid4()),
-                            "name": "Latest Release",
-                            "version": "latest-release", # Metadata placeholder
-                            "loader": "Vanilla",
-                            "icon": "icons/grass_block_side.png",
-                            "java_executable": "",
-                            "resolution_width": None,
-                            "resolution_height": None,
-                            "last_played": "Never",
-                            "created": "2024-01-01"
-                        }]
-                        print("Initialized default installations")
-                    else:
-                        # Ensure IDs
-                        for inst in self.installations:
-                            if "id" not in inst:
-                                inst["id"] = str(uuid.uuid4())
-                            inst.setdefault("java_executable", "")
-                            inst.setdefault("resolution_width", None)
-                            inst.setdefault("resolution_height", None)
-                            inst.setdefault("game_directory", "")
-                        print(f"Loaded {len(self.installations)} installations")
+                    print(f"Loaded {len(self.installations)} installations")
                     
                     idx = data.get("current_profile_index", 0)
                     self.current_profile_index = idx if 0 <= idx < len(self.profiles) else 0
                     
-                    inst_idx = data.get("current_installation_index", 0)
+                    active_id = data.get("active_installation_id")
+                    inst_idx = next(
+                        (i for i, installation in enumerate(self.installations)
+                         if installation.get("id") == active_id),
+                        data.get("current_installation_index", 0),
+                    )
                     self.current_installation_index = inst_idx if 0 <= inst_idx < len(self.installations) else 0
+                    data["active_installation_id"] = self.installations[self.current_installation_index]["id"]
+                    if installations_changed or data.get("version") != CURRENT_VERSION:
+                        self._write_config_payload(data)
 
                     self.update_active_profile()
 
@@ -5375,6 +5359,12 @@ class MinecraftLauncher(
             "installations": self.installations,
             "current_profile_index": self.current_profile_index,
             "current_installation_index": getattr(self, 'current_installation_index', 0),
+            "active_installation_id": (
+                self.installations[getattr(self, 'current_installation_index', 0)].get("id")
+                if self.installations and 0 <= getattr(self, 'current_installation_index', 0) < len(self.installations)
+                else None
+            ),
+            "version": CURRENT_VERSION,
             "loader": self.loader_var.get() if hasattr(self, 'loader_var') else "Vanilla",
             "auto_download_mod": self.auto_download_mod,
             "ram_allocation": self.ram_allocation,
@@ -6103,6 +6093,19 @@ class MinecraftLauncher(
             daemon=True,
         ).start()
 
+    def _version_metadata_is_valid(self, version_id):
+        """Return whether an installed version has readable launch metadata."""
+        version_dir = os.path.join(self.minecraft_dir, "versions", str(version_id))
+        metadata_path = os.path.join(version_dir, f"{version_id}.json")
+        if not os.path.isfile(metadata_path):
+            return False
+        try:
+            with open(metadata_path, "r", encoding="utf-8") as metadata_file:
+                metadata = json.load(metadata_file)
+            return isinstance(metadata, dict) and metadata.get("id") == version_id
+        except (OSError, ValueError, TypeError):
+            return False
+
     def launch_logic(self, version, username, loader, force_update=False, inst_id=None, custom_java_executable="", resolution_width=None, resolution_height=None, server_address=None, server_port=None):
         # Callback wrapper to update overlay
         def update_status(t):
@@ -6212,7 +6215,7 @@ class MinecraftLauncher(
                 found_fabric = None
                 if not force_update:
                     for vid in installed_versions:
-                        if "fabric" in vid and version in vid.split('-'):
+                        if "fabric" in vid and version in vid.split('-') and self._version_metadata_is_valid(vid):
                              found_fabric = vid
                              break
                 
@@ -6231,7 +6234,7 @@ class MinecraftLauncher(
                 found_forge = None
                 if not force_update:
                     for vid in installed_versions:
-                        if "forge" in vid and version in vid.split('-'):
+                        if "forge" in vid and version in vid.split('-') and self._version_metadata_is_valid(vid):
                             found_forge = vid
                             break
                         
@@ -6246,7 +6249,14 @@ class MinecraftLauncher(
                         launch_id = forge_v
             
             else:
-                if force_update or (version not in installed_versions and launch_id not in installed_versions):
+                version_is_incomplete = (
+                    version in installed_versions
+                    and not self._version_metadata_is_valid(version)
+                )
+                if force_update or (
+                    (version not in installed_versions and launch_id not in installed_versions)
+                    or version_is_incomplete
+                ):
                      self.log(f"Installing/Updating Vanilla version {version}...")
                      minecraft_launcher_lib.install.install_minecraft_version(version, self.minecraft_dir, callback=callback)
 
@@ -6462,4 +6472,3 @@ if __name__ == "__main__":
     root.withdraw()
 
     splash = tk.Toplevel(root)
-

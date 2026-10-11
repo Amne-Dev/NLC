@@ -37,6 +37,35 @@ DEFAULT_INSTALLATION = {
     "created": "2024-01-01"
 }
 
+def normalize_installations(value: Any) -> tuple[List[Dict[str, Any]], bool]:
+    """Return usable installation records and whether migration changed them."""
+    defaults = get_default_config()["installations"][0]
+    changed = not isinstance(value, list)
+    installations: List[Dict[str, Any]] = []
+    seen_ids = set()
+
+    for item in value if isinstance(value, list) else []:
+        if not isinstance(item, dict):
+            changed = True
+            continue
+        installation = dict(item)
+        installation_id = installation.get("id")
+        if not isinstance(installation_id, str) or not installation_id.strip() or installation_id in seen_ids:
+            installation_id = str(uuid.uuid4())
+            changed = True
+        seen_ids.add(installation_id)
+        installation["id"] = installation_id
+        for key, default in defaults.items():
+            if key not in installation:
+                installation[key] = default
+                changed = True
+        installations.append(installation)
+
+    if not installations:
+        installations = [dict(defaults, id=str(uuid.uuid4()))]
+        changed = True
+    return installations, changed
+
 def get_default_config() -> Dict[str, Any]:
     """Return default launcher configuration dictionary."""
     return {
@@ -98,6 +127,11 @@ class ConfigManager:
             if data is None and self.backup_path.exists():
                 logger.warning("Config corrupted, attempting recovery from backup: %s", self.backup_path)
                 data = self._read_file(self.backup_path)
+                if data is not None:
+                    try:
+                        shutil.copy2(self.backup_path, self.config_path)
+                    except OSError as exc:
+                        logger.warning("Could not restore config backup: %s", exc)
 
         if data is None:
             logger.info("Initializing new configuration with defaults.")
@@ -128,19 +162,41 @@ class ConfigManager:
     def _normalize_config(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Ensure all required root keys exist with valid types."""
         defaults = get_default_config()
+        changed = False
 
-        if not isinstance(data.get("profiles"), list) or not data["profiles"]:
+        profiles = data.get("profiles")
+        if isinstance(profiles, list):
+            valid_profiles = [profile for profile in profiles if isinstance(profile, dict)]
+        else:
+            valid_profiles = []
+        if not valid_profiles:
             data["profiles"] = defaults["profiles"]
+            changed = True
+        elif len(valid_profiles) != len(profiles):
+            data["profiles"] = valid_profiles
+            changed = True
 
-        if not isinstance(data.get("installations"), list) or not data["installations"]:
-            data["installations"] = defaults["installations"]
+        installations, installations_changed = normalize_installations(data.get("installations"))
+        data["installations"] = installations
+        changed = changed or installations_changed
 
         if not isinstance(data.get("addons"), dict):
             data["addons"] = defaults["addons"]
+            changed = True
 
         # Ensure active installation is selected
-        if not data.get("active_installation_id") and data["installations"]:
-            data["active_installation_id"] = data["installations"][0].get("id")
+        active_id = data.get("active_installation_id")
+        installation_ids = {item["id"] for item in installations}
+        if active_id not in installation_ids:
+            data["active_installation_id"] = installations[0]["id"]
+            changed = True
+
+        if data.get("version") != CURRENT_VERSION:
+            data["version"] = CURRENT_VERSION
+            changed = True
+
+        if changed:
+            self.save(data)
 
         return data
 
