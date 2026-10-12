@@ -189,7 +189,14 @@ class ModsScreenMixin:
 
         # Content Area (Scrollable) inside mods_browse_view
         self.mods_canvas = tk.Canvas(self.mods_browse_view, bg=COLORS['main_bg'], highlightthickness=0)
-        self.mods_scrollbar = ttk.Scrollbar(self.mods_browse_view, orient="vertical", command=self.mods_canvas.yview, style="Launcher.Vertical.TScrollbar")
+        def _on_mods_scrollbar_scroll(*args):
+            self.mods_canvas.yview(*args)
+            try:
+                self.mods_canvas.update_idletasks()
+            except Exception:
+                pass
+
+        self.mods_scrollbar = ttk.Scrollbar(self.mods_browse_view, orient="vertical", command=_on_mods_scrollbar_scroll, style="Launcher.Vertical.TScrollbar")
         self.mods_scrollable_frame = tk.Frame(self.mods_canvas, bg=COLORS['main_bg'])
         
         self.mods_scrollable_frame.bind(

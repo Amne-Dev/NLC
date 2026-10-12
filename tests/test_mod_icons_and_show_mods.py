@@ -102,3 +102,36 @@ def test_mod_on_off_toggle():
         assert mod_item["enabled"] is True
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def test_mod_card_and_row_smooth_scroll_bindings():
+    import tkinter as tk
+    from nlc.ui.app import MinecraftLauncher
+
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        canvas = tk.Canvas(root)
+        card = tk.Frame(canvas, width=240, height=148)
+        card.pack_propagate(False)
+        lbl = tk.Label(card, text="Test Mod Label")
+        lbl.pack()
+        btn = tk.Button(card, text="Remove")
+        btn.pack()
+
+        # Simulate _bind_smooth_scroll
+        launcher = MinecraftLauncher.__new__(MinecraftLauncher)
+        launcher.root = root
+        launcher._smooth_scroll = lambda c, e: None
+        launcher._bind_smooth_scroll(canvas, card)
+
+        assert getattr(card, "_nlc_scroll_canvas_id", None) == id(canvas)
+        assert getattr(lbl, "_nlc_scroll_canvas_id", None) == id(canvas)
+        assert getattr(btn, "_nlc_scroll_canvas_id", None) == id(canvas)
+
+        # Verify bindings exist on card and children
+        assert getattr(card, f"_nlc_wheel_bind_smooth_{id(canvas)}", False) is True
+        assert getattr(lbl, f"_nlc_wheel_bind_smooth_{id(canvas)}", False) is True
+        assert getattr(btn, f"_nlc_wheel_bind_smooth_{id(canvas)}", False) is True
+    finally:
+        root.destroy()

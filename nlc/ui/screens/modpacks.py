@@ -451,9 +451,15 @@ class ModpacksScreenMixin:
         content_frame = tk.Frame(dialog_root, bg=COLORS['main_bg'])
         content_frame.pack(fill="both", expand=True)
         
-        canvas = tk.Canvas(content_frame, bg=COLORS['main_bg'], highlightthickness=0)
+        def on_scrollbar_scroll(*args):
+            canvas.yview(*args)
+            try:
+                canvas.update_idletasks()
+            except Exception:
+                pass
+
         scrollbar = ttk.Scrollbar(content_frame, orient="vertical",
-                                 command=canvas.yview, style="Launcher.Vertical.TScrollbar")
+                                 command=on_scrollbar_scroll, style="Launcher.Vertical.TScrollbar")
         scroll_frame = tk.Frame(canvas, bg=COLORS['main_bg'])
         canvas._nlc_scroll_enabled = True # type: ignore[attr-defined]
         scroll_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
@@ -525,10 +531,10 @@ class ModpacksScreenMixin:
             after_id = layout_state.get("render_after_id")
             if after_id is not None:
                 try:
-                    dialog_root.after_cancel(after_id)
+                    self.root.after_cancel(after_id)
                 except Exception:
                     pass
-            layout_state["render_after_id"] = dialog_root.after(70, lambda: render_mods(reset_scroll=False))
+            layout_state["render_after_id"] = self.root.after(70, lambda: render_mods(reset_scroll=False))
 
         canvas.bind("<Configure>", on_canvas_configure)
         self._bind_smooth_scroll(canvas, scroll_frame)
@@ -639,10 +645,11 @@ class ModpacksScreenMixin:
             card_state = {"filename": filename, "is_enabled": is_enabled}
 
             card_border = COLORS.get('play_btn_green', COLORS.get('accent_color', '#2ECC71')) if is_enabled else COLORS.get('card_border', '#2A303F')
-            card = tk.Frame(parent, bg=COLORS['card_bg'], padx=12, pady=10, width=240, height=138,
+            card = tk.Frame(parent, bg=COLORS['card_bg'], padx=12, pady=10, width=240, height=148,
                             highlightthickness=1, highlightbackground=card_border)
             card.grid(row=row, column=col, padx=8, pady=8, sticky="nsew")
             card.grid_propagate(False)
+            card.pack_propagate(False)
 
             top_row = tk.Frame(card, bg=COLORS['card_bg'])
             top_row.pack(fill="x")
@@ -701,9 +708,16 @@ class ModpacksScreenMixin:
             t_btn = create_toggle_switch(status_box, is_enabled, on_toggle_click)
             t_btn.pack(side="bottom", anchor="e")
 
+            # Bottom actions row (docked at the bottom before middle info to avoid clipping)
+            actions_row = tk.Frame(card, bg=COLORS['card_bg'])
+            actions_row.pack(side="bottom", fill="x")
+
+            del_btn = create_remove_button(actions_row, lambda: delete_mod(card_state["filename"], clean_name))
+            del_btn.pack(side="right")
+
             # Title and metadata in middle
             info = tk.Frame(card, bg=COLORS['card_bg'])
-            info.pack(fill="x", pady=(8, 0))
+            info.pack(side="top", fill="both", expand=True, pady=(6, 0))
 
             name_lbl = tk.Label(
                 info,
@@ -727,13 +741,6 @@ class ModpacksScreenMixin:
             )
             meta_lbl.pack(fill="x", pady=(2, 0))
 
-            # Bottom actions row
-            actions_row = tk.Frame(card, bg=COLORS['card_bg'])
-            actions_row.pack(side="bottom", fill="x")
-
-            del_btn = create_remove_button(actions_row, lambda: delete_mod(card_state["filename"], clean_name))
-            del_btn.pack(side="right")
-
             bind_hover_surfaces(card, [card, top_row, status_box, info, actions_row], [status_lbl, name_lbl, meta_lbl], del_btn, t_btn)
 
             def show_mod_card_menu(event):
@@ -745,6 +752,7 @@ class ModpacksScreenMixin:
                 m.show_at(event.x_root, event.y_root)
 
             attach_context_menu(card, show_mod_card_menu)
+            self._bind_smooth_scroll(canvas, card)
 
         def create_mod_list_row(parent, filename):
             clean_name, is_enabled, size_str = get_mod_display_data(filename)
@@ -849,6 +857,7 @@ class ModpacksScreenMixin:
                 m.show_at(event.x_root, event.y_root)
 
             attach_context_menu(row, show_mod_row_menu)
+            self._bind_smooth_scroll(canvas, row)
 
         def render_mods(reset_scroll=True):
             after_id = layout_state.get("render_after_id")

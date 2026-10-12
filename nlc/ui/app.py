@@ -4604,6 +4604,10 @@ class MinecraftLauncher(
         quantized_fraction = clamped_pixel_top / total_height
 
         canvas.yview_moveto(quantized_fraction)
+        try:
+            canvas.update_idletasks()
+        except Exception:
+            pass
         callback = getattr(canvas, "_nlc_after_scroll", None)
         if callable(callback):
             callback()
