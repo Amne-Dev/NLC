@@ -145,6 +145,16 @@ class ModsScreenMixin:
         
         self.mods_version_combobox = version_cb
 
+        # Dynamic Results / Mod Count Label
+        self.mods_count_label = tk.Label(
+            search_line,
+            text="",
+            font=(FONT_FAMILY, 9),
+            bg=COLORS['main_bg'],
+            fg=COLORS.get('text_secondary', '#A0AAB0')
+        )
+        self.mods_count_label.pack(side="right", padx=(10, 0))
+
         # Load Versions Async
         def load_versions():
             try:
@@ -202,6 +212,8 @@ class ModsScreenMixin:
         self.last_scroll_check = 0.0
 
         self._bind_smooth_scroll(self.mods_canvas, self.mods_scrollable_frame)
+        self.mods_browse_view.bind("<Enter>", lambda e: self._bind_smooth_scroll(self.mods_canvas, self.mods_scrollable_frame))
+        self.mods_canvas.bind("<Enter>", lambda e: self._bind_smooth_scroll(self.mods_canvas, self.mods_scrollable_frame))
         self.mods_canvas._nlc_after_scroll = self._check_scroll_position  # type: ignore[attr-defined]
 
         self.mod_search_timer = None
@@ -271,6 +283,8 @@ class ModsScreenMixin:
 
         if hasattr(self, 'mods_mp_label') and self.mods_mp_label.winfo_exists():
             self.mods_mp_label.config(bg=main_bg, fg=text_secondary)
+        if hasattr(self, 'mods_count_label') and self.mods_count_label.winfo_exists():
+            self.mods_count_label.config(bg=main_bg, fg=text_secondary)
 
         if hasattr(self, 'mods_search_frame') and self.mods_search_frame.winfo_exists():
             self.mods_search_frame.config(bg=input_bg)
@@ -379,6 +393,8 @@ class ModsScreenMixin:
             for w in self.mods_scrollable_frame.winfo_children(): w.destroy()
             tk.Label(self.mods_scrollable_frame, text="Searching...", 
                      font=("Segoe UI", 12), fg=COLORS['accent_blue'], bg=COLORS['main_bg']).pack(pady=20)
+            if hasattr(self, 'mods_count_label') and self.mods_count_label.winfo_exists():
+                self.mods_count_label.config(text="Searching…")
 
         payload = {
             "query": query,
@@ -451,6 +467,25 @@ class ModsScreenMixin:
 
         self.root.after(0, lambda: self._on_mod_search_result(result, reset, generation))
 
+    def _update_mod_count_display(self, total_hits):
+        if not hasattr(self, 'mods_count_label') or not self.mods_count_label.winfo_exists():
+            return
+        p_type = getattr(self, 'browse_mode_var', None)
+        mode = p_type.get() if p_type else "mod"
+        type_labels = {
+            "mod": "mods",
+            "resourcepack": "resource packs",
+            "modpack": "modpacks",
+            "shader": "shaders",
+        }
+        unit = type_labels.get(mode, "items")
+        if total_hits is None:
+            self.mods_count_label.config(text="")
+        elif total_hits == 0:
+            self.mods_count_label.config(text=f"0 {unit} found")
+        else:
+            self.mods_count_label.config(text=f"{total_hits:,} {unit}")
+
     def _on_mod_search_result(self, result, reset, generation=None):
         if generation is not None and generation != self._mod_search_generation:
             return
@@ -462,6 +497,8 @@ class ModsScreenMixin:
             
         data = result.get("data", {})
         hits = data.get("hits", [])
+        total_hits = data.get("total_hits", len(hits))
+        self._update_mod_count_display(total_hits)
         
         if hits:
             self.mod_offset += len(hits)
@@ -471,6 +508,8 @@ class ModsScreenMixin:
         self._display_mod_results(hits, reset, generation)
 
     def _display_mod_error(self, msg):
+        if hasattr(self, 'mods_count_label') and self.mods_count_label.winfo_exists():
+            self.mods_count_label.config(text="Search error")
         tk.Label(self.mods_scrollable_frame, text=f"Error: {msg}", 
                  fg=COLORS['error_red'], bg=COLORS['main_bg']).pack(pady=20)
 
@@ -644,6 +683,7 @@ class ModsScreenMixin:
             m.show_at(event.x_root, event.y_root)
 
         attach_context_menu(card, show_mod_card_menu)
+        self._bind_smooth_scroll(self.mods_canvas, card)
 
     def _install_mod_to_pack(self, mod_data, pack_name, btn_widget):
         pack = next((p for p in self.modpacks if p['name'] == pack_name), None)
