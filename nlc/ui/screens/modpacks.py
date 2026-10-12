@@ -531,10 +531,7 @@ class ModpacksScreenMixin:
             layout_state["render_after_id"] = dialog_root.after(70, lambda: render_mods(reset_scroll=False))
 
         canvas.bind("<Configure>", on_canvas_configure)
-        content_frame.bind("<Enter>", lambda e: self._bind_smooth_scroll(canvas, scroll_frame))
-        canvas.bind("<Enter>", lambda e: self._bind_smooth_scroll(canvas, scroll_frame))
-        scroll_frame.bind("<Enter>", lambda e: self._bind_smooth_scroll(canvas, scroll_frame))
-        self._bind_wheel_events(canvas, lambda e, c=canvas: self._smooth_scroll(c, e), f"modpack_contents_{id(canvas)}")
+        self._bind_smooth_scroll(canvas, scroll_frame)
 
         mod_icon_mgr = get_mod_icon_manager()
 
@@ -748,7 +745,6 @@ class ModpacksScreenMixin:
                 m.show_at(event.x_root, event.y_root)
 
             attach_context_menu(card, show_mod_card_menu)
-            self._bind_smooth_scroll(canvas, card)
 
         def create_mod_list_row(parent, filename):
             clean_name, is_enabled, size_str = get_mod_display_data(filename)
@@ -853,7 +849,6 @@ class ModpacksScreenMixin:
                 m.show_at(event.x_root, event.y_root)
 
             attach_context_menu(row, show_mod_row_menu)
-            self._bind_smooth_scroll(canvas, row)
 
         def render_mods(reset_scroll=True):
             after_id = layout_state.get("render_after_id")

@@ -4493,6 +4493,11 @@ class MinecraftLauncher(
     def _bind_wheel_events(self, widget, handler, bind_tag):
         if not widget or not widget.winfo_exists():
             return
+        # If widget is a Canvas that is already bound for scrolling, do not attach
+        # multiple competing handlers that double the scroll velocity.
+        if isinstance(widget, tk.Canvas) and getattr(widget, "_nlc_canvas_wheel_bound", False):
+            return
+
         attr_name = f"_nlc_wheel_bind_{bind_tag}"
         if getattr(widget, attr_name, False):
             return
@@ -4528,6 +4533,17 @@ class MinecraftLauncher(
         # entire page and makes scrolling predictable at all window sizes.
         self._scroll_velocities[cid] = max(-360.0, min(360.0, current + impulse))
         
+        # Pre-cache container height metrics once on impulse to avoid querying
+        # canvas.bbox("all") on every single 16ms animation frame (which causes GDI tearing).
+        try:
+            bbox = canvas.bbox("all")
+            if bbox:
+                total_height = bbox[3] - bbox[1]
+                canvas_height = canvas.winfo_height()
+                canvas._nlc_scroll_metrics = (total_height, canvas_height)
+        except Exception:
+            pass
+
         self._animate_scroll(canvas, cid)
     
     def _animate_scroll(self, canvas, cid):
@@ -4536,6 +4552,7 @@ class MinecraftLauncher(
             if not canvas.winfo_exists():
                 self._scroll_velocities.pop(cid, None)
                 self._scroll_anim_ids.pop(cid, None)
+                setattr(canvas, "_nlc_scroll_metrics", None)
                 return
         except:
             self._scroll_velocities.pop(cid, None)
@@ -4548,6 +4565,7 @@ class MinecraftLauncher(
         if abs(velocity) < 0.5:
             self._scroll_velocities.pop(cid, None)
             self._scroll_anim_ids.pop(cid, None)
+            setattr(canvas, "_nlc_scroll_metrics", None)
             return
         
         # Clamp at boundaries
@@ -4555,25 +4573,37 @@ class MinecraftLauncher(
         if (velocity < 0 and top <= 0) or (velocity > 0 and bottom >= 1.0):
             self._scroll_velocities.pop(cid, None)
             self._scroll_anim_ids.pop(cid, None)
+            setattr(canvas, "_nlc_scroll_metrics", None)
             return
         
-        # Scroll by velocity (convert pixels to fraction of total height)
-        bbox = canvas.bbox("all")
-        if not bbox:
-            self._scroll_velocities.pop(cid, None)
-            self._scroll_anim_ids.pop(cid, None)
-            return
-        total_height = bbox[3] - bbox[1]
-        canvas_height = canvas.winfo_height()
+        # Use cached metrics or query if not yet cached
+        metrics = getattr(canvas, "_nlc_scroll_metrics", None)
+        if metrics:
+            total_height, canvas_height = metrics
+        else:
+            bbox = canvas.bbox("all")
+            if not bbox:
+                self._scroll_velocities.pop(cid, None)
+                self._scroll_anim_ids.pop(cid, None)
+                return
+            total_height = bbox[3] - bbox[1]
+            canvas_height = canvas.winfo_height()
+            canvas._nlc_scroll_metrics = (total_height, canvas_height)
         
         if total_height <= canvas_height:
             self._scroll_velocities.pop(cid, None)
             self._scroll_anim_ids.pop(cid, None)
+            setattr(canvas, "_nlc_scroll_metrics", None)
             return
         
-        fraction = velocity / total_height
-        max_top = max(0.0, 1.0 - (canvas_height / total_height))
-        canvas.yview_moveto(max(0.0, min(max_top, top + fraction)))
+        # Quantize to integer pixels to prevent Windows GDI sub-pixel font and border tearing
+        current_pixel_top = top * total_height
+        target_pixel_top = current_pixel_top + velocity
+        max_pixel_top = max(0.0, float(total_height - canvas_height))
+        clamped_pixel_top = round(max(0.0, min(max_pixel_top, target_pixel_top)))
+        quantized_fraction = clamped_pixel_top / total_height
+
+        canvas.yview_moveto(quantized_fraction)
         callback = getattr(canvas, "_nlc_after_scroll", None)
         if callable(callback):
             callback()

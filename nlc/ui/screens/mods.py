@@ -200,17 +200,8 @@ class ModsScreenMixin:
         
         # Smooth mousewheel for Mods Tab with infinite scroll check
         self.last_scroll_check = 0.0
-        
-        def _mods_smooth_scroll(event):
-            self._smooth_scroll(self.mods_canvas, event)
-            # Also check for infinite scroll (pagination) on each scroll input
-            now = time.time()
-            if now - self.last_scroll_check > 0.2:
-                self.last_scroll_check = now
-                self._check_scroll_position()
-        
-        self._bind_wheel_events(self.mods_canvas, _mods_smooth_scroll, f"mods_{id(self.mods_canvas)}")
-        frame.bind("<Enter>", lambda e: self._bind_smooth_scroll(self.mods_canvas, self.mods_scrollable_frame))
+
+        self._bind_smooth_scroll(self.mods_canvas, self.mods_scrollable_frame)
         self.mods_canvas._nlc_after_scroll = self._check_scroll_position  # type: ignore[attr-defined]
 
         self.mod_search_timer = None
@@ -312,6 +303,12 @@ class ModsScreenMixin:
 
     def _check_scroll_position(self):
         if self.mod_loading or self.mod_end_reached or getattr(self, "_mod_load_more_after_id", None):
+            return
+        # If user is flicking or scrolling rapidly, wait until velocity settles
+        # before triggering pagination requests and DOM additions.
+        cid = id(self.mods_canvas)
+        velocity = getattr(self, "_scroll_velocities", {}).get(cid, 0.0)
+        if abs(velocity) > 40.0:
             return
         try:
             # Keep enough content below the viewport that pagination feels
