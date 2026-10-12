@@ -450,13 +450,18 @@ class ModpacksScreenMixin:
         # Scrollable content area
         content_frame = tk.Frame(dialog_root, bg=COLORS['main_bg'])
         content_frame.pack(fill="both", expand=True)
-        
+
+        canvas = tk.Canvas(content_frame, bg=COLORS['main_bg'], highlightthickness=0, yscrollincrement=16)
+
         def on_scrollbar_scroll(*args):
             canvas.yview(*args)
-            try:
-                canvas.update_idletasks()
-            except Exception:
-                pass
+            if hasattr(self, '_flush_canvas_paint'):
+                self._flush_canvas_paint(canvas)
+            else:
+                try:
+                    canvas.update()
+                except Exception:
+                    canvas.update_idletasks()
 
         scrollbar = ttk.Scrollbar(content_frame, orient="vertical",
                                  command=on_scrollbar_scroll, style="Launcher.Vertical.TScrollbar")
@@ -475,6 +480,8 @@ class ModpacksScreenMixin:
         # short batches instead.
         layout_state = {
             "cols": None,
+            "page": 0,
+            "per_page": 24,
             "render_after_id": None,
             "batch_after_id": None,
             "render_generation": 0,
@@ -904,14 +911,77 @@ class ModpacksScreenMixin:
             if search_term:
                 files = [f for f in files if search_term in f.lower()]
 
+            MODS_PER_PAGE = layout_state.get("per_page", 24)
+            total_pages = max(1, (len(files) + MODS_PER_PAGE - 1) // MODS_PER_PAGE)
+            current_page = max(0, min(layout_state.get("page", 0), total_pages - 1))
+            layout_state["page"] = current_page
+
+            start_idx = current_page * MODS_PER_PAGE
+            end_idx = min(start_idx + MODS_PER_PAGE, len(files))
+            page_files = files[start_idx:end_idx]
+
+            # Top count and pager bar
+            top_bar = tk.Frame(scroll_frame, bg=COLORS['main_bg'])
+            top_bar.pack(fill="x", padx=20, pady=(15, 10))
+
+            count_text = f"{len(files)} mod{'s' if len(files) != 1 else ''} installed"
+            if total_pages > 1 and len(files) > 0:
+                count_text += f"  •  Showing {start_idx + 1}–{end_idx}"
             count_label = tk.Label(
-                scroll_frame,
-                text=f"{len(files)} mod{'s' if len(files) != 1 else ''} installed",
+                top_bar,
+                text=count_text,
                 font=(FONT_FAMILY, 10, "bold"),
                 bg=COLORS['main_bg'],
                 fg=COLORS['text_secondary'],
             )
-            count_label.pack(anchor="w", padx=20, pady=(15, 10))
+            count_label.pack(side="left")
+
+            def create_pager(parent_container):
+                if total_pages <= 1:
+                    return
+                pager = tk.Frame(parent_container, bg=COLORS['main_bg'])
+                pager.pack(side="right")
+
+                def go_prev():
+                    if layout_state["page"] > 0:
+                        layout_state["page"] -= 1
+                        render_mods(reset_scroll=True)
+
+                def go_next():
+                    if layout_state["page"] < total_pages - 1:
+                        layout_state["page"] += 1
+                        render_mods(reset_scroll=True)
+
+                prev_btn = self._make_btn(
+                    pager, "◀ Prev",
+                    style="secondary" if current_page > 0 else "text",
+                    font_size=8,
+                    command=go_prev if current_page > 0 else None,
+                    pack_opts={"side": "left", "padx": (0, 6)}
+                )
+                if current_page == 0:
+                    prev_btn.config(state="disabled", fg=COLORS.get('text_muted', '#6B7280'))
+
+                page_lbl = tk.Label(
+                    pager,
+                    text=f"Page {current_page + 1} of {total_pages}",
+                    font=(FONT_FAMILY, 9, "bold"),
+                    bg=COLORS['main_bg'],
+                    fg=COLORS['text_primary'],
+                )
+                page_lbl.pack(side="left", padx=8)
+
+                next_btn = self._make_btn(
+                    pager, "Next ▶",
+                    style="secondary" if current_page < total_pages - 1 else "text",
+                    font_size=8,
+                    command=go_next if current_page < total_pages - 1 else None,
+                    pack_opts={"side": "left", "padx": (6, 0)}
+                )
+                if current_page >= total_pages - 1:
+                    next_btn.config(state="disabled", fg=COLORS.get('text_muted', '#6B7280'))
+
+            create_pager(top_bar)
 
             if not files:
                 empty_frame = tk.Frame(scroll_frame, bg=COLORS['main_bg'])
@@ -929,8 +999,8 @@ class ModpacksScreenMixin:
                 layout_state["cols"] = None
                 list_wrap = tk.Frame(scroll_frame, bg=COLORS['main_bg'])
                 list_wrap.pack(fill="x", padx=8, pady=(0, 12))
-                render_parent = list_wrap
-                render_as_grid = False
+                for filename in page_files:
+                    create_mod_list_row(list_wrap, filename)
             else:
                 cols = compute_grid_columns()
                 layout_state["cols"] = cols
@@ -938,58 +1008,19 @@ class ModpacksScreenMixin:
                 grid_wrap.pack(fill="x", padx=16, pady=(0, 12))
                 for c in range(cols):
                     grid_wrap.grid_columnconfigure(c, weight=1, uniform="modgrid")
-                render_parent = grid_wrap
-                render_as_grid = True
+                for index, filename in enumerate(page_files):
+                    create_mod_grid_card(grid_wrap, filename, index // cols, index % cols)
 
-            if files:
-                progress_label = tk.Label(
-                    scroll_frame,
-                    text=f"Loading mods… 0 / {len(files)}",
-                    font=("Segoe UI", 9),
-                    bg=COLORS['main_bg'],
-                    fg=COLORS['text_secondary'],
-                )
-                progress_label.pack(anchor="w", padx=20, pady=(0, 14))
-                render_state = {"index": 0, "restored_position": False}
+            if total_pages > 1 and page_files:
+                bottom_bar = tk.Frame(scroll_frame, bg=COLORS['main_bg'])
+                bottom_bar.pack(fill="x", padx=20, pady=(15, 25))
+                create_pager(bottom_bar)
 
-                def render_batch():
-                    # A render can become obsolete while its next batch is in
-                    # Tk's queue.  Never let it append results to a newer view.
-                    try:
-                        if not page.winfo_exists() or layout_state["render_generation"] != render_generation:
-                            return
-                    except tk.TclError:
-                        return
-
-                    batch_end = min(render_state["index"] + 16, len(files))
-                    for index in range(render_state["index"], batch_end):
-                        filename = files[index]
-                        if render_as_grid:
-                            create_mod_grid_card(render_parent, filename, index // cols, index % cols)
-                        else:
-                            create_mod_list_row(render_parent, filename)
-                    render_state["index"] = batch_end
-                    progress_label.config(text=f"Loading mods… {batch_end} / {len(files)}")
-
-                    if not render_state["restored_position"]:
-                        canvas.yview_moveto(0.0 if reset_scroll else current_top)
-                        render_state["restored_position"] = True
-
-                    if batch_end < len(files):
-                        layout_state["batch_after_id"] = self.root.after(4, render_batch)
-                    else:
-                        layout_state["batch_after_id"] = None
-                        progress_label.destroy()
-                        scroll_frame.update_idletasks()
-                        canvas.configure(scrollregion=canvas.bbox("all"))
-
-                # Give Tk a chance to paint the header/count before creating
-                # the first card batch.
-                layout_state["batch_after_id"] = self.root.after(1, render_batch)
-            else:
-                scroll_frame.update_idletasks()
-                canvas.configure(scrollregion=canvas.bbox("all"))
-                canvas.yview_moveto(0.0 if reset_scroll else current_top)
+            scroll_frame.update_idletasks()
+            canvas.configure(scrollregion=canvas.bbox("all"))
+            canvas.yview_moveto(0.0 if reset_scroll else current_top)
+            if hasattr(self, '_flush_canvas_paint'):
+                self._flush_canvas_paint(canvas)
 
         # Let the view paint immediately, then scan/render its installed
         # files. This avoids the blank flash on large modpack directories.
@@ -1002,7 +1033,8 @@ class ModpacksScreenMixin:
 
         def run_search_render():
             search_state["after_id"] = None
-            render_mods()
+            layout_state["page"] = 0
+            render_mods(reset_scroll=True)
 
         def schedule_search_render(*_args):
             after_id = search_state.get("after_id")

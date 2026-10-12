@@ -4604,10 +4604,7 @@ class MinecraftLauncher(
         quantized_fraction = clamped_pixel_top / total_height
 
         canvas.yview_moveto(quantized_fraction)
-        try:
-            canvas.update_idletasks()
-        except Exception:
-            pass
+        self._flush_canvas_paint(canvas)
         callback = getattr(canvas, "_nlc_after_scroll", None)
         if callable(callback):
             callback()
@@ -4618,10 +4615,41 @@ class MinecraftLauncher(
         # Schedule next frame (~16ms for 60fps)
         self._scroll_anim_ids[cid] = self.root.after(16, self._animate_scroll, canvas, cid)
 
+    def _flush_canvas_paint(self, canvas):
+        """Flush pending OS window painting immediately to eliminate GDI blit tearing."""
+        if not canvas:
+            return
+        try:
+            if not canvas.winfo_exists():
+                return
+        except Exception:
+            return
+        if getattr(canvas, "_nlc_in_paint_flush", False):
+            return
+        try:
+            setattr(canvas, "_nlc_in_paint_flush", True)
+            canvas.update()
+        except Exception:
+            try:
+                canvas.update_idletasks()
+            except Exception:
+                pass
+        finally:
+            try:
+                setattr(canvas, "_nlc_in_paint_flush", False)
+            except Exception:
+                pass
+
     def _bind_smooth_scroll(self, canvas, widget):
         """Bind smooth scrolling to a widget and all its children for a specific canvas."""
         if not widget or not widget.winfo_exists():
             return
+        # Configure integer pixel increment to eliminate fractional rounding artifacts
+        try:
+            if not canvas.cget("yscrollincrement"):
+                canvas.configure(yscrollincrement=16)
+        except Exception:
+            pass
         # Many panels previously bound the wheel only after entering a child
         # frame, so the blank area around content appeared unscrollable.  Give
         # every canvas a handler unless that panel already installed a custom

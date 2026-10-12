@@ -42,5 +42,9 @@ nlc_update_*.b64
 
 /.agents
 /.gemini
+/.codex
 /scripts
-tests/test_memory_system.py
+/.github/skills
+/.github/agents
+/.github/hooks
+/tests/test_memory_system.py
