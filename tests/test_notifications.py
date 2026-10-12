@@ -76,7 +76,7 @@ def test_update_notification_action_and_expiration():
     called = []
 
     item = store.add_update(
-        "3.0.5",
+        "3.0.6",
         asset_url="https://example.test/NLCUpdate.zip",
         on_update=lambda: called.append(True),
         dismiss_after=10.0,

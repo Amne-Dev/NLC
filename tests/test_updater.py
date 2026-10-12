@@ -30,8 +30,8 @@ def make_patch(path, files, *, manifest_files=None):
         manifest = {
             "formatVersion": 1,
             "platform": "windows",
-            "baseVersion": "3.0.4",
-            "targetVersion": "3.0.5",
+            "baseVersion": "3.0.5",
+            "targetVersion": "3.0.6",
             "files": entries,
         }
         manifest["signature"] = base64.b64encode(
@@ -91,8 +91,8 @@ def test_apply_patch_restores_deleted_file_on_failure(tmp_path):
         manifest = {
             "formatVersion": 1,
             "platform": "windows",
-            "baseVersion": "3.0.4",
-            "targetVersion": "3.0.5",
+            "baseVersion": "3.0.5",
+            "targetVersion": "3.0.6",
             "files": [{
                 "path": "NewLauncher.exe",
                 "sha256": hashlib.sha256(b"new").hexdigest(),

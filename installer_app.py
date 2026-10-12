@@ -13,7 +13,7 @@ from nlc.core.updater import apply_patch
 
 
 APP_NAME = "NLC"
-APP_VERSION = "3.0.5"
+APP_VERSION = "3.0.6"
 APP_PUBLISHER = "@amne-dev on github"
 APP_EXE = "NewLauncher.exe"
 AGENT_EXE = "agent.exe"
