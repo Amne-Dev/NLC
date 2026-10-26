@@ -9,12 +9,15 @@ venv_build/
 /venv_build
 
 # Documentation & Refactor Archives
-docs/
 docs/refactor/
 
-# PyInstaller
+# PyInstaller & Build Outputs
 build/
 dist/
+
+# Rust Build
+target/
+src/frontend/target/
 
 # Installer Output
 installer/
@@ -24,7 +27,7 @@ logs/
 authlib-injector.log
 /skins
 launcher_config.json
-NewLauncher-1.4-x86_64.AppImage
+*.AppImage
 /AppDir
 /build_linux
 /dist_linux
@@ -38,13 +41,18 @@ New-launcher.sln
 *.tmp
 nlc_update_*.b64
 /installer
-
+/nlc-ui.exe
+/cache/
+/modpacks.json
+audit_*.png
+audit_snapshots/
+temp_community_repo/
 
 /.agents
 /.gemini
 /.codex
-/scripts
 /.github/skills
 /.github/agents
 /.github/hooks
-/tests/test_memory_system.py
+/scripts
+/tests
