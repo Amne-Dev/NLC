@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 import os
 
@@ -26,7 +28,7 @@ import hashlib
 import uuid
 import traceback
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 class _LazyImageModule:
     def __getattr__(self, name):
         from PIL import Image as _RealImage
