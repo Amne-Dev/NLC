@@ -284,9 +284,6 @@ jobs:
             release-assets/NLCUpdater.exe
             release-assets/release_manifest.json
             release-assets/assets.zip
-            release-assets/NyLuna.exe.cdc.json
-            release-assets/agent.exe.cdc.json
-            release-assets/libunwind.dll.cdc.json
             release-assets/*.cdc.json
             release-assets/NLCUpdate-*.zip
             release-assets/SHA256SUMS.txt
