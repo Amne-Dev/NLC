@@ -89,6 +89,9 @@ jobs:
           if (Test-Path dist\release_manifest.json) {
             Copy-Item -Force dist\release_manifest.json release-assets\release_manifest.json
           }
+          if (Test-Path dist\assets.zip) {
+            Copy-Item -Force dist\assets.zip release-assets\assets.zip
+          }
           if (Test-Path dist\*.cdc.json) {
             Copy-Item -Force dist\*.cdc.json release-assets\
           }
@@ -107,6 +110,9 @@ jobs:
           )
           if (Test-Path release-assets\libunwind.dll) {
             $files += "release-assets\libunwind.dll"
+          }
+          if (Test-Path release-assets\assets.zip) {
+            $files += "release-assets\assets.zip"
           }
           $lines = foreach ($file in $files) {
             $hash = (Get-FileHash -Algorithm SHA256 $file).Hash.ToLower()
@@ -277,6 +283,7 @@ jobs:
             release-assets/libunwind.dll
             release-assets/NLCUpdater.exe
             release-assets/release_manifest.json
+            release-assets/assets.zip
             release-assets/NyLuna.exe.cdc.json
             release-assets/agent.exe.cdc.json
             release-assets/libunwind.dll.cdc.json

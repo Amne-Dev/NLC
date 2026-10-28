@@ -1,7 +1,9 @@
 import os
 from pathlib import Path
 from typing import Optional, Callable, Dict, Any
+import hashlib
 import json
+import zipfile
 import requests
 import shutil
 import subprocess
@@ -509,7 +511,11 @@ def install_payload_directories(target_dir: str, log_fn: Optional[Callable[[str]
             user_skins.mkdir(parents=True, exist_ok=True)
             pngs = list(user_skins.glob("*.png"))
             if len(pngs) <= 1:
-                src_skins = resolve_payload_file("skins")
+                src_skins = resolve_payload_file("skins") or (
+                    os.path.join(target_dir, "skins")
+                    if os.path.isdir(os.path.join(target_dir, "skins"))
+                    else None
+                )
                 if src_skins and os.path.isdir(src_skins):
                     for s_f in Path(src_skins).glob("*.png"):
                         dst_s = user_skins / s_f.name
@@ -540,6 +546,7 @@ def download_web_payload(
     if os.path.isfile(base_url):
         with open(base_url, "r", encoding="utf-8") as f:
             manifest = json.load(f)
+        base_url = os.path.dirname(base_url)
     elif os.path.isdir(base_url):
         m_path = os.path.join(base_url, "release_manifest.json")
         with open(m_path, "r", encoding="utf-8") as f:
@@ -557,12 +564,14 @@ def download_web_payload(
         for fname, finfo in manifest.get("files", {}).items():
             finfo["download_url"] = f"{base_url}/{fname}"
             finfo["cdc_url"] = f"{base_url}/{fname}.cdc.json"
+        if "assets" in manifest and isinstance(manifest["assets"], dict):
+            manifest["assets"]["download_url"] = f"{base_url}/assets.zip"
 
     if log_fn:
         log_fn("Downloading and assembling binaries via FastCDC...")
 
     def on_cdc_progress(fname: str, cur: int, tot: int) -> None:
-        pct = 10.0 + ((cur / max(1, tot)) * 75.0)
+        pct = 10.0 + ((cur / max(1, tot)) * 50.0)
         if progress_fn:
             progress_fn(pct)
         if log_fn and tot > 0 and (cur % (512 * 1024) == 0 or cur == tot):
@@ -591,6 +600,78 @@ def download_web_payload(
                     for chunk in r.iter_content(chunk_size=64 * 1024):
                         if chunk:
                             f.write(chunk)
+
+    # Assets bundle download and extraction (Option A: UI assets, icons, skins, thumbnails, default wallpapers)
+    assets_info = manifest.get("assets")
+    if assets_info and isinstance(assets_info, dict):
+        assets_url = assets_info.get("download_url") or f"{base_url}/assets.zip"
+        expected_sha = assets_info.get("sha256", "").strip().lower()
+        expected_size = assets_info.get("size", 0)
+
+        if log_fn:
+            log_fn("Downloading launcher assets (icons, skins, media)...")
+        if progress_fn:
+            progress_fn(60.0)
+
+        tmp_zip = os.path.join(target_dir, "_assets_download.tmp")
+        try:
+            is_local = False
+            if os.path.isfile(assets_url):
+                shutil.copy2(assets_url, tmp_zip)
+                is_local = True
+            elif os.path.isdir(base_url) and os.path.isfile(os.path.join(base_url, "assets.zip")):
+                shutil.copy2(os.path.join(base_url, "assets.zip"), tmp_zip)
+                is_local = True
+
+            if not is_local:
+                with requests.get(assets_url, stream=True, timeout=60) as r:
+                    r.raise_for_status()
+                    total_bytes = int(r.headers.get("content-length") or expected_size or 1)
+                    downloaded_bytes = 0
+                    with open(tmp_zip, "wb") as f:
+                        for chunk in r.iter_content(chunk_size=128 * 1024):
+                            if chunk:
+                                f.write(chunk)
+                                downloaded_bytes += len(chunk)
+                                if progress_fn and total_bytes > 0:
+                                    pct = 60.0 + ((downloaded_bytes / total_bytes) * 25.0)
+                                    progress_fn(min(85.0, pct))
+                                if log_fn and downloaded_bytes % (2 * 1024 * 1024) < 128 * 1024:
+                                    log_fn(f"  Assets: {downloaded_bytes / (1024*1024):.1f} MB / {total_bytes / (1024*1024):.1f} MB")
+
+            if progress_fn:
+                progress_fn(85.0)
+
+            # Verify checksum if provided
+            if expected_sha and os.path.isfile(tmp_zip):
+                h = hashlib.sha256()
+                with open(tmp_zip, "rb") as f:
+                    while chunk := f.read(128 * 1024):
+                        h.update(chunk)
+                computed_sha = h.hexdigest().lower()
+                if computed_sha != expected_sha:
+                    raise ValueError(f"Assets bundle checksum mismatch! Expected {expected_sha}, got {computed_sha}")
+
+            # Safely extract archive
+            if log_fn:
+                log_fn("Extracting launcher assets...")
+            with zipfile.ZipFile(tmp_zip, "r") as zf:
+                zf.extractall(target_dir)
+
+            if log_fn:
+                log_fn("Extracted launcher assets successfully.")
+        except Exception as e:
+            if log_fn:
+                log_fn(f"Warning: Failed to fetch/extract assets bundle: {e}")
+        finally:
+            if os.path.isfile(tmp_zip):
+                try:
+                    os.remove(tmp_zip)
+                except Exception:
+                    pass
+
+        if progress_fn:
+            progress_fn(90.0)
 
     # Clean up legacy NewLauncher.exe if present from prior versions
     legacy_path = os.path.join(target_dir, LEGACY_EXE)

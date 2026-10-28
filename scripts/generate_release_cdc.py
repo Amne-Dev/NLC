@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import sys
+import zipfile
 from pathlib import Path
 from typing import Any, Dict
 
@@ -19,6 +20,76 @@ for p in (str(repo_root), str(backend_dir)):
 
 from nlc.version import get_version
 from nlc.cdc_engine import build_cdc_index, sign_cdc_index
+
+
+# Default wallpapers included for offline installation (Option A)
+DEFAULT_WALLPAPERS = {
+    "13uv5py3dw9f1.png",
+    "8w0iispqcw9f1.png",
+    "gqv4762zcw9f1.png",
+    "Island.png",
+    "background.png",
+}
+
+
+def package_assets_archive(repo_root_dir: Path, dist_dir: Path, base_url: str) -> Dict[str, Any]:
+    print("[*] Packaging web installer assets bundle (Option A: core UI + thumbnails + default wallpapers)...")
+    dist_dir.mkdir(parents=True, exist_ok=True)
+    out_zip = dist_dir / "assets.zip"
+
+    with zipfile.ZipFile(out_zip, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+        # 1. assets/
+        assets_dir = repo_root_dir / "assets"
+        if assets_dir.is_dir():
+            for p in sorted(assets_dir.rglob("*")):
+                if p.is_file() and not p.name.startswith(".") and p.name.lower() not in ("thumbs.db", "desktop.ini"):
+                    arcname = p.relative_to(repo_root_dir).as_posix()
+                    zf.write(p, arcname)
+
+        # 2. icons/
+        icons_dir = repo_root_dir / "icons"
+        if icons_dir.is_dir():
+            for p in sorted(icons_dir.rglob("*")):
+                if p.is_file() and not p.name.startswith(".") and p.name.lower() not in ("thumbs.db", "desktop.ini"):
+                    arcname = p.relative_to(repo_root_dir).as_posix()
+                    zf.write(p, arcname)
+
+        # 3. skins/
+        skins_dir = repo_root_dir / "skins"
+        if skins_dir.is_dir():
+            for p in sorted(skins_dir.rglob("*")):
+                if p.is_file() and not p.name.startswith(".") and p.name.lower() not in ("thumbs.db", "desktop.ini"):
+                    arcname = p.relative_to(repo_root_dir).as_posix()
+                    zf.write(p, arcname)
+
+        # 4. wallpapers/thumbnails/
+        thumbs_dir = repo_root_dir / "wallpapers" / "thumbnails"
+        if thumbs_dir.is_dir():
+            for p in sorted(thumbs_dir.rglob("*")):
+                if p.is_file() and not p.name.startswith(".") and p.name.lower() not in ("thumbs.db", "desktop.ini"):
+                    arcname = p.relative_to(repo_root_dir).as_posix()
+                    zf.write(p, arcname)
+
+        # 5. wallpapers/ default images
+        wp_dir = repo_root_dir / "wallpapers"
+        if wp_dir.is_dir():
+            for wp_name in sorted(DEFAULT_WALLPAPERS):
+                wp_file = wp_dir / wp_name
+                if wp_file.is_file():
+                    arcname = wp_file.relative_to(repo_root_dir).as_posix()
+                    zf.write(wp_file, arcname)
+
+    size = out_zip.stat().st_size
+    sha256 = hashlib.sha256(out_zip.read_bytes()).hexdigest()
+    mb = size / (1024 * 1024)
+    print(f"    [+] Created: {out_zip.name} ({mb:.2f} MB, sha256: {sha256[:16]}...)")
+
+    return {
+        "name": "assets.zip",
+        "size": size,
+        "sha256": sha256,
+        "download_url": f"{base_url}/assets.zip",
+    }
 
 
 def generate_cdc_for_file(file_path: Path, version: str, private_key_b64: str = "") -> Dict[str, Any]:
@@ -90,6 +161,12 @@ def main() -> int:
     if found == 0:
         print("[-] No target binaries found to slice.", file=sys.stderr)
         return 1
+
+    try:
+        assets_entry = package_assets_archive(repo_root, dist_dir, base_url)
+        release_manifest["assets"] = assets_entry
+    except Exception as exc:
+        print(f"[!] Warning packaging assets archive: {exc}", file=sys.stderr)
 
     manifest_path = dist_dir / "release_manifest.json"
     manifest_path.write_text(json.dumps(release_manifest, indent=2), encoding="utf-8")
