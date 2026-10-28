@@ -13,7 +13,7 @@ from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple
 
 import requests
 from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
 from nlc import update_keys
 
@@ -151,6 +151,35 @@ def canonical_cdc_bytes(index: Dict[str, Any]) -> bytes:
         separators=(",", ":"),
         ensure_ascii=True,
     ).encode("utf-8")
+
+
+def sign_cdc_index(index: Dict[str, Any], private_key_b64: str) -> None:
+    """Sign the CDC index in-place using Ed25519 private key."""
+    if not private_key_b64:
+        raise ValueError("Private key is required to sign CDC index.")
+    private_key = Ed25519PrivateKey.from_private_bytes(
+        base64.b64decode(private_key_b64, validate=True)
+    )
+    sig_bytes = private_key.sign(canonical_cdc_bytes(index))
+    index["signature"] = base64.b64encode(sig_bytes).decode("ascii")
+
+
+def verify_cdc_signature(index: Dict[str, Any], public_key_b64: Optional[str] = None) -> None:
+    """Verify Ed25519 signature on CDC index."""
+    sig_text = index.get("signature")
+    pub_key_text = public_key_b64 or update_keys.PATCH_PUBLIC_KEY_B64
+    if not isinstance(sig_text, str) or not sig_text:
+        raise ValueError("CDC index is missing its signature.")
+    if not pub_key_text:
+        raise ValueError("Patch signing public key is not configured.")
+    try:
+        public_key = Ed25519PublicKey.from_public_bytes(
+            base64.b64decode(pub_key_text, validate=True)
+        )
+        signature = base64.b64decode(sig_text, validate=True)
+        public_key.verify(signature, canonical_cdc_bytes(index))
+    except (ValueError, InvalidSignature) as exc:
+        raise ValueError(f"Invalid CDC index signature: {exc}") from exc
 
 
 def scan_local_chunks(local_path: Path | str) -> Dict[str, int]:
