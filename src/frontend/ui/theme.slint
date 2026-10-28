@@ -1,0 +1,64 @@
+import "../../backend/nlc/assets/fonts/Minecraft.otf";
+import "../../backend/nlc/assets/fonts/Minecraft-Bold.otf";
+
+export global Theme {
+    // Fonts
+    in-out property <string> font-family: "Minecraft";
+    in-out property <string> font-family-mono: "Consolas";
+    in-out property <string> icon-font-family: "Segoe UI Symbol";
+
+    // Surfaces (Exact tokens from authentic Tkinter launcher)
+    in-out property <color> main-bg: #181A1E;
+    in-out property <color> card-bg: #21242C;
+    in-out property <color> card-hover: #262A34;
+    in-out property <color> sidebar-bg: #141619;
+    in-out property <color> sidebar-hover: #191B20;
+    in-out property <color> sidebar-active: #1E222A;
+    in-out property <color> bottom-bar-bg: #141619;
+    in-out property <color> titlebar-bg: #101114;
+    in-out property <color> input-bg: #1B1D24;
+
+    // Borders
+    in-out property <color> border: #282D37;
+    in-out property <color> border-subtle: #20232A;
+    in-out property <color> border-focus: #00A8FF;
+    in-out property <color> border-hover: #404450;
+
+    // Buttons
+    in-out property <color> button-dark: #262933;
+    in-out property <color> button-dark-hover: #323745;
+
+    // Primary Accents (Authentic Cyan #00A8FF)
+    in-out property <color> accent: #00A8FF;
+    in-out property <color> accent-hover: #1E90FF;
+    in-out property <color> accent-pressed: #0077B6;
+    in-out property <color> accent-subtle: #003653;
+    in-out property <color> accent-text: #FFFFFF;
+
+    // Danger / Removal
+    in-out property <color> danger: #E74C3C;
+    in-out property <color> danger-hover: #C0392B;
+
+    // Status
+    in-out property <color> success: #2ECC71;
+    in-out property <color> warning: #F39C12;
+
+    // Typography Colors
+    in-out property <color> text-primary: #FFFFFF;
+    in-out property <color> text-secondary: #9BA1B0;
+    in-out property <color> text-muted: #6B7280;
+    in-out property <color> text-dark: #121316;
+
+    // Strict Sharp 0px Design Language
+    in-out property <length> card-radius: 0px;
+    in-out property <length> button-radius: 0px;
+    in-out property <length> pill-radius: 0px;
+
+    // Layout Metrics
+    in-out property <length> sidebar-width: 240px;
+    in-out property <length> bottom-bar-height: 80px;
+    in-out property <length> titlebar-height: 36px;
+
+    // Animations
+    in-out property <bool> smooth-animations: true;
+}

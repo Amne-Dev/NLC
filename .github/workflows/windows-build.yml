@@ -31,6 +31,9 @@ jobs:
           python-version: "3.12"
           cache: "pip"
 
+      - name: Set Up Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Install Dependencies
         shell: pwsh
         run: |
@@ -41,8 +44,8 @@ jobs:
       - name: Read App Version
         shell: pwsh
         run: |
-          $version = python -c "from config import CURRENT_VERSION; print(CURRENT_VERSION)"
-          if (-not $version) { throw "Could not read CURRENT_VERSION from config.py" }
+          $version = (Get-Content -Path VERSION -Raw).Trim()
+          if (-not $version) { throw "Could not read version from VERSION" }
           "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Configure Update Verification Key
@@ -55,38 +58,34 @@ jobs:
           import os
           from pathlib import Path
           key = os.environ["NLC_UPDATE_PUBLIC_KEY_B64"]
-          Path("nlc/update_keys.py").write_text(
+          Path("src/backend/nlc/update_keys.py").write_text(
               "PATCH_PUBLIC_KEY_B64 = " + repr(key) + "\n",
               encoding="utf-8",
           )
           '@
 
-      - name: Build Agent
-        shell: pwsh
-        run: python -m PyInstaller --noconfirm --clean agent.spec
-
       - name: Build Patch Runner
         shell: pwsh
-        run: python -m PyInstaller --noconfirm --clean patch_runner.spec
+        run: python -m PyInstaller --noconfirm --clean packaging/windows/patch_runner.spec
 
-      - name: Build Launcher
+      - name: Build Launchers and Installers
         shell: pwsh
-        run: python -m PyInstaller --noconfirm --clean alt.spec
-
-      - name: Build Installer
-        shell: pwsh
-        run: python -m PyInstaller --noconfirm --clean installer_app.spec
+        run: python packaging/windows/build_installers.py --all --version $env:APP_VERSION
 
       - name: Prepare Artifact Bundle
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path installer | Out-Null
-          Copy-Item -Force dist\NLCSetup.exe installer\NLCSetup.exe
           New-Item -ItemType Directory -Force -Path release-assets | Out-Null
+          Copy-Item -Force dist\installers\NLCSetup.exe installer\NLCSetup.exe
           Copy-Item -Force dist\agent.exe release-assets\agent.exe
           Copy-Item -Force dist\NLCUpdater.exe release-assets\NLCUpdater.exe
-          Copy-Item -Force dist\NewLauncher.exe release-assets\NewLauncher.exe
-          Copy-Item -Force dist\NLCSetup.exe release-assets\NLCSetup.exe
+          Copy-Item -Force dist\NyLuna.exe release-assets\NyLuna.exe
+          Copy-Item -Force dist\installers\NLCSetup.exe release-assets\NLCSetup.exe
+          Copy-Item -Force dist\installers\NLCSetup-Offline.exe release-assets\NLCSetup-Offline.exe
+          if (Test-Path dist\libunwind.dll) {
+            Copy-Item -Force dist\libunwind.dll release-assets\libunwind.dll
+          }
           Copy-Item -Force logo.ico release-assets\logo.ico
           Copy-Item -Force logo.png release-assets\logo.png
 
@@ -96,9 +95,13 @@ jobs:
           $files = @(
             "release-assets\agent.exe",
             "release-assets\NLCUpdater.exe",
-            "release-assets\NewLauncher.exe",
-            "release-assets\NLCSetup.exe"
+            "release-assets\NyLuna.exe",
+            "release-assets\NLCSetup.exe",
+            "release-assets\NLCSetup-Offline.exe"
           )
+          if (Test-Path release-assets\libunwind.dll) {
+            $files += "release-assets\libunwind.dll"
+          }
           $lines = foreach ($file in $files) {
             $hash = (Get-FileHash -Algorithm SHA256 $file).Hash.ToLower()
             "$hash  $([System.IO.Path]::GetFileName($file))"
@@ -132,20 +135,23 @@ jobs:
               ).splitlines())
 
           launcher_changed = any(
-              path.startswith("nlc/")
+              path.startswith("src/")
+              or path.startswith("nlc/")
               or path in {"alt.py", "main.py", "config.py", "requirements.txt"}
               for path in changed
           )
           agent_changed = any(
-              path == "agent.py" or path.startswith("nlc/agent/")
+              path == "agent.py" or path.startswith("src/backend/")
               for path in changed
           )
           assets_changed = any(path in {"logo.ico", "logo.png"} for path in changed)
           names = ["NLCUpdater.exe"]
           if launcher_changed:
-              names.append("NewLauncher.exe")
+              names.append("NyLuna.exe")
           if agent_changed:
               names.append("agent.exe")
+          if (root / "libunwind.dll").exists():
+              names.append("libunwind.dll")
           for name in ("logo.ico", "logo.png"):
               if (root / name).exists() and assets_changed:
                   names.append(name)
@@ -192,16 +198,17 @@ jobs:
         shell: pwsh
         run: |
           python -c @'
-          import base64, json, os, hashlib
+          import base64, json, os, hashlib, sys
           from pathlib import Path
+          sys.path.insert(0, "src/backend")
           from nlc.cdc_engine import build_cdc_index, sign_cdc_index
 
           root = Path("release-assets")
           version = os.environ["APP_VERSION"]
-          exe_path = root / "NewLauncher.exe"
+          exe_path = root / "NyLuna.exe"
           runner_path = root / "NLCUpdater.exe"
 
-          index = build_cdc_index(exe_path, version, filename="NewLauncher.exe")
+          index = build_cdc_index(exe_path, version, filename="NyLuna.exe")
           if runner_path.exists():
               index["runner"] = "NLCUpdater.exe"
               index["runnerSha256"] = hashlib.sha256(runner_path.read_bytes()).hexdigest()
@@ -210,7 +217,7 @@ jobs:
           if private_key_text:
               sign_cdc_index(index, private_key_text)
 
-          out_path = root / "NewLauncher.exe.cdc.json"
+          out_path = root / "NyLuna.exe.cdc.json"
           out_path.write_text(json.dumps(index, indent=2), encoding="utf-8")
           print(f"Generated and signed CDC index: {out_path}")
           '@
@@ -221,7 +228,7 @@ jobs:
           $manifestRoot = "release-assets\winget\amne-dev\nlc\$env:APP_VERSION"
           New-Item -ItemType Directory -Force -Path $manifestRoot | Out-Null
           $installerHash = (Get-FileHash -Algorithm SHA256 "release-assets\NLCSetup.exe").Hash.ToLower()
-          $installerUrl = "https://github.com/Amne-Dev/New-launcher/releases/download/v$env:APP_VERSION/NLCSetup.exe"
+          $installerUrl = "https://github.com/Amne-Dev/NLC/releases/download/v$env:APP_VERSION/NLCSetup.exe"
           @"
           PackageIdentifier: amne-dev.nlc
           PackageVersion: $env:APP_VERSION
@@ -252,7 +259,7 @@ jobs:
           PackageName: NLC
           PackageUrl: https://web.get-nlc.tech/
           License: BSD 3-Clause License
-          LicenseUrl: https://raw.githubusercontent.com/Amne-Dev/New-launcher/main/LICENSE
+          LicenseUrl: https://raw.githubusercontent.com/Amne-Dev/NLC/main/LICENSE
           ShortDescription: A Minecraft launcher for managing accounts, installations, mods, and skins.
           Description: New Launcher is a desktop Minecraft launcher for Windows.
           Moniker: nlc
@@ -262,7 +269,7 @@ jobs:
           - modpacks
           - mods
           - skins
-          ReleaseNotesUrl: https://github.com/Amne-Dev/New-launcher/releases/
+          ReleaseNotesUrl: https://github.com/Amne-Dev/NLC/releases/
           ManifestType: defaultLocale
           ManifestVersion: 1.12.0
           "@ | Set-Content -Path "$manifestRoot\amne-dev.nlc.locale.en-US.yaml"
@@ -280,8 +287,9 @@ jobs:
         with:
           files: |
             release-assets/NLCSetup.exe
-            release-assets/NewLauncher.exe
+            release-assets/NLCSetup-Offline.exe
+            release-assets/NyLuna.exe
             release-assets/NLCUpdater.exe
-            release-assets/NewLauncher.exe.cdc.json
+            release-assets/NyLuna.exe.cdc.json
             release-assets/NLCUpdate-*.zip
             release-assets/SHA256SUMS.txt

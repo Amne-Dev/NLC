@@ -1,0 +1,1441 @@
+import { Theme } from "../theme.slint";
+import { PixelButton, PixelSwitch } from "../components.slint";
+import { LoadingSpinner } from "../loading_spinner.slint";
+
+export struct SkinPresetData {
+    id: string,
+    name: string,
+    model: string,
+    path: string,
+    has-thumbnail: bool,
+    thumbnail: image,
+    is-equipped: bool,
+}
+
+export struct CapeData {
+    id: string,
+    alias: string,
+    local-path: string,
+    thumb-path: string,
+    has-preview: bool,
+    preview: image,
+    is-equipped: bool,
+}
+
+export struct WallpaperData {
+    id: string,
+    name: string,
+    path: string,
+    has-preview: bool,
+    preview: image,
+    is-equipped: bool,
+    is-downloaded: bool,
+    is-downloading: bool,
+    size-text: string,
+}
+
+component SkinCard inherits Rectangle {
+    in-out property <SkinPresetData> data;
+    in-out property <bool> animations-enabled: true;
+    callback equip();
+    callback delete();
+    callback toggle-model();
+
+    height: 220px;
+    background: #15171D;
+    border-width: root.data.is-equipped ? 2px : 1px;
+    border-color: root.data.is-equipped ? Theme.accent : (card-touch.has-hover ? #3D4556 : #282C38);
+    clip: true;
+
+    // Full-Card 3D Isometric Character Render
+    if root.data.has-thumbnail: Image {
+        width: 100%;
+        height: 100%;
+        source: root.data.thumbnail;
+        image-fit: contain;
+        image-rendering: pixelated;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    if !root.data.has-thumbnail: Text {
+        text: "No Preview";
+        color: #555B6E;
+        font-family: Theme.font-family;
+        font-size: 10px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    // Card click-to-equip TouchArea
+    card-touch := TouchArea {
+        width: 100%;
+        height: 100%;
+        clicked => { root.equip(); }
+    }
+
+    // Controls slide-in position property
+    property <bool> is-hovered: card-touch.has-hover || model-touch.has-hover || del-touch.has-hover;
+    property <length> controls-y: root.is-hovered ? 8px : -34px;
+
+    // Top-Left: Model Toggle Badge ("Classic" / "Slim")
+    Rectangle {
+        x: 8px;
+        y: root.controls-y;
+        width: 52px;
+        height: 22px;
+        background: model-touch.has-hover ? Theme.accent : #1C202A;
+        border-width: 1px;
+        border-color: model-touch.has-hover ? Theme.accent : #2F3646;
+
+        animate y { duration: root.animations-enabled ? 120ms : 0ms; easing: ease-out; }
+
+        HorizontalLayout {
+            padding-left: 4px;
+            padding-right: 4px;
+            alignment: center;
+            Text {
+                text: root.data.model == "slim" ? "Slim" : "Classic";
+                color: model-touch.has-hover ? #FFFFFF : (root.data.is-equipped ? Theme.accent : #00A8FF);
+                font-family: Theme.font-family;
+                font-size: 8px;
+                font-weight: 700;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        model-touch := TouchArea {
+            clicked => {
+                root.toggle-model();
+            }
+        }
+    }
+
+    // Top-Right: Delete Button ("✕")
+    Rectangle {
+        x: parent.width - self.width - 8px;
+        y: root.controls-y;
+        width: 22px;
+        height: 22px;
+        background: del-touch.has-hover ? #C0392B : #E74C3C;
+        border-width: 1px;
+        border-color: del-touch.has-hover ? #962D22 : #E74C3C;
+
+        animate y { duration: root.animations-enabled ? 120ms : 0ms; easing: ease-out; }
+
+        Text {
+            text: "X";
+            color: #FFFFFF;
+            font-family: Theme.font-family;
+            font-size: 11px;
+            font-weight: 700;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+
+        del-touch := TouchArea {
+            clicked => {
+                root.delete();
+            }
+        }
+    }
+}
+
+component WallpaperCard inherits Rectangle {
+    in-out property <WallpaperData> data;
+    in-out property <bool> animations-enabled: true;
+    callback equip();
+    callback delete();
+    callback download();
+
+    height: 180px;
+    background: #15171D;
+    border-width: root.data.is-equipped ? 2px : 1px;
+    border-color: root.data.is-equipped ? Theme.accent : (card-touch.has-hover ? #3D4556 : #282C38);
+    clip: true;
+
+    // Full-Card Landscape Image Cover (dimmed when not downloaded)
+    if root.data.has-preview: Image {
+        width: 100%;
+        height: 100%;
+        source: root.data.preview;
+        image-fit: cover;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        opacity: root.data.is-downloaded ? 1.0 : 0.40;
+        animate opacity { duration: root.animations-enabled ? 200ms : 0ms; }
+    }
+
+    // Grayed out dark overlay when un-downloaded
+    if !root.data.is-downloaded: Rectangle {
+        width: 100%;
+        height: 100%;
+        background: #0B0D1280;
+    }
+
+    if !root.data.has-preview: Text {
+        text: "Wallpaper";
+        color: #555B6E;
+        font-family: Theme.font-family;
+        font-size: 10px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    // Card TouchArea
+    card-touch := TouchArea {
+        width: 100%;
+        height: 100%;
+        mouse-cursor: pointer;
+        clicked => {
+            if root.data.is-downloaded {
+                root.equip();
+            } else {
+                root.download();
+            }
+        }
+    }
+
+    // Controls slide-in position properties
+    property <bool> is-hovered: card-touch.has-hover || del-touch.has-hover;
+    property <length> controls-y: root.is-hovered ? 8px : -34px;
+    property <length> footer-y: root.is-hovered ? (root.height - 30px) : root.height + 4px;
+
+    // Top-Left: Equipped Status Badge (Permanent when active)
+    if root.data.is-equipped: Rectangle {
+        x: 8px;
+        y: 8px;
+        width: 72px;
+        height: 20px;
+        background: Theme.accent;
+
+        HorizontalLayout {
+            alignment: center;
+            Text {
+                text: "EQUIPPED";
+                color: #000000;
+                font-family: Theme.font-family;
+                font-size: 8px;
+                font-weight: 700;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+
+    // Center Download Badge when not downloaded
+    if !root.data.is-downloaded: Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 140px;
+        height: 28px;
+        background: card-touch.has-hover ? #1E222DE6 : #141720E0;
+        border-width: 1px;
+        border-color: card-touch.has-hover ? Theme.accent : #3D4556;
+
+        HorizontalLayout {
+            alignment: center;
+            spacing: 6px;
+            padding-left: 8px;
+            padding-right: 8px;
+
+            if !root.data.is-downloading: Image {
+                source: @image-url("../../../../icons/icon_download_16.png");
+                width: 12px;
+                height: 12px;
+                vertical-alignment: center;
+            }
+
+            Text {
+                text: root.data.is-downloading ? "DOWNLOADING..." : ("DOWNLOAD (" + root.data.size-text + ")");
+                color: root.data.is-downloading ? Theme.accent : #FFFFFF;
+                font-family: Theme.font-family;
+                font-size: 9px;
+                font-weight: 700;
+                vertical-alignment: center;
+            }
+        }
+    }
+
+    // Top-Right: Delete Button ("✕") - only visible for downloaded custom items
+    Rectangle {
+        x: parent.width - self.width - 8px;
+        y: root.controls-y;
+        width: 22px;
+        height: 22px;
+        visible: root.data.is-downloaded;
+        background: del-touch.has-hover ? #C0392B : #E74C3CB0;
+        border-width: 1px;
+        border-color: del-touch.has-hover ? #962D22 : #E74C3C;
+
+        animate y { duration: root.animations-enabled ? 120ms : 0ms; easing: ease-out; }
+
+        Text {
+            text: "X";
+            color: #FFFFFF;
+            font-family: Theme.font-family;
+            font-size: 11px;
+            font-weight: 700;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+
+        del-touch := TouchArea {
+            enabled: root.data.is-downloaded;
+            clicked => {
+                root.delete();
+            }
+        }
+    }
+
+    // Bottom Overlay Banner: Title & Metadata (Slides up on hover)
+    Rectangle {
+        x: 8px;
+        y: root.footer-y;
+        width: parent.width - 16px;
+        height: 22px;
+        background: #101216E6;
+        border-width: 1px;
+        border-color: #2D3344;
+
+        animate y { duration: root.animations-enabled ? 120ms : 0ms; easing: ease-out; }
+
+        HorizontalLayout {
+            padding-left: 8px;
+            padding-right: 8px;
+            alignment: start;
+
+            Text {
+                text: root.data.name;
+                color: #FFFFFF;
+                font-family: Theme.font-family;
+                font-size: 9px;
+                font-weight: 700;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+        }
+    }
+}
+
+component ExpandableIconButton inherits Rectangle {
+    in-out property <image> icon;
+    in-out property <string> text;
+    in-out property <bool> primary: false;
+    in-out property <bool> animations-enabled: true;
+    in-out property <length> collapsed-width: 28px;
+    in-out property <length> expanded-width: 82px;
+    in-out property <length> button-height: 24px;
+    callback clicked();
+
+    touch := TouchArea {
+        clicked => { root.clicked(); }
+    }
+
+    width: touch.has-hover ? root.expanded-width : root.collapsed-width;
+    height: root.button-height;
+    clip: true;
+
+    background: root.primary
+        ? (touch.pressed ? Theme.accent-pressed : (touch.has-hover ? Theme.accent-hover : Theme.accent))
+        : (touch.pressed ? #1A1D24 : (touch.has-hover ? #282D3B : Theme.button-dark));
+    border-width: 1px;
+    border-color: root.primary
+        ? (touch.has-hover ? #5CD1FF : Theme.accent)
+        : (touch.has-hover ? Theme.border-hover : Theme.border);
+
+    animate width {
+        duration: root.animations-enabled ? 160ms : 0ms;
+        easing: ease-out;
+    }
+
+    HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 6px;
+        alignment: start;
+
+        Rectangle {
+            width: 16px;
+
+            Image {
+                x: 0px;
+                y: (parent.height - self.height) / 2;
+                width: 16px;
+                height: 16px;
+                source: root.icon;
+                image-fit: contain;
+                image-rendering: pixelated;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        if touch.has-hover || root.width > root.collapsed-width + 6px: Text {
+            text: root.text;
+            color: #FFFFFF;
+            font-family: Theme.font-family;
+            font-size: 10px;
+            font-weight: 700;
+            vertical-alignment: center;
+            overflow: clip;
+        }
+    }
+}
+
+export component LockerScreen {
+    in-out property <string> username: "Steve";
+    in-out property <string> account-type: "Microsoft Account";
+    property <bool> is-microsoft-account: root.account-type == "Microsoft Account" || root.account-type == "Microsoft";
+    in-out property <string> active-subtab: "Skins";
+    in-out property <string> arm-model: "slim";
+    in-out property <bool> has-active-cape: false;
+    in-out property <image> skin-preview-image;
+    in-out property <bool> is-walking: false;
+    in-out property <bool> is-rendering: false;
+    in-out property <bool> offline-skin-injection: true;
+    in-out property <string> wardrobe-search: "";
+    in-out property <[SkinPresetData]> presets: [];
+    in-out property <[CapeData]> capes: [];
+    in-out property <[WallpaperData]> wallpapers: [];
+    in-out property <bool> animations-enabled: true;
+    property <int> wardrobe-grid-cols: max(2, floor((root.width - 420px) / 160px));
+
+    in-out property <bool> steal-modal-open: false;
+    in-out property <string> steal-username-input: "";
+    in-out property <bool> steal-is-loading: false;
+    in-out property <image> loading-spinner-frame;
+    in-out property <string> steal-status-message: "";
+    in-out property <bool> steal-has-preview: false;
+    in-out property <image> steal-preview-image;
+    in-out property <string> steal-preview-model: "classic";
+    in-out property <string> steal-preview-username: "";
+
+    callback upload-skin();
+    callback steal-skin();
+    callback steal-preview-fetch(string);
+    callback steal-confirm-download();
+    callback steal-close-modal();
+    callback export-skin();
+    callback refresh-skin();
+    callback open-skins-folder();
+    callback skin-drag(float, float);
+    callback skin-reset-view(string);
+    callback skin-toggle-walk();
+    callback skin-walk-tick();
+    callback model-changed(string);
+    callback toggle-offline-injection(bool);
+    callback equip-skin-preset(string);
+    callback delete-skin-preset(string);
+    callback equip-cape(string);
+    callback unequip-cape();
+    callback equip-wallpaper(string);
+    callback delete-wallpaper(string);
+    callback download-wallpaper(string);
+    callback upload-wallpaper();
+    callback open-wallpapers-folder();
+
+    // Native continuous walk cycle animation timer
+    Timer {
+        interval: 120ms;
+        running: root.is-walking;
+        triggered => { root.skin-walk-tick(); }
+    }
+
+    Rectangle {
+        width: parent.width;
+        height: parent.height;
+        background: Theme.main-bg;
+
+        VerticalLayout {
+            width: parent.width;
+            height: parent.height;
+            padding-left: 24px;
+            padding-right: 24px;
+            padding-top: 16px;
+            padding-bottom: 16px;
+            spacing: 12px;
+
+            // --- Top Header: Locked 32px height, No Subtitle ---
+            HorizontalLayout {
+                alignment: space-between;
+                height: 32px;
+
+                Text {
+                    text: "LOCKER & CUSTOMIZATION STUDIO";
+                    color: #FFFFFF;
+                    font-family: Theme.font-family;
+                    font-size: 14px;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                }
+
+                // Sub-tabs (Sharp 0px tabs, strictly Skins and Wallpapers)
+                HorizontalLayout {
+                    spacing: 0px;
+                    alignment: end;
+                    height: 28px;
+                    width: 220px;
+
+                    Rectangle {
+                        background: root.active-subtab == "Skins" ? Theme.accent : Theme.button-dark;
+                        border-width: 1px;
+                        border-color: #3D4250;
+                        HorizontalLayout {
+                            padding-left: 12px;
+                            padding-right: 12px;
+                            Text {
+                                text: "Skins";
+                                color: #FFFFFF;
+                                font-family: Theme.font-family;
+                                font-size: 10px;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+                        }
+                        TouchArea { clicked => { root.active-subtab = "Skins"; root.skin-reset-view("isometric"); } }
+                    }
+
+                    Rectangle {
+                        background: root.active-subtab == "Wallpapers" ? Theme.accent : Theme.button-dark;
+                        border-width: 1px;
+                        border-color: #3D4250;
+                        HorizontalLayout {
+                            padding-left: 12px;
+                            padding-right: 12px;
+                            Text {
+                                text: "Wallpapers";
+                                color: root.active-subtab == "Wallpapers" ? #FFFFFF : #A0A5B4;
+                                font-family: Theme.font-family;
+                                font-size: 10px;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+                        }
+                        TouchArea { clicked => { root.active-subtab = "Wallpapers"; } }
+                    }
+                }
+            }
+
+            // Subtab Content Stretch Container (Guarantees full height down to bottom margin)
+            Rectangle {
+                vertical-stretch: 1;
+
+                // =================================================================
+                // SUBTAB 1: 3D STAGE & WARDROBE PRESETS
+                // =================================================================
+                if root.active-subtab == "Skins": HorizontalLayout {
+                    width: parent.width;
+                    height: parent.height;
+                    spacing: 16px;
+
+                    // --- LEFT COLUMN: 3D SHOWCASE STAGE ("THE PEDESTAL") ---
+                    Rectangle {
+                        width: 340px;
+                        height: parent.height;
+                        background: Theme.card-bg;
+                        border-width: 1px;
+                        border-color: Theme.border;
+
+                    VerticalLayout {
+                        width: parent.width;
+                        height: parent.height;
+                        padding: 14px;
+                        spacing: 10px;
+
+                        // Stage Header: Clean Username + Dot on left; Steal & Refresh actions on right
+                        HorizontalLayout {
+                            alignment: space-between;
+                            height: 24px;
+
+                            HorizontalLayout {
+                                alignment: start;
+                                spacing: 8px;
+
+                                Rectangle {
+                                    width: 7px;
+                                    height: 7px;
+                                    y: (parent.height - self.height) / 2;
+                                    background: #2ECC71;
+                                }
+
+                                Text {
+                                    text: root.username;
+                                    color: #FFFFFF;
+                                    font-family: Theme.font-family;
+                                    font-size: 12px;
+                                    font-weight: 700;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            HorizontalLayout {
+                                alignment: end;
+                                spacing: 6px;
+
+                                ExpandableIconButton {
+                                    icon: @image-url("../../../../icons/icon_steal_hand_16.png");
+                                    text: "Steal";
+                                    expanded-width: 76px;
+                                    animations-enabled: root.animations-enabled;
+                                    clicked => {
+                                        root.steal-modal-open = true;
+                                        root.steal-username-input = "";
+                                        root.steal-has-preview = false;
+                                        root.steal-is-loading = false;
+                                        root.steal-status-message = "";
+                                        root.steal-preview-username = "";
+                                        root.steal-skin();
+                                    }
+                                }
+
+                                ExpandableIconButton {
+                                    icon: @image-url("../../../../icons/icon_refresh_16.png");
+                                    text: "Refresh";
+                                    expanded-width: 86px;
+                                    animations-enabled: root.animations-enabled;
+                                    clicked => { root.refresh-skin(); }
+                                }
+                            }
+                        }
+
+                        // 3D Pedestal Stage Canvas
+                        stage-frame := Rectangle {
+                            min-height: 360px;
+                            vertical-stretch: 1;
+                            background: #101216;
+                            border-width: 1px;
+                            border-color: #262A35;
+                            clip: true;
+
+                            // 3D Rendered Character Frame
+                            Image {
+                                width: 100%;
+                                height: 100%;
+                                source: root.skin-preview-image;
+                                image-fit: contain;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+
+                            // 360 Drag Interaction
+                            TouchArea {
+                                width: 100%;
+                                height: 100%;
+                                mouse-cursor: grab;
+                                property <length> start-x: 0px;
+                                property <length> start-y: 0px;
+
+                                pointer-event(event) => {
+                                    if (event.kind == PointerEventKind.down) {
+                                        self.start-x = self.mouse-x;
+                                        self.start-y = self.mouse-y;
+                                    }
+                                }
+
+                                moved => {
+                                    if (self.pressed) {
+                                        root.skin-drag((self.mouse-x - self.start-x) / 1px, (self.mouse-y - self.start-y) / 1px);
+                                        self.start-x = self.mouse-x;
+                                        self.start-y = self.mouse-y;
+                                    }
+                                }
+                            }
+
+                            // Top-right Floating Viewport Action Overlay
+                            VerticalLayout {
+                                x: parent.width - self.width - 8px;
+                                y: 8px;
+                                spacing: 4px;
+                                width: 28px;
+
+                                // Button 1: Walk / Stand Toggle
+                                Rectangle {
+                                    width: 28px;
+                                    height: 28px;
+                                    background: btn-walk-t.pressed ? #1F2430 : (btn-walk-t.has-hover ? #282E3E : #14171EB0);
+                                    border-width: 1px;
+                                    border-color: btn-walk-t.has-hover ? Theme.accent : #353C4E;
+
+                                    Image {
+                                        width: 14px;
+                                        height: 14px;
+                                        source: root.is-walking ? @image-url("../../../../icons/icon_pause.png") : @image-url("../../../../icons/icon_play.png");
+                                        image-fit: contain;
+                                        image-rendering: pixelated;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+
+                                    btn-walk-t := TouchArea {
+                                        clicked => { root.skin-toggle-walk(); }
+                                    }
+                                }
+
+                                // Button 2: Flip Front / Back 180° (Option A: Loop + 180)
+                                Rectangle {
+                                    width: 28px;
+                                    height: 28px;
+                                    background: btn-flip-t.pressed ? #1F2430 : (btn-flip-t.has-hover ? #282E3E : #14171EB0);
+                                    border-width: 1px;
+                                    border-color: btn-flip-t.has-hover ? Theme.accent : #353C4E;
+
+                                    Image {
+                                        width: 16px;
+                                        height: 16px;
+                                        source: @image-url("../../../../icons/icon_flip_180.png");
+                                        image-fit: contain;
+                                        image-rendering: pixelated;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+
+                                    btn-flip-t := TouchArea {
+                                        property <bool> is-back: false;
+                                        clicked => {
+                                            self.is-back = !self.is-back;
+                                            if (self.is-back) {
+                                                root.skin-reset-view("back");
+                                            } else {
+                                                root.skin-reset-view("front");
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Button 3: Reset to Isometric View (Option B: 3D Pixel Cube)
+                                Rectangle {
+                                    width: 28px;
+                                    height: 28px;
+                                    background: btn-iso-t.pressed ? #1F2430 : (btn-iso-t.has-hover ? #282E3E : #14171EB0);
+                                    border-width: 1px;
+                                    border-color: btn-iso-t.has-hover ? Theme.accent : #353C4E;
+
+                                    Image {
+                                        width: 16px;
+                                        height: 16px;
+                                        source: @image-url("../../../../icons/icon_isometric_cube.png");
+                                        image-fit: contain;
+                                        image-rendering: pixelated;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+
+                                    btn-iso-t := TouchArea {
+                                        clicked => { root.skin-reset-view("isometric"); }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Docked Horizontal Capes Shelf (Generous Tall Height: ~144px)
+                        VerticalLayout {
+                            spacing: 6px;
+                            HorizontalLayout {
+                                alignment: start;
+                                height: 16px;
+                                Text {
+                                    text: "CAPES";
+                                    color: #A0A5B4;
+                                    font-family: Theme.font-family;
+                                    font-size: 9px;
+                                    font-weight: 700;
+                                    vertical-alignment: center;
+                                }
+                            }
+                            if !root.is-microsoft-account: Rectangle {
+                                height: 120px;
+                                background: #15171D;
+                                border-width: 1px;
+                                border-color: #282C38;
+                                VerticalLayout {
+                                    alignment: center;
+                                    spacing: 8px;
+                                    padding-left: 20px;
+                                    padding-right: 20px;
+
+                                    Text {
+                                        text: "Capes Exclusive to Microsoft Accounts";
+                                        color: #E2E8F0;
+                                        font-family: Theme.font-family;
+                                        font-size: 11px;
+                                        font-weight: 700;
+                                        horizontal-alignment: center;
+                                    }
+
+                                    Text {
+                                        text: "Official Minecraft capes require Microsoft account authorization. Offline and third-party accounts cannot equip official capes.";
+                                        color: #8E96A8;
+                                        font-family: Theme.font-family;
+                                        font-size: 9px;
+                                        horizontal-alignment: center;
+                                        wrap: word-wrap;
+                                    }
+                                }
+                            }
+
+                            if root.is-microsoft-account: Flickable {
+                                height: 226px;
+                                interactive: true;
+                                content-height: max(220px, (ceil((root.capes.length + 1) / 4)) * 114px);
+
+                                GridLayout {
+                                    spacing: 8px;
+
+                                    // None / Unequip tile (col 0, row 0)
+                                    Rectangle {
+                                        width: 68px;
+                                        height: 106px;
+                                        row: 0;
+                                        col: 0;
+                                        background: !root.has-active-cape ? #1C212B : #15171D;
+                                        border-width: !root.has-active-cape ? 2px : 1px;
+                                        border-color: !root.has-active-cape ? Theme.accent : (none-t.has-hover ? #3D4556 : #282C38);
+
+                                        VerticalLayout {
+                                            padding: 4px;
+                                            spacing: 4px;
+                                            alignment: center;
+
+                                            Rectangle {
+                                                height: 72px;
+                                                background: #101216;
+                                                VerticalLayout {
+                                                    alignment: center;
+                                                    Text {
+                                                        text: "X";
+                                                        color: !root.has-active-cape ? Theme.accent : #555B6E;
+                                                        font-family: Theme.font-family;
+                                                        font-size: 16px;
+                                                        font-weight: 700;
+                                                        horizontal-alignment: center;
+                                                    }
+                                                }
+                                            }
+
+                                            Text {
+                                                text: "None";
+                                                color: !root.has-active-cape ? #FFFFFF : #8E96A8;
+                                                font-family: Theme.font-family;
+                                                font-size: 8px;
+                                                font-weight: 700;
+                                                horizontal-alignment: center;
+                                            }
+                                        }
+
+                                        none-t := TouchArea {
+                                            clicked => {
+                                                root.has-active-cape = false;
+                                                root.unequip-cape();
+                                            }
+                                        }
+                                    }
+
+                                    // Cape item cards with visual 3D preview (4 columns per row)
+                                    for cape[idx] in root.capes: Rectangle {
+                                        width: 68px;
+                                        height: 106px;
+                                        row: (idx + 1) / 4;
+                                        col: mod(idx + 1, 4);
+                                        background: cape.is-equipped ? #1C212B : #15171D;
+                                        border-width: cape.is-equipped ? 2px : 1px;
+                                        border-color: cape.is-equipped ? Theme.accent : (cape-t.has-hover ? #3D4556 : #282C38);
+
+                                        VerticalLayout {
+                                            padding: 4px;
+                                            spacing: 4px;
+                                            alignment: center;
+
+                                            Rectangle {
+                                                height: 72px;
+                                                background: #101216;
+                                                clip: true;
+
+                                                if cape.has-preview: Image {
+                                                    width: 100%;
+                                                    height: 100%;
+                                                    source: cape.preview;
+                                                    image-fit: contain;
+                                                    image-rendering: pixelated;
+                                                    horizontal-alignment: center;
+                                                    vertical-alignment: center;
+                                                }
+
+                                                if !cape.has-preview: VerticalLayout {
+                                                    alignment: center;
+                                                    Text {
+                                                        text: "CAPE";
+                                                        color: #555B6E;
+                                                        font-family: Theme.font-family;
+                                                        font-size: 8px;
+                                                        font-weight: 700;
+                                                        horizontal-alignment: center;
+                                                    }
+                                                }
+                                            }
+
+                                            Text {
+                                                text: cape.alias;
+                                                color: cape.is-equipped ? #FFFFFF : #8E96A8;
+                                                font-family: Theme.font-family;
+                                                font-size: 8px;
+                                                font-weight: 700;
+                                                horizontal-alignment: center;
+                                                overflow: elide;
+                                            }
+                                        }
+
+                                        cape-t := TouchArea {
+                                            clicked => {
+                                                root.has-active-cape = true;
+                                                root.equip-cape(cape.id);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // --- RIGHT COLUMN: WARDROBE PRESETS (When Skins subtab is active) ---
+                Rectangle {
+                    background: Theme.card-bg;
+                    border-width: 1px;
+                    border-color: Theme.border;
+                    horizontal-stretch: 1;
+                    height: parent.height;
+
+                    VerticalLayout {
+                        width: parent.width;
+                        height: parent.height;
+                        padding: 14px;
+                        spacing: 12px;
+
+                        // Wardrobe Header: Title & Actions (Clean 0 emojis)
+                        HorizontalLayout {
+                            alignment: space-between;
+                            height: 28px;
+
+                            HorizontalLayout {
+                                spacing: 8px;
+                                alignment: start;
+
+                                Text {
+                                    text: "WARDROBE PRESETS";
+                                    color: #FFFFFF;
+                                    font-family: Theme.font-family;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            HorizontalLayout {
+                                spacing: 6px;
+                                alignment: end;
+
+                                ExpandableIconButton {
+                                    icon: @image-url("../../../../icons/icon_folder_16.png");
+                                    text: "Folder";
+                                    expanded-width: 80px;
+                                    animations-enabled: root.animations-enabled;
+                                    clicked => { root.open-skins-folder(); }
+                                }
+
+                                ExpandableIconButton {
+                                    icon: @image-url("../../../../icons/icon_download_16.png");
+                                    text: "Export";
+                                    expanded-width: 80px;
+                                    animations-enabled: root.animations-enabled;
+                                    clicked => { root.export-skin(); }
+                                }
+
+                                ExpandableIconButton {
+                                    icon: @image-url("../../../../icons/icon_upload_16.png");
+                                    text: "Upload";
+                                    expanded-width: 82px;
+                                    primary: true;
+                                    animations-enabled: root.animations-enabled;
+                                    clicked => { root.upload-skin(); }
+                                }
+                            }
+                        }
+
+                        // Search Input & Offline Injection Row
+                        HorizontalLayout {
+                            height: 28px;
+                            spacing: 10px;
+
+                            // Live Search Input
+                            Rectangle {
+                                horizontal-stretch: 1;
+                                background: #121418;
+                                border-width: 1px;
+                                border-color: #282C38;
+
+                                HorizontalLayout {
+                                    padding-left: 8px;
+                                    padding-right: 8px;
+                                    spacing: 6px;
+
+                                    Text {
+                                        text: "Search:";
+                                        color: #727A8E;
+                                        font-family: Theme.font-family;
+                                        font-size: 9px;
+                                        font-weight: 700;
+                                        vertical-alignment: center;
+                                    }
+
+                                    Rectangle {
+                                        horizontal-stretch: 1;
+
+                                        if root.wardrobe-search == "": Text {
+                                            width: 100%;
+                                            height: 100%;
+                                            text: "Type skin name...";
+                                            color: #555B6E;
+                                            font-family: Theme.font-family;
+                                            font-size: 10px;
+                                            vertical-alignment: center;
+                                        }
+
+                                        TextInput {
+                                            width: 100%;
+                                            height: 100%;
+                                            text <=> root.wardrobe-search;
+                                            color: #FFFFFF;
+                                            font-family: Theme.font-family;
+                                            font-size: 10px;
+                                            vertical-alignment: center;
+                                            single-line: true;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Offline Injection Pill Toggle
+                            Rectangle {
+                                width: 130px;
+                                horizontal-stretch: 0;
+                                background: #14161C;
+                                border-width: 1px;
+                                border-color: root.offline-skin-injection ? Theme.accent : #262934;
+                                animate border-color { duration: 150ms; }
+
+                                HorizontalLayout {
+                                    padding-left: 8px;
+                                    padding-right: 8px;
+                                    spacing: 8px;
+                                    alignment: center;
+
+                                    Text {
+                                        text: "Skin Inject";
+                                        horizontal-stretch: 1;
+                                        overflow: elide;
+                                        color: root.offline-skin-injection ? #FFFFFF : Theme.text-muted;
+                                        font-family: Theme.font-family;
+                                        font-size: 9px;
+                                        font-weight: 700;
+                                        vertical-alignment: center;
+                                    }
+
+                                    PixelSwitch {
+                                        horizontal-stretch: 0;
+                                        custom-width: 34px;
+                                        custom-height: 18px;
+                                        checked: root.offline-skin-injection;
+                                        toggled(v) => {
+                                            root.offline-skin-injection = v;
+                                            root.toggle-offline-injection(v);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Empty State (Full Stretch)
+                        if root.presets.length == 0: Rectangle {
+                            vertical-stretch: 1;
+                            background: #14161C;
+                            border-width: 1px;
+                            border-color: #262934;
+
+                            VerticalLayout {
+                                alignment: center;
+                                spacing: 8px;
+                                Text {
+                                    text: "Nothing to show here";
+                                    color: Theme.text-primary;
+                                    font-family: Theme.font-family;
+                                    font-size: 13px;
+                                    font-weight: 700;
+                                    horizontal-alignment: center;
+                                }
+                                Text {
+                                    text: "No skins found in wardrobe. Upload a skin to populate presets.";
+                                    color: Theme.text-secondary;
+                                    font-family: Theme.font-family;
+                                    font-size: 11px;
+                                    horizontal-alignment: center;
+                                }
+                            }
+                        }
+
+                        // Scrollable Responsive Wardrobe Grid with 3D Isometric Walking Thumbnails (Full Page Height)
+                        if root.presets.length > 0: Flickable {
+                            interactive: true;
+                            vertical-stretch: 1;
+                            content-height: (ceil(root.presets.length / root.wardrobe-grid-cols)) * 230px;
+
+                            GridLayout {
+                                spacing: 10px;
+                                for preset[idx] in root.presets: SkinCard {
+                                    data: preset;
+                                    animations-enabled: root.animations-enabled;
+                                    row: idx / root.wardrobe-grid-cols;
+                                    col: mod(idx, root.wardrobe-grid-cols);
+                                    equip => { root.equip-skin-preset(preset.id); }
+                                    delete => { root.delete-skin-preset(preset.id); }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // =================================================================
+            // SUBTAB 3: WALLPAPERS STUDIO (FULL IMPLEMENTATION)
+            // =================================================================
+            if root.active-subtab == "Wallpapers": Rectangle {
+                width: parent.width;
+                height: parent.height;
+                background: Theme.card-bg;
+                border-width: 1px;
+                border-color: Theme.border;
+
+                VerticalLayout {
+                    width: parent.width;
+                    height: parent.height;
+                    padding: 16px;
+                    spacing: 14px;
+
+                    HorizontalLayout {
+                        alignment: space-between;
+                        height: 28px;
+
+                        Text {
+                            text: "CUSTOM WALLPAPERS & BACKGROUND STUDIO";
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 11px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 6px;
+                            alignment: end;
+
+                            ExpandableIconButton {
+                                icon: @image-url("../../../../icons/icon_folder_16.png");
+                                text: "Folder";
+                                expanded-width: 80px;
+                                animations-enabled: root.animations-enabled;
+                                clicked => { root.open-wallpapers-folder(); }
+                            }
+
+                            ExpandableIconButton {
+                                icon: @image-url("../../../../icons/icon_upload_16.png");
+                                text: "Upload";
+                                expanded-width: 82px;
+                                primary: true;
+                                animations-enabled: root.animations-enabled;
+                                clicked => { root.upload-wallpaper(); }
+                            }
+                        }
+                    }
+
+                    if root.wallpapers.length == 0: Rectangle {
+                        height: 140px;
+                        background: #14161C;
+                        border-width: 1px;
+                        border-color: #262934;
+
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 8px;
+                            Text {
+                                text: "Nothing to show here";
+                                color: Theme.text-primary;
+                                font-family: Theme.font-family;
+                                font-size: 13px;
+                                font-weight: 700;
+                                horizontal-alignment: center;
+                            }
+                            Text {
+                                text: "No wallpapers discovered. Add wallpapers into wallpapers/ or upload a custom image.";
+                                color: Theme.text-secondary;
+                                font-family: Theme.font-family;
+                                font-size: 11px;
+                                horizontal-alignment: center;
+                            }
+                        }
+                    }
+
+                    if root.wallpapers.length > 0: Flickable {
+                        interactive: true;
+                        vertical-stretch: 1;
+                        content-height: (ceil(root.wallpapers.length / 3)) * 192px;
+
+                        GridLayout {
+                            spacing: 12px;
+                            for wp[idx] in root.wallpapers: WallpaperCard {
+                                data: wp;
+                                animations-enabled: root.animations-enabled;
+                                row: idx / 3;
+                                col: mod(idx, 3);
+                                equip => { root.equip-wallpaper(wp.path); }
+                                delete => { root.delete-wallpaper(wp.path); }
+                                download => { root.download-wallpaper(wp.id); }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    }
+
+    // =================================================================
+    // STEAL SKIN MODAL OVERLAY
+    // =================================================================
+    if root.steal-modal-open: Rectangle {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: parent.height;
+        background: #000000.with-alpha(0.80);
+
+        TouchArea {} // Backdrop touch blocker
+
+        Rectangle {
+            width: 460px;
+            height: 420px;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            background: Theme.card-bg;
+            border-width: 1px;
+            border-color: Theme.border;
+
+            VerticalLayout {
+                padding: 20px;
+                spacing: 14px;
+
+                // Header
+                HorizontalLayout {
+                    alignment: space-between;
+                    height: 24px;
+
+                    Text {
+                        text: "STEAL MINECRAFT SKIN";
+                        color: #FFFFFF;
+                        font-family: Theme.font-family;
+                        font-size: 13px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+
+                    Rectangle {
+                        width: 24px;
+                        height: 24px;
+                        background: steal_close_touch.has-hover ? #2A2D35 : transparent;
+                        border-width: 1px;
+                        border-color: steal_close_touch.has-hover ? #404450 : transparent;
+
+                        Text {
+                            text: "X";
+                            font-family: Theme.font-family;
+                            font-size: 11px;
+                            font-weight: 700;
+                            color: Theme.text-secondary;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        steal_close_touch := TouchArea {
+                            clicked => { root.steal-close-modal(); }
+                        }
+                    }
+                }
+
+                // Input & Fetch Row
+                HorizontalLayout {
+                    height: 32px;
+                    spacing: 8px;
+
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        background: #101216;
+                        border-width: 1px;
+                        border-color: steal_input.has-focus ? Theme.accent : #282C38;
+
+                        HorizontalLayout {
+                            padding-left: 10px;
+                            padding-right: 10px;
+
+                            steal_input := TextInput {
+                                text <=> root.steal-username-input;
+                                color: #FFFFFF;
+                                font-family: Theme.font-family;
+                                font-size: 11px;
+                                vertical-alignment: center;
+                                single-line: true;
+                                accepted => {
+                                    if self.text != "" {
+                                        root.steal-preview-fetch(self.text);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    PixelButton {
+                        text: root.steal-is-loading ? "Fetching..." : "Fetch Preview";
+                        primary: true;
+                        custom-font-size: 10px;
+                        custom-height: 32px;
+                        enabled: !root.steal-is-loading && root.steal-username-input != "";
+                        clicked => {
+                            root.steal-preview-fetch(root.steal-username-input);
+                        }
+                    }
+                }
+
+                // 3D Preview Stage Card
+                Rectangle {
+                    vertical-stretch: 1;
+                    background: #101216;
+                    border-width: 1px;
+                    border-color: #242936;
+                    clip: true;
+
+                    // Empty / Default Prompt State
+                    if !root.steal-has-preview && !root.steal-is-loading: VerticalLayout {
+                        alignment: center;
+                        spacing: 8px;
+
+                        if root.steal-status-message != "": Text {
+                            text: root.steal-status-message;
+                            color: #E74C3C;
+                            font-family: Theme.font-family;
+                            font-size: 11px;
+                            font-weight: 700;
+                            horizontal-alignment: center;
+                        }
+
+                        if root.steal-status-message == "": Text {
+                            text: "Enter a Minecraft username and click Fetch Preview";
+                            color: Theme.text-secondary;
+                            font-family: Theme.font-family;
+                            font-size: 11px;
+                            horizontal-alignment: center;
+                        }
+
+                        Text {
+                            text: "Skins are acquired from official Mojang servers with Minotar fallback";
+                            color: Theme.text-muted;
+                            font-family: Theme.font-family;
+                            font-size: 9px;
+                            horizontal-alignment: center;
+                        }
+                    }
+
+                    // Loading State
+                    if root.steal-is-loading: LoadingSpinner {
+                        frame: root.loading-spinner-frame;
+                        message: "Resolving player textures from Mojang...";
+                        sub-message: "Generating 3D character preview";
+                        spinner-size: 64px;
+                    }
+
+                    // Preview State
+                    if root.steal-has-preview && !root.steal-is-loading: VerticalLayout {
+                        padding: 10px;
+                        spacing: 8px;
+
+                        Image {
+                            vertical-stretch: 1;
+                            source: root.steal-preview-image;
+                            image-fit: contain;
+                            image-rendering: pixelated;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        // Player Info & Model Meta Tag
+                        HorizontalLayout {
+                            height: 22px;
+                            alignment: space-between;
+
+                            HorizontalLayout {
+                                spacing: 6px;
+                                Text {
+                                    text: "Account: " + root.steal-preview-username;
+                                    color: #FFFFFF;
+                                    font-family: Theme.font-family;
+                                    font-size: 10px;
+                                    font-weight: 700;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            Rectangle {
+                                background: #1C202A;
+                                border-width: 1px;
+                                border-color: #2F3646;
+                                HorizontalLayout {
+                                    padding-left: 6px;
+                                    padding-right: 6px;
+                                    Text {
+                                        text: root.steal-preview-model == "slim" ? "Slim (3px)" : "Classic (4px)";
+                                        color: #00A8FF;
+                                        font-family: Theme.font-family;
+                                        font-size: 9px;
+                                        font-weight: 700;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Modal Footer Buttons
+                HorizontalLayout {
+                    height: 30px;
+                    spacing: 10px;
+                    alignment: end;
+
+                    PixelButton {
+                        text: "Cancel";
+                        custom-font-size: 10px;
+                        custom-height: 30px;
+                        clicked => { root.steal-close-modal(); }
+                    }
+
+                    PixelButton {
+                        text: "Save & Equip";
+                        primary: true;
+                        custom-font-size: 10px;
+                        custom-height: 30px;
+                        enabled: root.steal-has-preview && !root.steal-is-loading;
+                        clicked => { root.steal-confirm-download(); }
+                    }
+                }
+            }
+        }
+    }
+}

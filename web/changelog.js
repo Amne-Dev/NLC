@@ -1,6 +1,6 @@
 (function(){
   const owner = 'Amne-Dev';
-  const repo = 'New-launcher';
+  const repo = 'NLC';
   const api = `https://api.github.com/repos/${owner}/${repo}/releases`;
 
   const listEl = document.getElementById('list');

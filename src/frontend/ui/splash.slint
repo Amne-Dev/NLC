@@ -1,0 +1,219 @@
+import { Theme } from "theme.slint";
+
+export component StartupSplash inherits Rectangle {
+    in-out property <bool> is-active: true;
+    in-out property <bool> ready-to-dismiss: false;
+    in-out property <float> progress: 0.0;
+    in-out property <string> status-text: "Starting Ny-Luna...";
+    in-out property <bool> animations-enabled: true;
+    in-out property <image> launcher-logo: @image-url("../../../logo.png");
+    in-out property <image> loading-spinner-frame;
+
+    // Full-Window Intro Animation State
+    property <float> overlay-opacity: 1.0;
+    property <float> intro-logo-scale: 0.88;
+    property <float> intro-logo-opacity: 0.0;
+    property <float> intro-glow-opacity: 0.0;
+    property <length> intro-word-width: 0px;
+    property <float> intro-word-opacity: 0.0;
+
+    // State Machine Properties
+    // cycle-phase: 0 = Bloom/Expand, 1 = Hold/Peak, 2 = Recollapsing, 3 = Fadeout, 4 = Inactive
+    property <int> cycle-phase: 0;
+    property <int> cycle-ticks: 0;
+
+    animate overlay-opacity { duration: root.animations-enabled ? 500ms : 0ms; easing: ease-out; }
+    animate intro-logo-scale { duration: root.animations-enabled ? 700ms : 0ms; easing: cubic-bezier(0.2, 0.8, 0.2, 1.0); }
+    animate intro-logo-opacity { duration: root.animations-enabled ? 600ms : 0ms; easing: ease-out; }
+    animate intro-glow-opacity { duration: root.animations-enabled ? 800ms : 0ms; easing: ease-out; }
+    animate intro-word-width { duration: root.animations-enabled ? 800ms : 0ms; easing: cubic-bezier(0.2, 0.8, 0.2, 1.0); }
+    animate intro-word-opacity { duration: root.animations-enabled ? 550ms : 0ms; easing: ease-out; }
+
+    Timer {
+        interval: 40ms;
+        running: root.is-active;
+        triggered => {
+            root.cycle-ticks = root.cycle-ticks + 1;
+
+            // -------------------------------------------------------------
+            // PHASE 0: BLOOM & EXPAND (Forward Animation)
+            // -------------------------------------------------------------
+            if root.cycle-phase == 0 {
+                if root.cycle-ticks == 2 {
+                    root.intro-logo-scale = 1.0;
+                    root.intro-logo-opacity = 1.0;
+                    root.intro-glow-opacity = 1.0;
+                }
+                if root.cycle-ticks == 5 {
+                    root.intro-word-width = 245px;
+                    root.intro-word-opacity = 1.0;
+                }
+                // Once forward expansion completes (~1.2s / 28 ticks)
+                if root.cycle-ticks >= 28 {
+                    root.cycle-phase = 1; // Transition to Hold/Peak
+                }
+            }
+            // -------------------------------------------------------------
+            // PHASE 1: HOLD & EVALUATE DISMISSAL
+            // -------------------------------------------------------------
+            else if root.cycle-phase == 1 {
+                // Hold at full reveal for ~800ms (until tick 48)
+                if root.cycle-ticks >= 48 {
+                    if root.ready-to-dismiss {
+                        // Launcher is ready: trigger fadeout into content
+                        root.cycle-phase = 3;
+                        root.overlay-opacity = 0.0;
+                        root.cycle-ticks = 0; // Reset ticks to count fadeout
+                    } else {
+                        // Launcher still loading: recollapse into start position to loop
+                        root.cycle-phase = 2;
+                        root.intro-word-width = 0px;
+                        root.intro-word-opacity = 0.0;
+                        root.intro-logo-scale = 0.88;
+                        root.intro-glow-opacity = 0.25;
+                    }
+                }
+            }
+            // -------------------------------------------------------------
+            // PHASE 2: RECOLLAPSING (Inward Slide back to start)
+            // -------------------------------------------------------------
+            else if root.cycle-phase == 2 {
+                // Collapsing takes ~750ms (until tick 68)
+                if root.cycle-ticks >= 68 {
+                    // Ready to replay cycle!
+                    // If backend became ready during recollapse, we play the last
+                    // animation cycle to completion before fading out.
+                    root.cycle-ticks = 0;
+                    root.cycle-phase = 0;
+                }
+            }
+            // -------------------------------------------------------------
+            // PHASE 3: FADEOUT OVERLAY INTO LAUNCHER CONTENT
+            // -------------------------------------------------------------
+            else if root.cycle-phase == 3 {
+                // After 500ms fadeout (~13 ticks)
+                if root.cycle-ticks >= 13 {
+                    root.cycle-phase = 4;
+                    root.is-active = false;
+                }
+            }
+        }
+    }
+
+    width: 100%;
+    height: 100%;
+    background: #07060B;
+    opacity: root.overlay-opacity;
+    visible: root.is-active || root.opacity > 0.01;
+
+    // Absorb clicks while splash is active (click anywhere to fast-forward dismiss if ready)
+    TouchArea {
+        width: 100%;
+        height: 100%;
+        clicked => {
+            if root.ready-to-dismiss && root.cycle-phase != 3 && root.cycle-phase != 4 {
+                root.cycle-phase = 3;
+                root.overlay-opacity = 0.0;
+                root.cycle-ticks = 0;
+            }
+        }
+    }
+
+    // =========================================================================
+    // CENTER LOCKUP: ATMOSPHERIC GLOW + LOGO + WORDMARK
+    // =========================================================================
+    Rectangle {
+        width: 100%;
+        height: 100%;
+
+        // Radial Pink Glow
+        Image {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: 660px;
+            height: 520px;
+            source: @image-url("../../../assets/branding/pink_radial_glow.png");
+            opacity: root.intro-glow-opacity;
+        }
+
+        // Center Horizontal Lockup: Logo + Expanding Wordmark
+        HorizontalLayout {
+            alignment: center;
+            y: (parent.height - self.height) / 2;
+            spacing: 0px;
+
+            // Logo Image (scale & fade)
+            Rectangle {
+                width: 136px;
+                height: 136px;
+                y: (parent.height - self.height) / 2;
+
+                Image {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    width: 136px * root.intro-logo-scale;
+                    height: 136px * root.intro-logo-scale;
+                    source: root.launcher-logo;
+                    opacity: root.intro-logo-opacity;
+                }
+            }
+
+            // Wordmark Slide Clip
+            Rectangle {
+                clip: true;
+                width: root.intro-word-width;
+                height: 64px;
+                y: (parent.height - self.height) / 2;
+
+                HorizontalLayout {
+                    padding-left: 24px;
+                    Image {
+                        width: 232px;
+                        height: 60px;
+                        source: @image-url("../../../assets/branding/nyluna_wordmark.png");
+                        opacity: root.intro-word-opacity;
+                    }
+                }
+            }
+        }
+    }
+
+    // =========================================================================
+    // BOTTOM-CENTER: STATUS TEXT (Clean, centered above bottom edge)
+    // =========================================================================
+    HorizontalLayout {
+        x: 0px;
+        y: parent.height - 52px;
+        width: parent.width;
+        height: 24px;
+        alignment: center;
+
+        if root.status-text != "": Text {
+            text: root.status-text;
+            color: #7A859E;
+            font-family: Theme.font-family-mono;
+            font-size: 11px;
+            font-weight: 600;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+
+    // =========================================================================
+    // BOTTOM-RIGHT CORNER: SCALED DOWN COPPER GOLEM
+    // =========================================================================
+    Rectangle {
+        x: parent.width - 60px;
+        y: parent.height - 60px;
+        width: 36px;
+        height: 36px;
+
+        Image {
+            width: 100%;
+            height: 100%;
+            source: root.loading-spinner-frame;
+            image-fit: contain;
+            image-rendering: pixelated;
+        }
+    }
+}

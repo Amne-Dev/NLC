@@ -1,0 +1,2099 @@
+import { Theme } from "../theme.slint";
+import { PixelCloseIcon } from "../components.slint";
+import { PixelButton, ActiveToggle, SearchInput, ExpandableCardIconButton } from "../components.slint";
+import { ModpackTutorialModal } from "modpack_tutorial.slint";
+
+export struct ModpackData {
+    id: string,
+    name: string,
+    loader: string,
+    version: string,
+    pack-release: string,
+    has-release: bool,
+    linked-inst-id: string,
+    linked-inst-name: string,
+    is-linked: bool,
+    mod-count: int,
+    thumbnail: string,
+    icon-letter: string,
+    has-icon: bool,
+    icon: image,
+}
+
+export struct ModCardData {
+    id: string,
+    name: string,
+    filename: string,
+    size: string,
+    version: string,
+    active: bool,
+    has-icon: bool,
+    icon: image,
+}
+
+export struct ModpackModData {
+    id: string,
+    name: string,
+    filename: string,
+    size-text: string,
+    is-active: bool,
+}
+
+export struct InstallationChoice {
+    id: string,
+    name: string,
+    version: string,
+    loader: string,
+    is-compatible: bool,
+}
+
+// -------------------------------------------------------------
+// Component: PixelCombobox (Sharp 0px Dropdown Combobox)
+// -------------------------------------------------------------
+component PixelCombobox {
+    in-out property <string> selected-value: "";
+    in-out property <[string]> options: [];
+    in-out property <length> custom-height: 32px;
+    callback selected(string);
+
+    height: root.custom-height;
+    horizontal-stretch: 1;
+
+    box := Rectangle {
+        background: Theme.input-bg;
+        border-width: 1px;
+        border-color: (popup.is-open || touch.has-hover) ? Theme.border-focus : Theme.border;
+
+        HorizontalLayout {
+            padding-left: 10px;
+            padding-right: 10px;
+            alignment: space-between;
+
+            Text {
+                text: root.selected-value;
+                color: #FFFFFF;
+                font-family: Theme.font-family;
+                font-size: 10px;
+                vertical-alignment: center;
+            }
+
+            Text {
+                text: "▼";
+                font-family: Theme.icon-font-family;
+                font-size: 8px;
+                color: Theme.text-secondary;
+                vertical-alignment: center;
+            }
+        }
+
+        touch := TouchArea {
+            clicked => {
+                if (popup.is-open) {
+                    popup.close();
+                } else {
+                    popup.show();
+                }
+            }
+        }
+
+        popup := PopupWindow {
+            x: 0px;
+            y: root.custom-height + 2px;
+            width: box.width;
+            height: root.options.length > 6 ? 180px : (root.options.length * 27px + 6px);
+
+            Rectangle {
+                background: #191B20;
+                border-width: 1px;
+                border-color: #2D3038;
+
+                Flickable {
+                    interactive: true;
+                    width: parent.width;
+                    height: parent.height;
+                    content-height: (root.options.length * 27px) + 6px;
+
+                    VerticalLayout {
+                        padding: 2px;
+                        spacing: 1px;
+
+                        for opt[idx] in root.options: Rectangle {
+                            height: 26px;
+                            background: opt_touch.has-hover ? #252933 :
+                                        (root.selected-value == opt ? #20242D : transparent);
+                            border-width: 1px;
+                            border-color: root.selected-value == opt ? Theme.accent : transparent;
+
+                            HorizontalLayout {
+                                padding-left: 10px;
+                                padding-right: 10px;
+                                alignment: start;
+
+                                Text {
+                                    text: opt;
+                                    color: root.selected-value == opt ? #FFFFFF : #C0C5D0;
+                                    font-family: Theme.font-family;
+                                    font-size: 10px;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            opt_touch := TouchArea {
+                                clicked => {
+                                    root.selected-value = opt;
+                                    root.selected(opt);
+                                    popup.close();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// -------------------------------------------------------------
+// Component: ModpackCard (154px Sharp 0px 3-Column Grid Card)
+// -------------------------------------------------------------
+component ModpackCard {
+    in-out property <ModpackData> pack;
+    in-out property <bool> animations-enabled: true;
+    callback play-clicked();
+    callback link-clicked();
+    callback show-mods-clicked();
+    callback add-clicked();
+    callback menu-mods-clicked();
+    callback menu-link-clicked();
+    callback menu-folder-clicked();
+    callback menu-mrpack-clicked();
+    callback menu-zip-clicked();
+    callback menu-delete-clicked();
+
+    height: 154px;
+    horizontal-stretch: 1;
+
+    card_bg := Rectangle {
+        background: card_touch.has-hover ? #181B22 : Theme.card-bg;
+        border-width: 1px;
+        border-color: card_touch.has-hover ? #383E4E : Theme.border;
+
+        // Click on card body opens details/mods
+        card_touch := TouchArea {
+            clicked => { root.show-mods-clicked(); }
+        }
+
+        // Content Area
+        VerticalLayout {
+            padding-left: 14px;
+            padding-right: 14px;
+            padding-top: 14px;
+            padding-bottom: 12px;
+            spacing: 10px;
+            alignment: space-between;
+
+            // Top Section: Icon + Details + Action Tray
+            HorizontalLayout {
+                spacing: 12px;
+                alignment: space-between;
+
+                // Left: 44x44 Modpack Artwork Icon Frame + Name/Version
+                HorizontalLayout {
+                    spacing: 12px;
+                    alignment: start;
+                    horizontal-stretch: 1;
+
+                    // 44x44 Icon Frame
+                    Rectangle {
+                        width: 44px;
+                        height: 44px;
+                        background: #0E1014;
+                        border-width: 1px;
+                        border-color: #2D313A;
+
+                        if root.pack.has-icon: Image {
+                            source: root.pack.icon;
+                            width: 36px;
+                            height: 36px;
+                            image-fit: contain;
+                            image-rendering: pixelated;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        if !root.pack.has-icon: Text {
+                            text: root.pack.icon-letter != "" ? root.pack.icon-letter : "M";
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 18px;
+                            font-weight: 700;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    // Titles & Loader Pill
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 4px;
+                        horizontal-stretch: 1;
+
+                        Text {
+                            text: root.pack.name;
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 13px;
+                            font-weight: 700;
+                            overflow: elide;
+                            vertical-alignment: center;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 6px;
+                            alignment: start;
+
+                            // Loader Badge Pill
+                            Rectangle {
+                                height: 16px;
+                                background: #1B202B;
+                                border-width: 1px;
+                                border-color: #2D364A;
+
+                                HorizontalLayout {
+                                    padding-left: 5px;
+                                    padding-right: 5px;
+                                    alignment: center;
+                                    Text {
+                                        text: root.pack.loader != "" ? root.pack.loader : "Fabric";
+                                        color: #79A7DF;
+                                        font-family: Theme.font-family;
+                                        font-size: 8px;
+                                        font-weight: 700;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+
+                            Text {
+                                text: root.pack.version;
+                                color: Theme.text-secondary;
+                                font-family: Theme.font-family;
+                                font-size: 10px;
+                                vertical-alignment: center;
+                            }
+
+                            // Compact Linked Status Badge
+                            Rectangle {
+                                height: 16px;
+                                background: root.pack.is-linked ? #11281E : #191B22;
+                                border-width: 1px;
+                                border-color: root.pack.is-linked ? Theme.success : #2D313E;
+
+                                HorizontalLayout {
+                                    padding-left: 5px;
+                                    padding-right: 5px;
+                                    alignment: center;
+                                    Text {
+                                        text: root.pack.is-linked ? "LINKED" : "UNLINKED";
+                                        color: root.pack.is-linked ? Theme.success : Theme.text-secondary;
+                                        font-family: Theme.font-family;
+                                        font-size: 8px;
+                                        font-weight: 700;
+                                        vertical-alignment: center;
+                                    }
+                                }
+
+                                linked_touch := TouchArea { }
+                            }
+                        }
+                    }
+                }
+
+                // Right Action Tray: Expandable Icon Buttons (Play, Link, Mods, Folder, More Menu)
+                HorizontalLayout {
+                    spacing: 4px;
+                    alignment: end;
+
+                    // 0. Play Button
+                    ExpandableCardIconButton {
+                        icon: @image-url("../../../../icons/icon_play_16.png");
+                        text: "Play";
+                        base-bg: #11281E;
+                        hover-bg: #1B3D2E;
+                        pressed-bg: #0C1E16;
+                        base-border: #1E4D38;
+                        hover-border: #2ECC71;
+                        expanded-width: 66px;
+                        animations-enabled: root.animations-enabled;
+                        clicked => { root.play-clicked(); }
+                    }
+
+                    // 1. Link Button
+                    ExpandableCardIconButton {
+                        icon: @image-url("../../../../icons/icon_link_16.png");
+                        text: "Link";
+                        expanded-width: 66px;
+                        animations-enabled: root.animations-enabled;
+                        clicked => { root.link-clicked(); }
+                    }
+
+                    // 2. Mods (Puzzle) Cyan Button
+                    ExpandableCardIconButton {
+                        icon: @image-url("../../../../icons/icon_puzzle_16.png");
+                        text: "Mods";
+                        base-bg: #142230;
+                        hover-bg: #1B2E40;
+                        pressed-bg: #101E2B;
+                        base-border: #22384C;
+                        hover-border: #00A8FF;
+                        expanded-width: 70px;
+                        animations-enabled: root.animations-enabled;
+                        clicked => { root.show-mods-clicked(); }
+                    }
+
+                    // 3. Folder Button
+                    ExpandableCardIconButton {
+                        icon: @image-url("../../../../icons/icon_folder_16.png");
+                        text: "Folder";
+                        expanded-width: 76px;
+                        animations-enabled: root.animations-enabled;
+                        clicked => { root.menu-folder-clicked(); }
+                    }
+
+                    // 4. More Menu (⋮)
+                    Rectangle {
+                        width: 28px;
+                        height: 28px;
+                        background: (pack_popup.is-open || mod_menu_touch.pressed) ? #1A1C20 : (mod_menu_touch.has-hover ? #2A2D35 : Theme.button-dark);
+                        border-width: 1px;
+                        border-color: (pack_popup.is-open || mod_menu_touch.has-hover) ? #404450 : Theme.border;
+
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 2px;
+                            x: (parent.width - 2px) / 2;
+                            Rectangle { width: 2px; height: 2px; background: mod_menu_touch.has-hover ? #FFFFFF : #A0A5B5; }
+                            Rectangle { width: 2px; height: 2px; background: mod_menu_touch.has-hover ? #FFFFFF : #A0A5B5; }
+                            Rectangle { width: 2px; height: 2px; background: mod_menu_touch.has-hover ? #FFFFFF : #A0A5B5; }
+                        }
+
+                        mod_menu_touch := TouchArea {
+                            clicked => {
+                                if (pack_popup.is-open) {
+                                    pack_popup.close();
+                                } else {
+                                    pack_popup.show();
+                                }
+                            }
+                        }
+
+                        pack_popup := PopupWindow {
+                            x: -150px;
+                            y: 30px;
+                            width: 180px;
+                            height: 106px;
+
+                            Rectangle {
+                                background: #191B20;
+                                border-width: 1px;
+                                border-color: #2D3038;
+
+                                VerticalLayout {
+                                    padding: 3px;
+                                    spacing: 1px;
+
+                                    Rectangle {
+                                        height: 26px;
+                                        background: m_exp1_touch.has-hover ? #252933 : transparent;
+                                        HorizontalLayout {
+                                            padding-left: 8px;
+                                            padding-right: 8px;
+                                            spacing: 8px;
+                                            alignment: start;
+                                            Image {
+                                                source: @image-url("../../../../icons/icon_download_16.png");
+                                                width: 12px;
+                                                height: 12px;
+                                                vertical-alignment: center;
+                                            }
+                                            Text {
+                                                text: "Export as .mrpack";
+                                                color: #FFFFFF;
+                                                font-family: Theme.font-family;
+                                                font-size: 10px;
+                                                vertical-alignment: center;
+                                            }
+                                        }
+                                        m_exp1_touch := TouchArea {
+                                            clicked => {
+                                                pack_popup.close();
+                                                root.menu-mrpack-clicked();
+                                            }
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        height: 26px;
+                                        background: m_exp2_touch.has-hover ? #252933 : transparent;
+                                        HorizontalLayout {
+                                            padding-left: 8px;
+                                            padding-right: 8px;
+                                            spacing: 8px;
+                                            alignment: start;
+                                            Image {
+                                                source: @image-url("../../../../icons/icon_download_16.png");
+                                                width: 12px;
+                                                height: 12px;
+                                                vertical-alignment: center;
+                                            }
+                                            Text {
+                                                text: "Export as .zip";
+                                                color: #FFFFFF;
+                                                font-family: Theme.font-family;
+                                                font-size: 10px;
+                                                vertical-alignment: center;
+                                            }
+                                        }
+                                        m_exp2_touch := TouchArea {
+                                            clicked => {
+                                                pack_popup.close();
+                                                root.menu-zip-clicked();
+                                            }
+                                        }
+                                    }
+
+                                    Rectangle { height: 1px; background: #282D37; }
+
+                                    Rectangle {
+                                        height: 26px;
+                                        background: m_del_touch.has-hover ? #381A1A : transparent;
+                                        HorizontalLayout {
+                                            padding-left: 8px;
+                                            padding-right: 8px;
+                                            spacing: 8px;
+                                            alignment: start;
+                                            Text {
+                                                text: "✕";
+                                                color: m_del_touch.has-hover ? #FF6B6B : #EF4444;
+                                                font-family: Theme.font-family;
+                                                font-size: 11px;
+                                                font-weight: 700;
+                                                vertical-alignment: center;
+                                            }
+                                            Text {
+                                                text: "Delete Modpack";
+                                                color: m_del_touch.has-hover ? #FF6B6B : #EF4444;
+                                                font-family: Theme.font-family;
+                                                font-size: 10px;
+                                                font-weight: 700;
+                                                vertical-alignment: center;
+                                            }
+                                        }
+                                        m_del_touch := TouchArea {
+                                            clicked => {
+                                                pack_popup.close();
+                                                root.menu-delete-clicked();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Bottom Metadata Row: Mod Count Pill & Release
+            HorizontalLayout {
+                alignment: space-between;
+
+                Rectangle {
+                    height: 18px;
+                    background: #181B22;
+                    border-width: 1px;
+                    border-color: #282D38;
+                    HorizontalLayout {
+                        padding-left: 6px;
+                        padding-right: 6px;
+                        alignment: center;
+                        Text {
+                            text: root.pack.mod-count > 0 ? (root.pack.mod-count + " mods") : "0 mods";
+                            color: Theme.text-secondary;
+                            font-family: Theme.font-family;
+                            font-size: 9px;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                if root.pack.pack-release != "": Text {
+                    text: "v" + root.pack.pack-release;
+                    color: Theme.text-secondary;
+                    font-family: Theme.font-family;
+                    font-size: 9px;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        // Floating Tooltip for Linked Status
+        if linked_touch.has-hover && root.pack.is-linked: Rectangle {
+            x: 60px;
+            y: 56px;
+            width: 170px;
+            height: 24px;
+            background: #10131A;
+            border-width: 1px;
+            border-color: #2D3445;
+
+            HorizontalLayout {
+                padding-left: 8px;
+                padding-right: 8px;
+                alignment: center;
+                Text {
+                    text: root.pack.linked-inst-name != "" ? "Linked to: " + root.pack.linked-inst-name : "Linked to installation";
+                    color: #FFFFFF;
+                    font-family: Theme.font-family;
+                    font-size: 9px;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+            }
+        }
+    }
+}
+
+// -------------------------------------------------------------
+// Component: ModCard (Modern Responsive Grid Card)
+// -------------------------------------------------------------
+component ModCard {
+    in-out property <ModCardData> data;
+    in-out property <bool> animations-enabled: true;
+    callback toggled(bool);
+    callback remove();
+
+    height: 132px;
+    horizontal-stretch: 1;
+
+    card_rect := Rectangle {
+        background: Theme.card-bg;
+        border-width: 1px;
+        border-color: card_touch.has-hover ? #40485C : (root.data.active ? #2E3846 : Theme.border);
+
+        card_touch := TouchArea { }
+
+        VerticalLayout {
+            padding: 12px;
+            alignment: space-between;
+
+            // Top Row: 36x36 Icon + Title & Version/Size Metadata
+            HorizontalLayout {
+                spacing: 10px;
+                alignment: start;
+
+                // Mod Icon Frame
+                Rectangle {
+                    width: 36px;
+                    height: 36px;
+                    y: (parent.height - self.height) / 2;
+                    background: #15171C;
+                    border-width: 1px;
+                    border-color: #2D313A;
+
+                    if root.data.has-icon: Image {
+                        source: root.data.icon;
+                        width: 32px;
+                        height: 32px;
+                        image-fit: contain;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    if !root.data.has-icon: Image {
+                        source: @image-url("../../../../icons/2x/comparator_on.png");
+                        width: 24px;
+                        height: 24px;
+                        image-fit: contain;
+                        image-rendering: pixelated;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                VerticalLayout {
+                    spacing: 3px;
+                    horizontal-stretch: 1;
+                    alignment: center;
+
+                    Text {
+                        text: root.data.name;
+                        color: #FFFFFF;
+                        font-family: Theme.font-family;
+                        font-size: 11px;
+                        font-weight: 700;
+                        overflow: elide;
+                        vertical-alignment: center;
+                    }
+
+                    Text {
+                        text: root.data.version != "" ? (root.data.version + "  •  " + root.data.size) : ("Size: " + root.data.size);
+                        color: Theme.text-secondary;
+                        font-family: Theme.font-family;
+                        font-size: 9px;
+                        overflow: elide;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            // Bottom Actions: Status Pill + ActiveToggle + Trash Button
+            HorizontalLayout {
+                alignment: space-between;
+
+                // Status Pill
+                Rectangle {
+                    width: 58px;
+                    height: 22px;
+                    y: (parent.height - self.height) / 2;
+                    background: root.data.active ? #10261A : #1F2228;
+                    border-width: 1px;
+                    border-color: root.data.active ? #2ECC71 : #383D48;
+
+                    Text {
+                        text: root.data.active ? "ACTIVE" : "OFF";
+                        color: root.data.active ? #2ECC71 : #8E94A2;
+                        font-family: Theme.font-family;
+                        font-size: 9px;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: end;
+
+                    ActiveToggle {
+                        y: (parent.height - self.height) / 2;
+                        active: root.data.active;
+                        animations-enabled: root.animations-enabled;
+                        toggled(act) => { root.toggled(act); }
+                    }
+
+                    // Delete Trash Icon Button
+                    Rectangle {
+                        width: 24px;
+                        height: 24px;
+                        y: (parent.height - self.height) / 2;
+                        background: del_touch.pressed ? #2A1010 : (del_touch.has-hover ? #381616 : #1A1D24);
+                        border-width: 1px;
+                        border-color: del_touch.has-hover ? #E74C3C : #2D313A;
+
+                        Image {
+                            source: @image-url("../../../../icons/icon_trash_16.png");
+                            width: 12px;
+                            height: 12px;
+                            image-fit: contain;
+                            image-rendering: pixelated;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        del_touch := TouchArea {
+                            clicked => { root.remove(); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// -------------------------------------------------------------
+// Component: ModListRow (High-Density List Row)
+// -------------------------------------------------------------
+component ModListRow {
+    in-out property <ModCardData> data;
+    in-out property <bool> animations-enabled: true;
+    callback toggled(bool);
+    callback remove();
+
+    height: 48px;
+    horizontal-stretch: 1;
+
+    Rectangle {
+        background: Theme.card-bg;
+        border-width: 1px;
+        border-color: row_touch.has-hover ? #40485C : (root.data.active ? #2E3846 : Theme.border);
+
+        row_touch := TouchArea { }
+
+        HorizontalLayout {
+            padding-left: 12px;
+            padding-right: 12px;
+            alignment: space-between;
+
+            // Left: Icon + Name + Filename / Size
+            HorizontalLayout {
+                spacing: 12px;
+                alignment: start;
+
+                Rectangle {
+                    width: 28px;
+                    height: 28px;
+                    y: (parent.height - self.height) / 2;
+                    background: #15171C;
+                    border-width: 1px;
+                    border-color: #2D313A;
+
+                    if root.data.has-icon: Image {
+                        source: root.data.icon;
+                        width: 24px;
+                        height: 24px;
+                        image-fit: contain;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    if !root.data.has-icon: Image {
+                        source: @image-url("../../../../icons/2x/comparator_on.png");
+                        width: 18px;
+                        height: 18px;
+                        image-fit: contain;
+                        image-rendering: pixelated;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 2px;
+
+                    Text {
+                        text: root.data.name;
+                        color: #FFFFFF;
+                        font-family: Theme.font-family;
+                        font-size: 11px;
+                        font-weight: 700;
+                        overflow: elide;
+                        vertical-alignment: center;
+                    }
+
+                    Text {
+                        text: root.data.version != "" ? (root.data.version + "  •  " + root.data.filename + "  •  " + root.data.size) :
+                              (root.data.filename != "" ? (root.data.filename + "  •  " + root.data.size) : ("Size: " + root.data.size));
+                        color: Theme.text-secondary;
+                        font-family: Theme.font-family;
+                        font-size: 9px;
+                        overflow: elide;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            // Right: Status Badge + Toggle + Remove Trash Button
+            HorizontalLayout {
+                spacing: 10px;
+                alignment: end;
+
+                Rectangle {
+                    width: 58px;
+                    height: 22px;
+                    y: (parent.height - self.height) / 2;
+                    background: root.data.active ? #10261A : #1F2228;
+                    border-width: 1px;
+                    border-color: root.data.active ? #2ECC71 : #383D48;
+
+                    Text {
+                        text: root.data.active ? "ACTIVE" : "OFF";
+                        color: root.data.active ? #2ECC71 : #8E94A2;
+                        font-family: Theme.font-family;
+                        font-size: 9px;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                ActiveToggle {
+                    y: (parent.height - self.height) / 2;
+                    active: root.data.active;
+                    animations-enabled: root.animations-enabled;
+                    toggled(act) => { root.toggled(act); }
+                }
+
+                Rectangle {
+                    width: 24px;
+                    height: 24px;
+                    y: (parent.height - self.height) / 2;
+                    background: row_del_touch.pressed ? #2A1010 : (row_del_touch.has-hover ? #381616 : #1A1D24);
+                    border-width: 1px;
+                    border-color: row_del_touch.has-hover ? #E74C3C : #2D313A;
+
+                    Image {
+                        source: @image-url("../../../../icons/icon_trash_16.png");
+                        width: 12px;
+                        height: 12px;
+                        image-fit: contain;
+                        image-rendering: pixelated;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    row_del_touch := TouchArea {
+                        clicked => { root.remove(); }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// =============================================================
+// MAIN COMPONENT: ModpacksScreen
+// =============================================================
+export component ModpacksScreen {
+    // Navigation / View state
+    in-out property <string> view-mode: "overview"; // "overview" | "create" | "mods"
+    in-out property <string> active-modpack-id: "fabulously-optimized";
+    in-out property <string> modpack-title: "Fabulously Optimized";
+    in-out property <string> mods-layout: "grid"; // "grid" | "list"
+    in-out property <bool> animations-enabled: true;
+    property <int> grid-cols: max(1, min(3, floor((root.width - 48px) / 300px)));
+    property <int> mod-grid-cols: max(1, min(4, floor((root.width - 48px) / 250px)));
+    in-out property <string> mod-filter-status: "all"; // "all" | "active" | "disabled"
+    in-out property <string> modpack-loader: "Fabric";
+    in-out property <string> modpack-version: "26.3";
+
+    // Collections
+    in-out property <[ModpackData]> modpacks: [];
+    in-out property <[ModCardData]> mods: [];
+    in-out property <[InstallationChoice]> installations: [];
+
+    // Search and Filter
+    in-out property <string> mod-search-query: "";
+    in-out property <string> overview-search-query: "";
+    in-out property <string> overview-filter-loader: "All";
+    callback filter-status-changed(string);
+    callback launch-modpack(string);
+
+    // Link Modpack Modal State
+    in-out property <bool> link-modal-open: false;
+    in-out property <string> link-target-id: "fabulously-optimized";
+    in-out property <string> link-target-name: "Fabulously Optimized";
+    in-out property <string> link-target-version: "26.3";
+    in-out property <string> link-target-loader: "Fabric";
+    in-out property <string> selected-link-inst-id: "fabulously-optimized";
+
+    // New Modpack Create View Inputs
+    in-out property <string> create-name: "";
+    in-out property <string> create-loader: "fabric";
+    in-out property <string> create-version: "26.3";
+    in-out property <[string]> available-loaders: ["fabric", "forge", "neoforge", "quilt"];
+    in-out property <[string]> available-versions: ["26.3", "26.2", "26.1", "1.21.4", "1.21.1", "1.20.4", "1.20.1", "1.19.4"];
+
+    // Tutorial State
+    in-out property <bool> tutorial-open: false;
+
+    // Import CurseForge Modal State
+    in-out property <bool> import-modal-open: false;
+    in-out property <string> import-zip-path: "";
+    in-out property <string> import-api-key: "";
+
+    // Callbacks
+    callback import-curseforge();
+    callback create-modpack();
+    callback open-folder();
+    callback refresh();
+    callback export();
+    callback toggle-mod(string, bool);
+    callback remove-mod(string);
+
+    callback submit-create(string, string, string);
+    callback cancel-create();
+    callback open-link-modal(string);
+    callback show-mods(string);
+    callback add-mod(string);
+    callback link-modpack(string, string);
+    callback create-matching-installation(string);
+    callback delete-modpack(string);
+    callback export-modpack-format(string, string);
+    callback open-modpack-folder(string);
+    callback browse-curseforge-zip();
+    callback confirm-import(string, string);
+    callback search-mods(string);
+    callback loader-changed(string);
+
+    Rectangle {
+        background: Theme.main-bg;
+
+        // ==========================================
+        // VIEW 1: MY MODPACKS OVERVIEW (03_modpacks_overview.png)
+        // ==========================================
+        if root.view-mode == "overview": VerticalLayout {
+            padding-left: 24px;
+            padding-right: 24px;
+            padding-top: 20px;
+            padding-bottom: 20px;
+            spacing: 20px;
+
+            // Top Bar
+            HorizontalLayout {
+                alignment: space-between;
+
+                Text {
+                    text: "My Modpacks";
+                    color: #FFFFFF;
+                    font-family: Theme.font-family;
+                    font-size: 16px;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                }
+
+                HorizontalLayout {
+                    spacing: 10px;
+                    alignment: end;
+
+                    PixelButton {
+                        text: "[?] Guide";
+                        custom-font-size: 11px;
+                        clicked => {
+                            root.tutorial-open = true;
+                        }
+                    }
+
+                    PixelButton {
+                        text: "Import CurseForge Pack";
+                        custom-font-size: 11px;
+                        clicked => {
+                            root.import-modal-open = true;
+                            root.import-curseforge();
+                        }
+                    }
+
+                    PixelButton {
+                        text: "+ Create Custom Modpack";
+                        primary: true;
+                        custom-font-size: 11px;
+                        clicked => {
+                            root.view-mode = "create";
+                            root.create-modpack();
+                        }
+                    }
+                }
+            }
+
+            // Sub-Bar: Modrinth Search & Filter bar for browsing community packs
+            HorizontalLayout {
+                spacing: 12px;
+                alignment: space-between;
+
+                HorizontalLayout {
+                    spacing: 10px;
+                    alignment: start;
+
+                    SearchInput {
+                        placeholder: "Search Modrinth & community packs...";
+                        preferred-input-width: 260px;
+                        text <=> root.overview-search-query;
+                        edited(q) => { root.search-mods(q); }
+                    }
+
+                    for l in ["All", "Fabric", "NeoForge", "Forge", "Quilt"]: Rectangle {
+                        height: 26px;
+                        background: root.overview-filter-loader == l ? #252B38 : (f_touch.has-hover ? #20242D : #16181E);
+                        border-width: 1px;
+                        border-color: root.overview-filter-loader == l ? Theme.accent : #2D313A;
+
+                        HorizontalLayout {
+                            padding-left: 10px;
+                            padding-right: 10px;
+                            Text {
+                                text: l;
+                                color: root.overview-filter-loader == l ? #FFFFFF : #A0A5B5;
+                                font-family: Theme.font-family;
+                                font-size: 10px;
+                                font-weight: 700;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        f_touch := TouchArea {
+                            clicked => {
+                                root.overview-filter-loader = l;
+                                root.filter-status-changed(l);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Modpacks Cards Container (Responsive 1, 2, or 3 columns)
+            Flickable {
+                interactive: true;
+                vertical-stretch: 1;
+                content-height: max(160px, (ceil(root.modpacks.length / root.grid-cols)) * 166px + 24px);
+
+                GridLayout {
+                    spacing: 12px;
+                    padding-bottom: 24px;
+
+                    if root.modpacks.length == 0: Rectangle {
+                        col: 0;
+                        row: 0;
+                        colspan: root.grid-cols;
+                        height: 120px;
+                        background: Theme.card-bg;
+                        border-width: 1px;
+                        border-color: Theme.border;
+
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 8px;
+                            Text {
+                                text: "Nothing to show here";
+                                color: Theme.text-primary;
+                                font-family: Theme.font-family;
+                                font-size: 13px;
+                                font-weight: 700;
+                                horizontal-alignment: center;
+                            }
+                            Text {
+                                text: "No modpacks found. Create or import a modpack to get started.";
+                                color: Theme.text-secondary;
+                                font-family: Theme.font-family;
+                                font-size: 11px;
+                                horizontal-alignment: center;
+                            }
+                        }
+                    }
+
+                    for pack[idx] in root.modpacks: ModpackCard {
+                        row: idx / root.grid-cols;
+                        col: mod(idx, root.grid-cols);
+                        pack: pack;
+                        animations-enabled: root.animations-enabled;
+                        play-clicked => {
+                            root.launch-modpack(pack.id);
+                        }
+                        link-clicked => {
+                            root.link-target-id = pack.id;
+                            root.link-target-name = pack.name;
+                            root.link-target-version = pack.version;
+                            root.link-target-loader = pack.loader;
+                            root.link-modal-open = true;
+                            root.open-link-modal(pack.id);
+                        }
+                        show-mods-clicked => {
+                            root.active-modpack-id = pack.id;
+                            root.modpack-title = pack.name;
+                            root.modpack-loader = pack.loader;
+                            root.modpack-version = pack.version;
+                            root.view-mode = "mods";
+                            root.show-mods(pack.id);
+                        }
+                        add-clicked => {
+                            root.add-mod(pack.id);
+                        }
+                        menu-mods-clicked => {
+                            root.active-modpack-id = pack.id;
+                            root.modpack-title = pack.name;
+                            root.modpack-loader = pack.loader;
+                            root.modpack-version = pack.version;
+                            root.view-mode = "mods";
+                            root.show-mods(pack.id);
+                        }
+                        menu-link-clicked => {
+                            root.link-target-id = pack.id;
+                            root.link-target-name = pack.name;
+                            root.link-target-version = pack.version;
+                            root.link-target-loader = pack.loader;
+                            root.link-modal-open = true;
+                            root.open-link-modal(pack.id);
+                        }
+                        menu-folder-clicked => {
+                            root.open-modpack-folder(pack.id);
+                            root.open-folder();
+                        }
+                        menu-mrpack-clicked => {
+                            root.export-modpack-format(pack.id, "mrpack");
+                            root.export();
+                        }
+                        menu-zip-clicked => {
+                            root.export-modpack-format(pack.id, "zip");
+                            root.export();
+                        }
+                        menu-delete-clicked => {
+                            root.delete-modpack(pack.id);
+                        }
+                    }
+                }
+            }
+        }
+
+        // ==========================================
+        // VIEW 2: NEW MODPACK CREATION VIEW (09a_modpacks_create_page.png)
+        // ==========================================
+        if root.view-mode == "create": VerticalLayout {
+            padding-left: 40px;
+            padding-right: 40px;
+            padding-top: 16px;
+            padding-bottom: 24px;
+            spacing: 20px;
+
+            // Header: "— Back to Modpacks" + "New Modpack" Title
+            HorizontalLayout {
+                spacing: 20px;
+                alignment: start;
+
+                PixelButton {
+                    text: "— Back to Modpacks";
+                    custom-font-size: 10px;
+                    clicked => {
+                        root.view-mode = "overview";
+                        root.cancel-create();
+                    }
+                }
+
+                Text {
+                    text: "New Modpack";
+                    color: #FFFFFF;
+                    font-family: Theme.font-family;
+                    font-size: 16px;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                }
+            }
+
+            // Centered Form Card
+            Rectangle {
+                background: Theme.card-bg;
+                border-width: 1px;
+                border-color: Theme.border;
+
+                VerticalLayout {
+                    padding-left: 30px;
+                    padding-right: 30px;
+                    padding-top: 24px;
+                    padding-bottom: 24px;
+                    spacing: 16px;
+
+                    // Field 1: MODPACK NAME
+                    VerticalLayout {
+                        spacing: 6px;
+
+                        Text {
+                            text: "MODPACK NAME";
+                            color: Theme.text-secondary;
+                            font-family: Theme.font-family;
+                            font-size: 9px;
+                            font-weight: 700;
+                        }
+
+                        Rectangle {
+                            height: 32px;
+                            background: Theme.input-bg;
+                            border-width: 1px;
+                            border-color: create_name_input.has-focus ? Theme.border-focus : Theme.border;
+
+                            create_name_input := TextInput {
+                                text <=> root.create-name;
+                                color: #FFFFFF;
+                                font-family: Theme.font-family;
+                                font-size: 10px;
+                                vertical-alignment: center;
+                                single-line: true;
+                            }
+                        }
+                    }
+
+                    // Field 2: MOD LOADER
+                    VerticalLayout {
+                        spacing: 6px;
+
+                        Text {
+                            text: "MOD LOADER";
+                            color: Theme.text-secondary;
+                            font-family: Theme.font-family;
+                            font-size: 9px;
+                            font-weight: 700;
+                        }
+
+                        PixelCombobox {
+                            selected-value <=> root.create-loader;
+                            options: root.available-loaders;
+                            selected(loader) => {
+                                root.loader-changed(loader);
+                            }
+                        }
+                    }
+
+                    // Field 3: MINECRAFT VERSION
+                    VerticalLayout {
+                        spacing: 6px;
+
+                        Text {
+                            text: "MINECRAFT VERSION";
+                            color: Theme.text-secondary;
+                            font-family: Theme.font-family;
+                            font-size: 9px;
+                            font-weight: 700;
+                        }
+
+                        PixelCombobox {
+                            selected-value <=> root.create-version;
+                            options: root.available-versions;
+                        }
+                    }
+
+                    // Action Footer: Cancel + Create Modpack
+                    HorizontalLayout {
+                        alignment: end;
+                        spacing: 10px;
+
+                        PixelButton {
+                            text: "Cancel";
+                            custom-font-size: 10px;
+                            clicked => {
+                                root.view-mode = "overview";
+                                root.cancel-create();
+                            }
+                        }
+
+                        PixelButton {
+                            text: "Create Modpack";
+                            primary: true;
+                            custom-font-size: 10px;
+                            clicked => {
+                                root.submit-create(root.create-name, root.create-loader, root.create-version);
+                                root.view-mode = "overview";
+                            }
+                        }
+                    }
+                }
+            }
+
+            Rectangle { vertical-stretch: 1; }
+        }
+
+        // ==========================================
+        // VIEW 3: MODPACK CONTENTS (GRID / LIST)
+        // ==========================================
+        if root.view-mode == "mods": VerticalLayout {
+            padding-left: 24px;
+            padding-right: 24px;
+            padding-top: 18px;
+            padding-bottom: 20px;
+            spacing: 16px;
+
+            // 1. Top Action Bar: Back Navigation + Modpack Title & Chip + Expandable Actions
+            HorizontalLayout {
+                height: 32px;
+                alignment: space-between;
+
+                // Left: Back Button + Title + Loader & Version Chip
+                HorizontalLayout {
+                    spacing: 12px;
+                    alignment: start;
+
+                    Rectangle {
+                        width: 90px;
+                        height: 28px;
+                        y: (parent.height - self.height) / 2;
+                        background: back_touch.pressed ? #14171E : (back_touch.has-hover ? #2A303F : Theme.button-dark);
+                        border-width: 1px;
+                        border-color: back_touch.has-hover ? #40485C : Theme.border;
+
+                        HorizontalLayout {
+                            alignment: center;
+                            spacing: 6px;
+                            Text {
+                                text: "←";
+                                font-family: Theme.icon-font-family;
+                                font-size: 11px;
+                                color: #FFFFFF;
+                                vertical-alignment: center;
+                            }
+                            Text {
+                                text: "Modpacks";
+                                font-family: Theme.font-family;
+                                font-size: 10px;
+                                font-weight: 700;
+                                color: #FFFFFF;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        back_touch := TouchArea {
+                            clicked => { root.view-mode = "overview"; }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        alignment: start;
+
+                        Text {
+                            text: root.modpack-title;
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 14px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+
+                        if root.modpack-loader != "": Rectangle {
+                            height: 20px;
+                            y: (parent.height - self.height) / 2;
+                            background: #14202C;
+                            border-width: 1px;
+                            border-color: #213C52;
+
+                            HorizontalLayout {
+                                padding-left: 6px;
+                                padding-right: 6px;
+                                Text {
+                                    text: root.modpack-loader + (root.modpack-version != "" ? (" " + root.modpack-version) : "");
+                                    color: #00A8FF;
+                                    font-family: Theme.font-family;
+                                    font-size: 9px;
+                                    font-weight: 700;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Right Action Tray: Add Mod, Folder, Refresh, Export, View Switcher
+                HorizontalLayout {
+                    spacing: 6px;
+                    alignment: end;
+
+                    // 1. Add Mod Button (Accent Cyan Highlight)
+                    ExpandableCardIconButton {
+                        y: (parent.height - self.height) / 2;
+                        icon: @image-url("../../../../icons/icon_add_16.png");
+                        text: "Add Mod";
+                        base-bg: #142230;
+                        hover-bg: #1B2E40;
+                        pressed-bg: #101E2B;
+                        base-border: #22384C;
+                        hover-border: #00A8FF;
+                        expanded-width: 86px;
+                        animations-enabled: root.animations-enabled;
+                        clicked => { root.add-mod(root.active-modpack-id); }
+                    }
+
+                    // 2. Open Folder Button
+                    ExpandableCardIconButton {
+                        y: (parent.height - self.height) / 2;
+                        icon: @image-url("../../../../icons/icon_folder_16.png");
+                        text: "Folder";
+                        expanded-width: 76px;
+                        animations-enabled: root.animations-enabled;
+                        clicked => {
+                            root.open-modpack-folder(root.active-modpack-id);
+                            root.open-folder();
+                        }
+                    }
+
+                    // 3. Refresh Button
+                    ExpandableCardIconButton {
+                        y: (parent.height - self.height) / 2;
+                        icon: @image-url("../../../../icons/icon_refresh_16.png");
+                        text: "Refresh";
+                        expanded-width: 80px;
+                        animations-enabled: root.animations-enabled;
+                        clicked => { root.refresh(); }
+                    }
+
+                    // 4. Export Button (with 0px popup menu, no emojis)
+                    Rectangle {
+                        y: (parent.height - self.height) / 2;
+                        width: export_touch.has-hover ? 76px : 28px;
+                        height: 28px;
+                        clip: true;
+                        background: export_touch.pressed ? #14171E : (export_touch.has-hover ? #2A303F : Theme.button-dark);
+                        border-width: 1px;
+                        border-color: export_touch.has-hover ? #40485C : Theme.border;
+
+                        animate width {
+                            duration: root.animations-enabled ? 140ms : 0ms;
+                            easing: ease-out;
+                        }
+
+                        HorizontalLayout {
+                            padding-left: 6px;
+                            padding-right: 6px;
+                            spacing: 6px;
+                            alignment: start;
+
+                            Rectangle {
+                                width: 14px;
+                                Image {
+                                    y: (parent.height - self.height) / 2;
+                                    width: 14px;
+                                    height: 14px;
+                                    source: @image-url("../../../../icons/icon_download_16.png");
+                                    image-fit: contain;
+                                    image-rendering: pixelated;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            if export_touch.has-hover || self.width > 34px: Text {
+                                text: "Export";
+                                color: #FFFFFF;
+                                font-family: Theme.font-family;
+                                font-size: 9px;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                                overflow: clip;
+                            }
+                        }
+
+                        export_touch := TouchArea {
+                            clicked => {
+                                if (export_popup.is-open) {
+                                    export_popup.close();
+                                } else {
+                                    export_popup.show();
+                                }
+                            }
+                        }
+
+                        export_popup := PopupWindow {
+                            x: -80px;
+                            y: 30px;
+                            width: 154px;
+                            height: 56px;
+
+                            Rectangle {
+                                background: #191B20;
+                                border-width: 1px;
+                                border-color: #2D3038;
+
+                                VerticalLayout {
+                                    padding: 3px;
+                                    spacing: 2px;
+
+                                    Rectangle {
+                                        height: 24px;
+                                        background: exp1_touch.has-hover ? #252933 : transparent;
+                                        HorizontalLayout {
+                                            padding-left: 8px;
+                                            padding-right: 8px;
+                                            spacing: 6px;
+                                            alignment: start;
+                                            Text { text: "⤓"; font-family: Theme.icon-font-family; font-size: 11px; color: #00A8FF; vertical-alignment: center; }
+                                            Text { text: "Export as .mrpack"; color: #FFFFFF; font-family: Theme.font-family; font-size: 10px; vertical-alignment: center; }
+                                        }
+                                        exp1_touch := TouchArea {
+                                            clicked => {
+                                                export_popup.close();
+                                                root.export-modpack-format(root.active-modpack-id, "mrpack");
+                                                root.export();
+                                            }
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        height: 24px;
+                                        background: exp2_touch.has-hover ? #252933 : transparent;
+                                        HorizontalLayout {
+                                            padding-left: 8px;
+                                            padding-right: 8px;
+                                            spacing: 6px;
+                                            alignment: start;
+                                            Text { text: "⤓"; font-family: Theme.icon-font-family; font-size: 11px; color: Theme.accent; vertical-alignment: center; }
+                                            Text { text: "Export as .zip"; color: #FFFFFF; font-family: Theme.font-family; font-size: 10px; vertical-alignment: center; }
+                                        }
+                                        exp2_touch := TouchArea {
+                                            clicked => {
+                                                export_popup.close();
+                                                root.export-modpack-format(root.active-modpack-id, "zip");
+                                                root.export();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // 5. Segmented View Switcher: Grid / List Icon Toggle
+                    HorizontalLayout {
+                        spacing: 1px;
+                        y: (parent.height - self.height) / 2;
+
+                        // Grid View Button
+                        Rectangle {
+                            width: 28px;
+                            height: 28px;
+                            background: root.mods-layout == "grid" ? #252B38 : (grid_touch.has-hover ? #20242D : #16181E);
+                            border-width: 1px;
+                            border-color: root.mods-layout == "grid" ? Theme.accent : #2D313A;
+
+                            Image {
+                                source: @image-url("../../../../icons/icon_grid_16.png");
+                                width: 14px;
+                                height: 14px;
+                                image-fit: contain;
+                                image-rendering: pixelated;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+
+                            grid_touch := TouchArea {
+                                clicked => { root.mods-layout = "grid"; }
+                            }
+                        }
+
+                        // List View Button
+                        Rectangle {
+                            width: 28px;
+                            height: 28px;
+                            background: root.mods-layout == "list" ? #252B38 : (list_touch.has-hover ? #20242D : #16181E);
+                            border-width: 1px;
+                            border-color: root.mods-layout == "list" ? Theme.accent : #2D313A;
+
+                            Image {
+                                source: @image-url("../../../../icons/icon_list_16.png");
+                                width: 14px;
+                                height: 14px;
+                                image-fit: contain;
+                                image-rendering: pixelated;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+
+                            list_touch := TouchArea {
+                                clicked => { root.mods-layout = "list"; }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. Sub-Toolbar: Search Input + Status Filter Chips (All / Active / Disabled) + Count
+            HorizontalLayout {
+                alignment: space-between;
+
+                HorizontalLayout {
+                    spacing: 10px;
+                    alignment: start;
+
+                    SearchInput {
+                        placeholder: "Search mods...";
+                        preferred-input-width: 220px;
+                        text <=> root.mod-search-query;
+                        edited(q) => { root.search-mods(q); }
+                    }
+
+                    // Filter Status Chips
+                    HorizontalLayout {
+                        spacing: 4px;
+                        alignment: start;
+                        y: (parent.height - self.height) / 2;
+
+                        // Chip 1: All
+                        Rectangle {
+                            height: 24px;
+                            background: root.mod-filter-status == "all" ? #252B38 : (f_all_touch.has-hover ? #20242D : #16181E);
+                            border-width: 1px;
+                            border-color: root.mod-filter-status == "all" ? Theme.accent : #2D313A;
+
+                            HorizontalLayout {
+                                padding-left: 10px;
+                                padding-right: 10px;
+                                Text {
+                                    text: "All";
+                                    color: root.mod-filter-status == "all" ? #FFFFFF : #A0A5B5;
+                                    font-family: Theme.font-family;
+                                    font-size: 10px;
+                                    font-weight: 700;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            f_all_touch := TouchArea {
+                                clicked => {
+                                    root.mod-filter-status = "all";
+                                    root.filter-status-changed("all");
+                                }
+                            }
+                        }
+
+                        // Chip 2: Active
+                        Rectangle {
+                            height: 24px;
+                            background: root.mod-filter-status == "active" ? #10261A : (f_act_touch.has-hover ? #161F1A : #16181E);
+                            border-width: 1px;
+                            border-color: root.mod-filter-status == "active" ? #2ECC71 : #2D313A;
+
+                            HorizontalLayout {
+                                padding-left: 10px;
+                                padding-right: 10px;
+                                Text {
+                                    text: "Active";
+                                    color: root.mod-filter-status == "active" ? #2ECC71 : #A0A5B5;
+                                    font-family: Theme.font-family;
+                                    font-size: 10px;
+                                    font-weight: 700;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            f_act_touch := TouchArea {
+                                clicked => {
+                                    root.mod-filter-status = "active";
+                                    root.filter-status-changed("active");
+                                }
+                            }
+                        }
+
+                        // Chip 3: Disabled
+                        Rectangle {
+                            height: 24px;
+                            background: root.mod-filter-status == "disabled" ? #26211C : (f_dis_touch.has-hover ? #201D1A : #16181E);
+                            border-width: 1px;
+                            border-color: root.mod-filter-status == "disabled" ? #E67E22 : #2D313A;
+
+                            HorizontalLayout {
+                                padding-left: 10px;
+                                padding-right: 10px;
+                                Text {
+                                    text: "Disabled";
+                                    color: root.mod-filter-status == "disabled" ? #E67E22 : #A0A5B5;
+                                    font-family: Theme.font-family;
+                                    font-size: 10px;
+                                    font-weight: 700;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            f_dis_touch := TouchArea {
+                                clicked => {
+                                    root.mod-filter-status = "disabled";
+                                    root.filter-status-changed("disabled");
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    text: root.mods.length + " mod(s) installed";
+                    color: Theme.text-secondary;
+                    font-family: Theme.font-family;
+                    font-size: 10px;
+                    vertical-alignment: center;
+                }
+            }
+
+            // 3. Mods Content Feed (Flickable with dynamic responsive geometry)
+            Flickable {
+                interactive: true;
+                vertical-stretch: 1;
+                content-height: max(200px, root.mods-layout == "grid" ?
+                    ((ceil(root.mods.length / root.mod-grid-cols)) * 142px + 24px) :
+                    (root.mods.length * 54px + 24px));
+
+                // Empty State
+                if root.mods.length == 0: Rectangle {
+                    height: 140px;
+                    background: Theme.card-bg;
+                    border-width: 1px;
+                    border-color: Theme.border;
+
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 8px;
+
+                        Text {
+                            text: "No mods found";
+                            color: Theme.text-primary;
+                            font-family: Theme.font-family;
+                            font-size: 13px;
+                            font-weight: 700;
+                            horizontal-alignment: center;
+                        }
+                        Text {
+                            text: "Add mods using the 'Add Mod' button above or clear the filter query.";
+                            color: Theme.text-secondary;
+                            font-family: Theme.font-family;
+                            font-size: 11px;
+                            horizontal-alignment: center;
+                        }
+                    }
+                }
+
+                // --- Mode A: Responsive Multi-Column Card Grid ---
+                if root.mods-layout == "grid" && root.mods.length > 0: GridLayout {
+                    spacing: 10px;
+
+                    for m[idx] in root.mods: ModCard {
+                        row: idx / root.mod-grid-cols;
+                        col: mod(idx, root.mod-grid-cols);
+                        data: m;
+                        animations-enabled: root.animations-enabled;
+                        toggled(act) => { root.toggle-mod(m.filename, act); }
+                        remove => { root.remove-mod(m.filename); }
+                    }
+                }
+
+                // --- Mode B: High-Density List View (1-Column Rows) ---
+                if root.mods-layout == "list" && root.mods.length > 0: VerticalLayout {
+                    spacing: 6px;
+
+                    for m in root.mods: ModListRow {
+                        data: m;
+                        animations-enabled: root.animations-enabled;
+                        toggled(act) => { root.toggle-mod(m.filename, act); }
+                        remove => { root.remove-mod(m.filename); }
+                    }
+                }
+            }
+        }
+
+        // ==========================================
+        // MODAL 1: LINK MODPACK MODAL
+        // ==========================================
+        if root.link-modal-open: Rectangle {
+            x: 0px;
+            y: 0px;
+            width: parent.width;
+            height: parent.height;
+            background: #00000080;
+
+            TouchArea {} // Backdrop touch blocker
+
+            Rectangle {
+                width: 520px;
+                height: 400px;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                background: Theme.card-bg;
+                border-width: 1px;
+                border-color: Theme.border;
+
+                VerticalLayout {
+                    padding: 20px;
+                    spacing: 12px;
+
+                    // Header
+                    HorizontalLayout {
+                        alignment: space-between;
+
+                        Text {
+                            text: "Link '" + root.link-target-name + "'";
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 14px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+
+                        Rectangle {
+                            width: 24px;
+                            height: 24px;
+                            background: link_close_touch.has-hover ? #2A2D35 : transparent;
+                            border-width: 1px;
+                            border-color: link_close_touch.has-hover ? #404450 : transparent;
+
+                            PixelCloseIcon {
+                                x: (parent.width - self.width) / 2;
+                                y: (parent.height - self.height) / 2;
+                                icon-color: link_close_touch.has-hover ? #FFFFFF : Theme.text-secondary;
+                            }
+
+                            link_close_touch := TouchArea {
+                                clicked => { root.link-modal-open = false; }
+                            }
+                        }
+                    }
+
+                    // Requirement Note
+                    Text {
+                        text: "Requires: " + root.link-target-version + " (" + root.link-target-loader + ")";
+                        color: Theme.text-secondary;
+                        font-family: Theme.font-family;
+                        font-size: 10px;
+                    }
+
+                    // Installations List Box
+                    Rectangle {
+                        vertical-stretch: 1;
+                        background: Theme.input-bg;
+                        border-width: 1px;
+                        border-color: Theme.border;
+
+                        Flickable {
+                            interactive: true;
+
+                            VerticalLayout {
+                                padding: 6px;
+                                spacing: 4px;
+                                alignment: start;
+
+                                for inst[idx] in root.installations: Rectangle {
+                                    height: 36px;
+                                    background: root.selected-link-inst-id == inst.id ? #003653 :
+                                                (inst_touch.has-hover ? #252933 : transparent);
+                                    border-width: 1px;
+                                    border-color: root.selected-link-inst-id == inst.id ? Theme.accent :
+                                                  (inst_touch.has-hover ? #323846 : transparent);
+
+                                    HorizontalLayout {
+                                        padding-left: 10px;
+                                        padding-right: 10px;
+                                        alignment: space-between;
+
+                                        Text {
+                                            text: inst.name + " (" + inst.version + " - " + inst.loader + ")";
+                                            color: inst.is-compatible ? #FFFFFF : #707580;
+                                            font-family: Theme.font-family;
+                                            font-size: 10px;
+                                            font-weight: inst.is-compatible ? 700 : 400;
+                                            vertical-alignment: center;
+                                        }
+
+                                        if inst.is-compatible: Text {
+                                            text: "Compatible";
+                                            color: #2ECC71;
+                                            font-family: Theme.font-family;
+                                            font-size: 9px;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+
+                                    inst_touch := TouchArea {
+                                        clicked => {
+                                            root.selected-link-inst-id = inst.id;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Footer Actions
+                    HorizontalLayout {
+                        alignment: space-between;
+
+                        PixelButton {
+                            text: "Create Matching Installation";
+                            custom-font-size: 10px;
+                            clicked => {
+                                root.create-matching-installation(root.link-target-id);
+                                root.link-modal-open = false;
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            alignment: end;
+
+                            PixelButton {
+                                text: "Cancel";
+                                custom-font-size: 10px;
+                                clicked => { root.link-modal-open = false; }
+                            }
+
+                            PixelButton {
+                                text: "Link Selected";
+                                primary: true;
+                                custom-font-size: 10px;
+                                clicked => {
+                                    root.link-modpack(root.link-target-id, root.selected-link-inst-id);
+                                    root.link-modal-open = false;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ==========================================
+        // MODAL 2: IMPORT CURSEFORGE PACK MODAL
+        // ==========================================
+        if root.import-modal-open: Rectangle {
+            x: 0px;
+            y: 0px;
+            width: parent.width;
+            height: parent.height;
+            background: #00000080;
+
+            TouchArea {} // Backdrop touch blocker
+
+            Rectangle {
+                width: 500px;
+                height: 280px;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                background: Theme.card-bg;
+                border-width: 1px;
+                border-color: Theme.border;
+
+                VerticalLayout {
+                    padding: 20px;
+                    spacing: 14px;
+
+                    // Header
+                    HorizontalLayout {
+                        alignment: space-between;
+
+                        Text {
+                            text: "Import CurseForge Pack";
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 14px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+
+                        Rectangle {
+                            width: 24px;
+                            height: 24px;
+                            background: imp_close_touch.has-hover ? #2A2D35 : transparent;
+                            border-width: 1px;
+                            border-color: imp_close_touch.has-hover ? #404450 : transparent;
+
+                            PixelCloseIcon {
+                                x: (parent.width - self.width) / 2;
+                                y: (parent.height - self.height) / 2;
+                                icon-color: imp_close_touch.has-hover ? #FFFFFF : Theme.text-secondary;
+                            }
+
+                            imp_close_touch := TouchArea {
+                                clicked => { root.import-modal-open = false; }
+                            }
+                        }
+                    }
+
+                    // Archive File (.zip)
+                    VerticalLayout {
+                        spacing: 4px;
+
+                        Text {
+                            text: "ARCHIVE FILE (.ZIP)";
+                            color: Theme.text-secondary;
+                            font-family: Theme.font-family;
+                            font-size: 9px;
+                            font-weight: 700;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+
+                            Rectangle {
+                                horizontal-stretch: 1;
+                                height: 32px;
+                                background: Theme.input-bg;
+                                border-width: 1px;
+                                border-color: Theme.border;
+
+                                TextInput {
+                                    text <=> root.import-zip-path;
+                                    color: #FFFFFF;
+                                    font-family: Theme.font-family;
+                                    font-size: 10px;
+                                    vertical-alignment: center;
+                                    single-line: true;
+                                }
+                            }
+
+                            PixelButton {
+                                text: "Browse...";
+                                custom-font-size: 10px;
+                                clicked => { root.browse-curseforge-zip(); }
+                            }
+                        }
+                    }
+
+                    // CurseForge API Key (Optional)
+                    VerticalLayout {
+                        spacing: 4px;
+
+                        Text {
+                            text: "CURSEFORGE API KEY (OPTIONAL)";
+                            color: Theme.text-secondary;
+                            font-family: Theme.font-family;
+                            font-size: 9px;
+                            font-weight: 700;
+                        }
+
+                        Rectangle {
+                            height: 32px;
+                            background: Theme.input-bg;
+                            border-width: 1px;
+                            border-color: Theme.border;
+
+                            TextInput {
+                                text <=> root.import-api-key;
+                                color: #FFFFFF;
+                                font-family: Theme.font-family;
+                                font-size: 10px;
+                                vertical-alignment: center;
+                                single-line: true;
+                            }
+                        }
+                    }
+
+                    // Footer Actions
+                    HorizontalLayout {
+                        alignment: end;
+                        spacing: 8px;
+
+                        PixelButton {
+                            text: "Cancel";
+                            custom-font-size: 10px;
+                            clicked => { root.import-modal-open = false; }
+                        }
+
+                        PixelButton {
+                            text: "Import";
+                            primary: true;
+                            custom-font-size: 10px;
+                            clicked => {
+                                root.confirm-import(root.import-zip-path, root.import-api-key);
+                                root.import-modal-open = false;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if root.tutorial-open: ModpackTutorialModal {
+            x: 0px;
+            y: 0px;
+            width: root.width;
+            height: root.height;
+            is-open <=> root.tutorial-open;
+            close => {
+                root.tutorial-open = false;
+            }
+            create-now => {
+                root.tutorial-open = false;
+                root.view-mode = "create";
+                root.create-modpack();
+            }
+            search-clicked => {
+                // Keep tutorial open so step advances to 3
+            }
+            action-clicked => {
+                root.tutorial-open = false;
+            }
+        }
+    }
+}

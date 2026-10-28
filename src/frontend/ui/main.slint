@@ -1,0 +1,2070 @@
+import { Theme } from "theme.slint";
+
+import { TitleBar } from "components.slint";
+
+import { Sidebar, AccountData } from "sidebar.slint";
+
+import { BottomBar } from "bottom_bar.slint";
+
+import { NotificationDrawer, NotificationItemData } from "notifications.slint";
+
+import { PlayScreen } from "screens/play.slint";
+
+import { ModpacksScreen, ModpackData, ModCardData, InstallationChoice } from "screens/modpacks.slint";
+
+import { ModrinthScreen, ModrinthProjectData, ModrinthVersionData, ModrinthGalleryItem } from "screens/modrinth.slint";
+
+import { LockerScreen, SkinPresetData, CapeData, WallpaperData } from "screens/locker.slint";
+
+import { InstallationsScreen, InstallationData } from "screens/installations.slint";
+
+import { AddonsScreen, AddonItemData, InstallationPlaytimeData, SavedServerData } from "screens/addons.slint";
+
+import { SettingsScreen } from "screens/settings.slint";
+
+import { ScreenshotsScreen, ScreenshotCardData } from "screens/screenshots.slint";
+
+import { DownloadToast } from "toast.slint";
+
+import { AddAccountModal } from "add_account_modal.slint";
+import { OnboardingWizard } from "onboarding.slint";
+
+import { StartupSplash } from "splash.slint";
+
+import { ActiveSessionsPanel, ActiveSessionData } from "active_sessions.slint";
+
+import { ToastContainer, ToastItemData } from "toast_stack.slint";
+
+
+
+export { Theme, AccountData, InstallationData, ModpackData, ModCardData, InstallationChoice, ModrinthProjectData, ModrinthVersionData, ModrinthGalleryItem, NotificationItemData, SkinPresetData, CapeData, WallpaperData, ScreenshotCardData, ActiveSessionData, ToastItemData, AddonItemData, InstallationPlaytimeData, SavedServerData }
+
+
+
+export component AppTray inherits SystemTrayIcon {
+
+    in-out property <image> tray-icon: @image-url("../../../logo.png");
+
+    icon: root.tray-icon;
+
+    tooltip: "Ny-Luna";
+
+    clicked => { root.show-window(); }
+
+    Menu {
+
+        MenuItem {
+
+            title: "Open Ny-Luna";
+
+            activated => { root.show-window(); }
+
+        }
+
+        MenuItem {
+
+            title: "Quit";
+
+            activated => { root.quit-app(); }
+
+        }
+
+    }
+
+    callback show-window();
+
+    callback quit-app();
+
+}
+
+
+
+export component MainWindow inherits Window {
+
+    title: "Ny-Luna";
+
+    in-out property <image> window-icon: @image-url("../../../logo.png");
+
+    icon: root.window-icon;
+
+    min-width: 960px;
+
+    min-height: 600px;
+
+    preferred-width: 1080px;
+
+    preferred-height: 720px;
+
+    background: Theme.main-bg;
+
+    default-font-family: Theme.font-family;
+
+    no-frame: true;
+
+
+
+    // State properties
+
+    in-out property <string> username: "No Account";
+
+    in-out property <string> account-type: "Click to Sign In";
+
+    in-out property <string> current-tab: "Play";
+
+    in-out property <string> sidebar-mode: "main";
+
+    in-out property <string> current-modrinth-mode: "mod";
+
+    in-out property <string> current-settings-cat: "General";
+
+    in-out property <string> current-addons-source: "all"; // "all", "local", "modrinth", "builtin"
+
+    in-out property <string> addons-search-query: "";
+
+    in-out property <[AddonItemData]> addons: [];
+
+    in-out property <[AddonItemData]> addons-list: root.addons;
+
+    in-out property <bool> addons-is-loading: false;
+
+    in-out property <string> addons-status-message: "";
+
+    in-out property <string> selected-instance: "Latest Release";
+
+    in-out property <string> selected-version: "latest-release";
+
+    in-out property <string> selected-version-display: "Vanilla 26.3";
+
+    in-out property <string> selected-installation-id: "";
+
+    in-out property <string> selected-loader: "Vanilla";
+
+    in-out property <image> selected-instance-icon: @image-url("../../../icons/2x/grass_block_side.png");
+
+    in-out property <bool> is-launching: false;
+
+
+
+    // Loading Spinner & Walking Mob Animation Properties
+
+    in-out property <image> loading-spinner-frame;
+
+    in-out property <bool> walking-mob-visible: false;
+
+    in-out property <image> walking-mob-frame;
+
+    in-out property <length> walking-mob-x: -50px;
+
+    in-out property <length> walking-mob-width: 36px;
+
+    in-out property <length> walking-mob-height: 36px;
+
+    in-out property <bool> walking-mob-is-flying: false;
+
+    in-out property <duration> walking-mob-duration: 6000ms;
+
+    in-out property <float> launch-progress: 0.0;
+
+    in-out property <string> launch-log-text: "";
+
+    in-out property <bool> show-launch-logs: true;
+
+    in-out property <bool> notifications-open: false;
+
+
+
+    // Startup Splash State
+
+    in-out property <bool> startup-splash-active: true;
+    in-out property <bool> startup-splash-ready: false;
+
+    in-out property <float> startup-splash-progress: 0.15;
+
+    in-out property <string> startup-splash-status: "Starting Ny-Luna...";
+
+
+
+    // Toast Notification with Radial Progress Bar
+
+    in-out property <bool> toast-visible: false;
+
+    in-out property <string> toast-title: "";
+
+    in-out property <string> toast-detail: "";
+
+    in-out property <float> toast-progress: 0.0;
+
+    in-out property <string> toast-status: "normal";
+
+
+
+    // Notifications Center Model
+
+    in-out property <[NotificationItemData]> notifications: [];
+
+    in-out property <int> unread-notifications: 0;
+
+    in-out property <int> active-downloads-count: 0;
+
+    in-out property <int> active-sessions-count: 0;
+
+    in-out property <[ActiveSessionData]> active-sessions: [];
+
+    in-out property <[ToastItemData]> active-toasts: [];
+
+    callback dismiss-toast(string);
+
+    callback copy-toast-error(string);
+
+    callback pause-toast(string);
+
+    callback resume-toast(string);
+
+    callback terminate-game-session(string);
+
+
+
+    in-out property <[AccountData]> accounts: [];
+
+    in-out property <bool> has-active-head: false;
+
+    in-out property <image> active-head-image;
+
+
+
+    // Launcher Dynamic Logo & Tutorial State
+    in-out property <image> launcher-logo: @image-url("../../../logo.png");
+    in-out property <bool> modpack-tutorial-open: false;
+
+    // Onboarding Setup Wizard State
+    in-out property <bool> onboarding-wizard-open: false;
+    in-out property <int> onboarding-wizard-step: 1;
+
+    // Account Center Modal State
+
+    in-out property <bool> add-account-modal-open: false;
+
+    in-out property <string> add-account-modal-mode: "select";
+
+    in-out property <string> ms-user-code: "";
+
+    in-out property <string> ms-verification-uri: "https://microsoft.com/link";
+
+    in-out property <string> ms-status: "Contacting Microsoft...";
+
+    in-out property <string> elyby-username: "";
+
+    in-out property <string> elyby-password: "";
+
+    in-out property <string> offline-username: "";
+
+    in-out property <string> add-account-error: "";
+
+    in-out property <string> username-validation-error: "";
+
+    in-out property <bool> add-account-is-busy: false;
+
+
+
+    // Steal Skin Modal State
+
+    in-out property <bool> steal-modal-open: false;
+
+    in-out property <string> steal-username-input: "";
+
+    in-out property <bool> steal-is-loading: false;
+
+    in-out property <string> steal-status-message: "";
+
+    in-out property <bool> steal-has-preview: false;
+
+    in-out property <image> steal-preview-image;
+
+    in-out property <string> steal-preview-model: "classic";
+
+    in-out property <string> steal-preview-username: "";
+
+
+
+    in-out property <int> addons-minutes: 17;
+
+    in-out property <int> addons-launches: 2;
+
+    in-out property <string> addons-total-playtime: "0m";
+
+    in-out property <bool> playtime-details-open: false;
+
+    in-out property <[InstallationPlaytimeData]> installation-playtimes: [];
+
+    in-out property <string> top-inst-1-name: "";
+
+    in-out property <string> top-inst-1-time: "";
+
+    in-out property <image> top-inst-1-icon;
+
+    in-out property <bool> has-top-inst-1: false;
+
+    in-out property <string> top-inst-2-name: "";
+
+    in-out property <string> top-inst-2-time: "";
+
+    in-out property <image> top-inst-2-icon;
+
+    in-out property <bool> has-top-inst-2: false;
+
+    in-out property <bool> server-manager-open: false;
+
+    in-out property <[SavedServerData]> saved-servers: [];
+
+    in-out property <bool> is-pinging-servers: false;
+
+    in-out property <string> post-launch-action: "Minimise to taskbar";
+
+    in-out property <bool> close-on-launch: true;
+
+    in-out property <bool> minimize-to-tray: false;
+
+    in-out property <bool> keep-console-open: false;
+
+    in-out property <bool> smooth-animations: true;
+
+    in-out property <bool> enable-walking-mobs: true;
+
+    in-out property <string> selected-theme: "Dark Slate";
+
+    in-out property <string> custom-hex: "#3498DB";
+
+    in-out property <bool> share-resource-packs: true;
+
+    in-out property <bool> share-shader-packs: true;
+
+    in-out property <bool> share-worlds: false;
+
+    in-out property <bool> share-mod-configs: false;
+
+    in-out property <int> total-system-ram-mb: 8192;
+
+    in-out property <string> total-system-ram-str: "Total Physical System Memory: Detecting...";
+
+    in-out property <int> ram-allocation-mb: 4096;
+
+    in-out property <string> java-executable: "System Default (java)";
+
+    in-out property <string> jvm-arguments: "";
+
+    in-out property <string> minecraft-directory: "C:\\Users\\Ev\\AppData\\Roaming\\.minecraft";
+
+    in-out property <int> max-modpack-downloads: 1;
+
+    in-out property <int> max-mod-downloads: 3;
+
+    in-out property <bool> throttle-downloads: false;
+
+    in-out property <int> max-download-speed-kb: 2048;
+
+    in-out property <bool> check-updates-startup: true;
+
+    in-out property <bool> discord-rpc: true;
+
+    in-out property <string> discord-detail: "Show Version";
+
+    in-out property <bool> discord-connected: false;
+
+    in-out property <string> discord-status: "Not Connected";
+
+    in-out property <bool> discord-show-timer: true;
+
+    in-out property <bool> discord-show-idle: true;
+
+    in-out property <bool> discord-show-server: true;
+
+    in-out property <string> discord-preview-mode: "game";
+
+    in-out property <bool> streamer-privacy: false;
+
+    in-out property <string> default-offline-name: "Steve";
+
+    in-out property <string> logs-text: "";
+
+
+
+    // Dynamic installations and modpack models
+
+    in-out property <[InstallationData]> installations: [];
+
+    in-out property <[ModpackData]> modpacks: [];
+
+    in-out property <[ModCardData]> modpack-mods: [];
+
+    in-out property <[InstallationChoice]> compatible-installations: [];
+
+
+
+    in-out property <[string]> available-versions: ["26.3", "26.2", "26.1", "1.21.4", "1.21.3", "1.21.1", "1.20.4", "1.20.1", "1.19.4", "1.18.2", "1.16.5", "1.12.2", "1.8.9"];
+
+    in-out property <[string]> available-loaders: ["Vanilla", "Fabric", "Forge", "NeoForge", "Quilt"];
+
+    in-out property <[string]> available-snapshots: [];
+
+    in-out property <[string]> modpack-loaders: ["fabric", "forge", "neoforge", "quilt"];
+
+    in-out property <string> version-fetch-status: "Ready";
+
+    in-out property <image> skin-preview-image;
+
+    in-out property <bool> is-walking: false;
+
+    in-out property <[SkinPresetData]> locker-presets: [];
+
+    in-out property <[CapeData]> locker-capes: [];
+
+    in-out property <[WallpaperData]> locker-wallpapers: [];
+
+    in-out property <string> locker-model: "slim";
+
+    in-out property <bool> locker-has-active-cape: false;
+
+    in-out property <string> locker-active-subtab: "Skins";
+
+    in-out property <bool> offline-skin-injection: true;
+
+    in-out property <image> current-wallpaper-image;
+
+    in-out property <bool> has-current-wallpaper: false;
+
+
+
+    // Modrinth Discovery State
+
+    in-out property <[ModrinthProjectData]> modrinth-projects: [];
+
+    in-out property <[ModrinthVersionData]> modrinth-details-versions: [];
+
+    in-out property <string> modrinth-search-query: "";
+
+    in-out property <string> modrinth-status-text: "";
+
+    in-out property <bool> modrinth-is-loading: false;
+
+    in-out property <bool> modrinth-has-more: true;
+
+    in-out property <string> modrinth-view-mode: "browse";
+
+    in-out property <string> modrinth-selected-destination: "Global (.minecraft)";
+
+    in-out property <[string]> modrinth-destinations: ["Global (.minecraft)"];
+
+    in-out property <string> modrinth-selected-version: "All";
+
+    in-out property <string> modrinth-selected-loader: "All";
+
+    in-out property <string> modrinth-selected-sort: "Relevance";
+
+
+
+    // Modrinth Details State
+
+    in-out property <string> modrinth-details-id: "";
+
+    in-out property <string> modrinth-details-title: "";
+
+    in-out property <string> modrinth-details-author: "";
+
+    in-out property <string> modrinth-details-desc: "";
+
+    in-out property <string> modrinth-details-body: "";
+
+    in-out property <string> modrinth-details-downloads: "";
+
+    in-out property <string> modrinth-details-follows: "";
+
+    in-out property <string> modrinth-details-type: "mod";
+
+    in-out property <string> modrinth-details-loaders: "";
+
+    in-out property <string> modrinth-details-install-status: "idle";
+
+    in-out property <bool> modrinth-details-has-icon: false;
+
+    in-out property <image> modrinth-details-icon;
+
+    in-out property <[ModrinthGalleryItem]> modrinth-details-gallery: [];
+
+    in-out property <string> active-modpack-id: "fabulously-optimized";
+
+    in-out property <string> modpack-import-zip-path: "";
+
+    in-out property <string> modpack-view-mode: "overview";
+
+    in-out property <string> modpack-mods-layout: "grid";
+
+    in-out property <string> modpack-title: "Fabulously Optimized";
+
+    in-out property <string> modpack-loader: "Fabric";
+
+    in-out property <string> modpack-version: "26.3";
+
+    in-out property <string> mod-search-query: "";
+
+    in-out property <string> mod-filter-status: "all";
+
+    in-out property <[ScreenshotCardData]> screenshots: [];
+
+
+
+    // Callbacks to Rust backend
+
+    callback launch-game(string, string, string);
+
+    callback force-update-and-play-game(string, string, string);
+
+    callback cancel-launch();
+
+    callback minimize-window();
+
+    callback maximize-window();
+
+    callback close-window();
+
+    callback show-mods(string);
+
+    callback add-mod(string);
+
+    callback search-mods(string);
+
+    callback filter-status-changed(string);
+
+    callback select-account(int, string, string);
+
+    callback remove-account(int, string, string);
+
+    callback add-account();
+
+    callback create-account(string);
+
+    callback check-username(string);
+
+    callback clear-notifications();
+
+    callback dismiss-notification(string);
+
+    callback open-dock(string);
+
+    callback open-folder(string);
+
+    callback new-installation();
+
+    callback save-installation(InstallationData);
+
+    callback delete-installation(string);
+
+    callback duplicate-installation(string);
+
+    callback create-modpack(string, string, string);
+
+    callback link-modpack(string, string);
+
+    callback delete-modpack(string);
+
+    callback export-modpack-format(string, string);
+
+    callback refresh-mods();
+
+    callback export-modpack();
+
+    callback toggle-mod(string, bool);
+
+    callback remove-mod(string);
+
+    callback installation-selected(string, string);
+
+    callback setting-changed(string, bool);
+
+    callback setting-int-changed(string, int);
+
+    callback setting-string-changed(string, string);
+
+    callback browse-java-path();
+
+    callback auto-detect-java();
+    callback deselect-java();
+    in-out property <[string]> available-java-paths: ["System Default (Auto-detect)"];
+
+    callback change-minecraft-dir();
+
+    callback reset-addons-stats();
+
+    callback open-playtime-details();
+
+    callback select-addons-source(string);
+
+    callback open-addons-folder();
+
+    callback refresh-addons();
+
+    callback run-addon-action(string, string);
+
+    callback search-addons(string);
+
+    callback install-addon(string);
+
+    callback submit-addon-pr();
+
+    callback add-saved-server(string, string, string);
+
+    callback delete-saved-server(string);
+
+    callback ping-all-servers();
+
+    callback quick-join-server(string, int);
+
+    callback replay-wizard();
+    callback complete-onboarding(string, int, string);
+    callback complete-onboarding-full(string, string, string, int, string, bool, string, string, bool, bool);
+
+    callback refresh-screenshots();
+
+    callback loader-changed(string);
+
+    callback toggle-snapshots(bool);
+
+    callback tab-changed(string);
+
+    callback modrinth-search(string, string, string, string, string);
+
+    callback modrinth-open-details(string);
+
+    callback modrinth-install(string, string, string, string);
+
+    callback modrinth-load-more();
+
+    callback modrinth-load-versions(string);
+
+    callback skin-drag(float, float);
+
+    callback skin-reset-view(string);
+
+    callback skin-toggle-walk();
+
+    callback skin-walk-tick();
+
+    callback start-microsoft-auth();
+
+    callback login-elyby(string, string);
+
+    callback copy-clipboard(string);
+
+    callback open-url(string);
+
+    callback skin-model-changed(string);
+
+    callback toggle-offline-injection(bool);
+
+    callback equip-skin-preset(string);
+
+    callback delete-skin-preset(string);
+
+    callback upload-skin();
+
+    callback steal-skin();
+
+    callback steal-preview-fetch(string);
+
+    callback steal-confirm-download();
+
+    callback steal-close-modal();
+
+    callback export-skin();
+
+    callback refresh-skin();
+
+    callback open-skins-folder();
+
+    callback equip-cape(string);
+
+    callback unequip-cape();
+
+    callback equip-wallpaper(string);
+
+    callback delete-wallpaper(string);
+
+    callback download-wallpaper(string);
+
+    callback upload-wallpaper();
+
+    callback open-wallpapers-folder();
+
+    callback create-matching-installation(string);
+
+    callback import-curseforge-modpack(string, string);
+
+    callback browse-curseforge-zip();
+
+    callback delete-screenshot(string);
+
+    callback select-theme(string);
+
+    callback apply-custom-hex(string);
+
+    callback ram-preset-clicked(int);
+
+    callback refresh-logs();
+
+    callback copy-logs();
+
+    callback clear-cache();
+
+    callback reset-defaults();
+
+    callback export-diagnostics();
+
+    callback check-updates();
+
+    callback move-window(length, length);
+
+
+
+    VerticalLayout {
+
+        spacing: 0px;
+
+
+
+        // --- Custom Borderless Win32 TitleBar (Sharp 0px) ---
+
+        TitleBar {
+
+            title: "Ny-Luna";
+
+            minimize => { root.minimize-window(); }
+
+            maximize => { root.maximize-window(); }
+
+            close => { root.close-window(); }
+
+            move-window(dx, dy) => { root.move-window(dx, dy); }
+
+        }
+
+
+
+        // --- Middle Section: 240px Sidebar + Right Content Area ---
+
+        HorizontalLayout {
+
+            spacing: 0px;
+
+            vertical-stretch: 1;
+
+
+
+            // 1:1 Dynamic 240px Sidebar (stretches 100% remaining window height to bottom)
+
+            Sidebar {
+
+                width: 240px;
+
+                username <=> root.username;
+
+                account-type <=> root.account-type;
+
+                current-tab <=> root.current-tab;
+
+                sidebar-mode <=> root.sidebar-mode;
+
+                current-modrinth-mode <=> root.current-modrinth-mode;
+
+                current-settings-cat <=> root.current-settings-cat;
+
+                current-addons-source <=> root.current-addons-source;
+
+                accounts <=> root.accounts;
+
+                has-active-head <=> root.has-active-head;
+
+                active-head-image <=> root.active-head-image;
+
+                notifications-open <=> root.notifications-open;
+
+                smooth-animations <=> root.smooth-animations;
+
+
+
+                select-tab(tab) => {
+
+                    root.current-tab = tab;
+
+                    if (tab == "Addons") {
+
+                        root.sidebar-mode = "addons";
+
+                    }
+
+                    if (tab == "Mods" || tab == "Modrinth") {
+
+                        root.sidebar-mode = "modrinth";
+
+                        if (root.modrinth-projects.length == 0 && !root.modrinth-is-loading) {
+
+                            root.current-modrinth-mode = root.current-modrinth-mode != "" ? root.current-modrinth-mode : "mod";
+
+                            root.modrinth-view-mode = "browse";
+
+                            root.modrinth-is-loading = true;
+
+                            root.modrinth-projects = [];
+
+                            root.modrinth-status-text = "";
+
+                            root.modrinth-search(root.modrinth-search-query, root.current-modrinth-mode, root.modrinth-selected-loader, root.modrinth-selected-version, root.modrinth-selected-sort);
+
+                        }
+
+                    }
+
+                    root.tab-changed(tab);
+
+                }
+
+                select-modrinth(mode) => {
+
+                    root.current-modrinth-mode = mode;
+
+                    root.current-tab = "Mods";
+
+                    root.modrinth-view-mode = "browse";
+
+                    root.modrinth-is-loading = true;
+
+                    root.modrinth-projects = [];
+
+                    root.modrinth-status-text = "";
+
+                    root.modrinth-search(root.modrinth-search-query, mode, root.modrinth-selected-loader, root.modrinth-selected-version, root.modrinth-selected-sort);
+
+                    root.tab-changed("Mods");
+
+                }
+
+                select-settings-cat(cat) => {
+
+                    root.current-settings-cat = cat;
+
+                    root.current-tab = "Settings";
+
+                    if (cat == "Logs & Diagnostics") {
+
+                        root.refresh-logs();
+
+                    }
+
+                    root.tab-changed("Settings");
+
+                }
+
+                select-addons-source(src) => {
+
+                    root.current-addons-source = src;
+
+                    root.current-tab = "Addons";
+
+                    root.select-addons-source(src);
+
+                    root.tab-changed("Addons");
+
+                }
+
+                set-sidebar-mode(mode) => {
+
+                    root.sidebar-mode = mode;
+
+                }
+
+                open-dock(item) => {
+
+                    if (item == "settings") {
+
+                        root.sidebar-mode = "settings";
+
+                        root.current-tab = "Settings";
+
+                        root.tab-changed("Settings");
+
+                    } else if (item == "screenshots") {
+
+                        root.sidebar-mode = "main";
+
+                        root.current-tab = "Screenshots";
+
+                        root.refresh-screenshots();
+
+                        root.tab-changed("Screenshots");
+
+                    } else if (item == "notifications") {
+
+                        root.notifications-open = !root.notifications-open;
+
+                        if (root.notifications-open) {
+
+                            root.toast-visible = false;
+
+                        }
+
+                        root.open-dock(item);
+
+                    } else {
+
+                        root.open-dock(item);
+
+                    }
+
+                }
+
+                select-account(idx, name, id) => {
+
+                    root.select-account(idx, name, id);
+
+                }
+
+                remove-account(idx, name, id) => {
+
+                    root.remove-account(idx, name, id);
+
+                }
+
+                add-account => {
+
+                    root.add-account();
+
+                }
+
+                create-account(name) => {
+
+                    root.create-account(name);
+
+                }
+
+            }
+
+
+
+            // Right Content Area (Contains Screen Views and BottomBar docked to bottom on Play tab)
+
+            Rectangle {
+
+                horizontal-stretch: 1;
+
+                clip: true;
+
+
+
+                VerticalLayout {
+
+                    width: parent.width;
+
+                    height: parent.height;
+
+                    spacing: 0px;
+
+
+
+                    // Screen Views Container (Consumes full height on non-Play tabs)
+
+                    Rectangle {
+
+                        vertical-stretch: 1;
+
+                        clip: true;
+
+
+
+                        if root.current-tab == "Play": PlayScreen {
+
+                            width: parent.width;
+
+                            height: parent.height;
+
+                            background-image <=> root.current-wallpaper-image;
+
+                            has-background-image <=> root.has-current-wallpaper;
+
+                        }
+
+
+
+                        if root.current-tab == "Installations": InstallationsScreen {
+
+                            width: parent.width;
+
+                            height: parent.height;
+
+                            animations-enabled: root.smooth-animations;
+
+                            installations <=> root.installations;
+
+                            selected-installation-id <=> root.selected-installation-id;
+
+                            selected-installation-name <=> root.selected-instance;
+
+                            select-installation(id) => {
+                                root.selected-installation-id = id;
+                                root.installation-selected("", id);
+                            }
+
+                            available-versions <=> root.available-versions;
+
+                            available-loaders <=> root.available-loaders;
+
+                            version-fetch-status <=> root.version-fetch-status;
+
+                            launch(id) => { root.launch-game(id, "", ""); }
+
+                            open-folder(id) => { root.open-folder(id); }
+
+                            new-installation => { root.new-installation(); }
+
+                            save-installation(data) => { root.save-installation(data); }
+
+                            delete-installation(id) => { root.delete-installation(id); }
+
+                            duplicate-installation(id) => { root.duplicate-installation(id); }
+
+                            loader-changed(loader) => { root.loader-changed(loader); }
+
+                            toggle-snapshots(snaps) => { root.toggle-snapshots(snaps); }
+
+                        }
+
+
+
+                        if root.current-tab == "Modpacks": ModpacksScreen {
+
+                            width: parent.width;
+
+                            height: parent.height;
+
+                            animations-enabled: root.smooth-animations;
+
+                            tutorial-open <=> root.modpack-tutorial-open;
+
+                            modpacks <=> root.modpacks;
+
+                            mods <=> root.modpack-mods;
+
+                            active-modpack-id <=> root.active-modpack-id;
+
+                            mod-search-query <=> root.mod-search-query;
+
+                            mod-filter-status <=> root.mod-filter-status;
+
+                            import-zip-path <=> root.modpack-import-zip-path;
+
+                            installations <=> root.compatible-installations;
+
+                            available-loaders <=> root.modpack-loaders;
+
+                            available-versions <=> root.available-versions;
+
+                            modpack-title <=> root.modpack-title;
+
+                            modpack-loader <=> root.modpack-loader;
+
+                            modpack-version <=> root.modpack-version;
+
+                            view-mode <=> root.modpack-view-mode;
+
+                            mods-layout <=> root.modpack-mods-layout;
+
+                            open-folder => { root.open-folder("mods"); }
+
+                            refresh => { root.refresh-mods(); }
+
+                            export => { root.export-modpack(); }
+
+                            toggle-mod(id, act) => { root.toggle-mod(id, act); }
+
+                            remove-mod(id) => { root.remove-mod(id); }
+
+                            add-mod(pack-id) => { root.add-mod(pack-id); }
+
+                            search-mods(q) => { root.search-mods(q); }
+
+                            filter-status-changed(s) => { root.filter-status-changed(s); }
+
+                            show-mods(pack-id) => {
+
+                                root.active-modpack-id = pack-id;
+
+                                root.show-mods(pack-id);
+
+                            }
+
+                            submit-create(name, loader, ver) => { root.create-modpack(name, loader, ver); }
+
+                            link-modpack(pack-id, inst-id) => { root.link-modpack(pack-id, inst-id); }
+
+                            delete-modpack(pack-id) => { root.delete-modpack(pack-id); }
+
+                            export-modpack-format(pack-id, fmt) => { root.export-modpack-format(pack-id, fmt); }
+
+                            open-modpack-folder(pack-id) => { root.open-folder(pack-id); }
+
+                            loader-changed(loader) => { root.loader-changed(loader); }
+
+                            create-matching-installation(pack-id) => { root.create-matching-installation(pack-id); }
+
+                            confirm-import(zip, key) => { root.import-curseforge-modpack(zip, key); }
+
+                            browse-curseforge-zip => { root.browse-curseforge-zip(); }
+                            launch-modpack(pack-id) => { root.launch-game(pack-id, "", ""); }
+
+                        }
+
+
+
+                        if root.current-tab == "Mods" || root.current-tab == "Modrinth": ModrinthScreen {
+
+                            width: parent.width;
+
+                            height: parent.height;
+
+                            current-mode <=> root.current-modrinth-mode;
+
+                            view-mode <=> root.modrinth-view-mode;
+
+                            search-query <=> root.modrinth-search-query;
+
+                            selected-destination <=> root.modrinth-selected-destination;
+
+                            destination-options <=> root.modrinth-destinations;
+
+                            selected-version <=> root.modrinth-selected-version;
+
+                            selected-loader <=> root.modrinth-selected-loader;
+
+                            selected-sort <=> root.modrinth-selected-sort;
+
+                            is-loading <=> root.modrinth-is-loading;
+
+                            loading-spinner-frame: root.loading-spinner-frame;
+
+                            has-more <=> root.modrinth-has-more;
+
+                            status-text <=> root.modrinth-status-text;
+
+                            projects <=> root.modrinth-projects;
+
+                            installations <=> root.compatible-installations;
+
+                            modpacks <=> root.modpacks;
+
+                            available-versions <=> root.available-versions;
+
+                            details-project-id <=> root.modrinth-details-id;
+
+                            details-title <=> root.modrinth-details-title;
+
+                            details-author <=> root.modrinth-details-author;
+
+                            details-description <=> root.modrinth-details-desc;
+
+                            details-body <=> root.modrinth-details-body;
+
+                            details-downloads <=> root.modrinth-details-downloads;
+
+                            details-follows <=> root.modrinth-details-follows;
+
+                            details-project-type <=> root.modrinth-details-type;
+
+                            details-loaders <=> root.modrinth-details-loaders;
+
+                            details-versions <=> root.modrinth-details-versions;
+
+                            details-gallery <=> root.modrinth-details-gallery;
+
+                            details-install-status <=> root.modrinth-details-install-status;
+
+                            details-has-icon <=> root.modrinth-details-has-icon;
+
+                            details-icon <=> root.modrinth-details-icon;
+
+                            search(q, mode, ldr, ver, srt) => {
+
+                                root.modrinth-search(q, mode, ldr, ver, srt);
+
+                            }
+
+                            open-details(id) => {
+
+                                root.modrinth-open-details(id);
+
+                            }
+
+                            close-details => {
+
+                                root.modrinth-view-mode = "browse";
+
+                            }
+
+                            install-artifact(id, p_type, target, v_id) => {
+
+                                root.modrinth-install(id, p_type, target, v_id);
+
+                            }
+
+                            select-mode(mode) => {
+
+                                root.current-modrinth-mode = mode;
+
+                                root.modrinth-view-mode = "browse";
+
+                            }
+
+                            load-more => {
+
+                                root.modrinth-load-more();
+
+                            }
+
+                            load-details-versions(id) => {
+
+                                root.modrinth-load-versions(id);
+
+                            }
+
+                        }
+
+
+
+                        if root.current-tab == "Locker": LockerScreen {
+
+                            width: parent.width;
+
+                            height: parent.height;
+
+                            username: root.username;
+
+                            account-type: root.account-type;
+
+                            skin-preview-image <=> root.skin-preview-image;
+
+                            is-walking <=> root.is-walking;
+
+                            arm-model <=> root.locker-model;
+
+                            presets <=> root.locker-presets;
+
+                            capes <=> root.locker-capes;
+
+                            has-active-cape <=> root.locker-has-active-cape;
+
+                            wallpapers <=> root.locker-wallpapers;
+
+                            skin-drag(dx, dy) => { root.skin-drag(dx, dy); }
+
+                            skin-reset-view(mode) => { root.skin-reset-view(mode); }
+
+                            skin-toggle-walk => { root.skin-toggle-walk(); }
+
+                            skin-walk-tick => { root.skin-walk-tick(); }
+
+                            model-changed(m) => { root.skin-model-changed(m); }
+
+                            equip-skin-preset(id) => { root.equip-skin-preset(id); }
+
+                            delete-skin-preset(id) => { root.delete-skin-preset(id); }
+
+                            upload-skin => { root.upload-skin(); }
+
+                            steal-skin => { root.steal-skin(); }
+
+                            export-skin => { root.export-skin(); }
+
+                            refresh-skin => { root.refresh-skin(); }
+
+                            open-skins-folder => { root.open-skins-folder(); }
+
+                            equip-cape(id) => { root.equip-cape(id); }
+
+                            unequip-cape => { root.unequip-cape(); }
+
+                            steal-modal-open <=> root.steal-modal-open;
+
+                            steal-username-input <=> root.steal-username-input;
+
+                            steal-is-loading <=> root.steal-is-loading;
+
+                            loading-spinner-frame: root.loading-spinner-frame;
+
+                            steal-status-message <=> root.steal-status-message;
+
+                            steal-has-preview <=> root.steal-has-preview;
+
+                            steal-preview-image <=> root.steal-preview-image;
+
+                            steal-preview-model <=> root.steal-preview-model;
+
+                            steal-preview-username <=> root.steal-preview-username;
+
+                            steal-preview-fetch(u) => { root.steal-preview-fetch(u); }
+
+                            steal-confirm-download => { root.steal-confirm-download(); }
+
+                            steal-close-modal => { root.steal-close-modal(); }
+
+                            active-subtab <=> root.locker-active-subtab;
+
+                            offline-skin-injection <=> root.offline-skin-injection;
+
+                            toggle-offline-injection(v) => { root.toggle-offline-injection(v); }
+
+                            equip-wallpaper(id) => { root.equip-wallpaper(id); }
+
+                            delete-wallpaper(id) => { root.delete-wallpaper(id); }
+
+                            download-wallpaper(id) => { root.download-wallpaper(id); }
+
+                            upload-wallpaper => { root.upload-wallpaper(); }
+
+                            open-wallpapers-folder => { root.open-wallpapers-folder(); }
+
+                        }
+
+
+
+
+
+                        if root.current-tab == "Addons": AddonsScreen {
+
+                            width: parent.width;
+
+                            height: parent.height;
+
+                            addons <=> root.addons;
+
+                            search-query <=> root.addons-search-query;
+
+                            active-category <=> root.current-addons-source;
+
+                            is-loading <=> root.addons-is-loading;
+
+                            loading-spinner-frame: root.loading-spinner-frame;
+
+                            status-message <=> root.addons-status-message;
+
+                            animations-enabled: root.smooth-animations;
+
+                            total-minutes: root.addons-minutes;
+
+                            total-launches: root.addons-launches;
+
+                            total-playtime-formatted <=> root.addons-total-playtime;
+
+                            playtime-details-open <=> root.playtime-details-open;
+
+                            installation-playtimes <=> root.installation-playtimes;
+
+                            top-inst-1-name: root.top-inst-1-name;
+
+                            top-inst-1-time: root.top-inst-1-time;
+
+                            top-inst-1-icon: root.top-inst-1-icon;
+
+                            has-top-inst-1: root.has-top-inst-1;
+
+                            top-inst-2-name: root.top-inst-2-name;
+
+                            top-inst-2-time: root.top-inst-2-time;
+
+                            top-inst-2-icon: root.top-inst-2-icon;
+
+                            has-top-inst-2: root.has-top-inst-2;
+
+                            open-playtime-details => { root.open-playtime-details(); }
+
+
+
+                            open-addons-folder => { root.open-addons-folder(); }
+
+                            refresh-addons => { root.refresh-addons(); }
+
+                            select-category(cat) => {
+
+                                root.current-addons-source = cat;
+
+                                root.select-addons-source(cat);
+
+                            }
+
+                            search-addons(q) => {
+
+                                root.addons-search-query = q;
+
+                                root.search-addons(q);
+
+                            }
+
+                            run-addon-action(addon-id, action-id) => {
+
+                                root.run-addon-action(addon-id, action-id);
+
+                            }
+
+                            install-addon(addon-id) => {
+
+                                root.install-addon(addon-id);
+
+                            }
+
+                            submit-addon-pr => { root.submit-addon-pr(); }
+
+                            reset-stats => { root.reset-addons-stats(); }
+
+                            server-manager-open <=> root.server-manager-open;
+
+                            saved-servers <=> root.saved-servers;
+
+                            is-pinging-servers <=> root.is-pinging-servers;
+
+                            add-saved-server(name, addr, port) => {
+
+                                root.add-saved-server(name, addr, port);
+
+                            }
+
+                            delete-saved-server(id) => {
+
+                                root.delete-saved-server(id);
+
+                            }
+
+                            ping-all-servers => {
+
+                                root.ping-all-servers();
+
+                            }
+
+                            quick-join-server(addr, port) => {
+
+                                root.quick-join-server(addr, port);
+
+                            }
+
+                        }
+
+
+
+                        if root.current-tab == "Settings": SettingsScreen {
+                            launcher-logo: root.launcher-logo;
+
+                            width: parent.width;
+
+                            height: parent.height;
+
+                            current-category <=> root.current-settings-cat;
+
+                            post-launch-action <=> root.post-launch-action;
+
+                            close-on-launch <=> root.close-on-launch;
+
+                            minimize-to-tray <=> root.minimize-to-tray;
+
+                            keep-console-open <=> root.keep-console-open;
+
+                            show-launch-logs <=> root.show-launch-logs;
+
+                            smooth-animations <=> root.smooth-animations;
+
+                            enable-walking-mobs <=> root.enable-walking-mobs;
+
+                            selected-theme <=> root.selected-theme;
+
+                            custom-hex <=> root.custom-hex;
+
+                            share-resource-packs <=> root.share-resource-packs;
+
+                            share-shader-packs <=> root.share-shader-packs;
+
+                            share-worlds <=> root.share-worlds;
+
+                            share-mod-configs <=> root.share-mod-configs;
+
+                            total-system-ram-mb <=> root.total-system-ram-mb;
+
+                            total-system-ram-str <=> root.total-system-ram-str;
+
+                            ram-allocation-mb <=> root.ram-allocation-mb;
+
+                            java-executable <=> root.java-executable;
+
+                            jvm-arguments <=> root.jvm-arguments;
+
+                            minecraft-directory <=> root.minecraft-directory;
+
+                            max-modpack-downloads <=> root.max-modpack-downloads;
+
+                            max-mod-downloads <=> root.max-mod-downloads;
+
+                            throttle-downloads <=> root.throttle-downloads;
+
+                            max-download-speed-kb <=> root.max-download-speed-kb;
+
+                            check-updates-startup <=> root.check-updates-startup;
+
+                            discord-rpc <=> root.discord-rpc;
+
+                            discord-detail <=> root.discord-detail;
+
+                            discord-connected <=> root.discord-connected;
+
+                            discord-status <=> root.discord-status;
+
+                            discord-show-timer <=> root.discord-show-timer;
+
+                            discord-show-idle <=> root.discord-show-idle;
+
+                            discord-show-server <=> root.discord-show-server;
+
+                            discord-preview-mode <=> root.discord-preview-mode;
+
+                            streamer-privacy <=> root.streamer-privacy;
+
+                            default-offline-name <=> root.default-offline-name;
+
+                            active-head-image <=> root.active-head-image;
+
+                            has-active-head <=> root.has-active-head;
+
+                            logs-text <=> root.logs-text;
+
+                            setting-toggled(key, val) => { root.setting-changed(key, val); }
+
+                            setting-int-changed(key, val) => { root.setting-int-changed(key, val); }
+
+                            setting-string-changed(key, val) => { root.setting-string-changed(key, val); }
+
+                            browse-java-path => { root.browse-java-path(); }
+
+                            available-java-paths <=> root.available-java-paths;
+                            auto-detect-java => { root.auto-detect-java(); }
+                            deselect-java => { root.deselect-java(); }
+
+                            change-minecraft-dir => { root.change-minecraft-dir(); }
+
+                            replay-wizard => { root.replay-wizard(); }
+
+                            open-folder(f) => { root.open-folder(f); }
+
+                            open-github => { root.open-dock("github"); }
+
+                            select-theme(theme) => {
+
+                                root.selected-theme = theme;
+
+                                root.select-theme(theme);
+
+                            }
+
+                            apply-custom-hex(hex) => {
+
+                                root.custom-hex = hex;
+
+                                root.apply-custom-hex(hex);
+
+                            }
+
+                            ram-preset-clicked(mb) => {
+
+                                root.ram-allocation-mb = mb;
+
+                                root.ram-preset-clicked(mb);
+
+                            }
+
+                            refresh-logs => { root.refresh-logs(); }
+
+                            copy-logs => { root.copy-logs(); }
+
+                            clear-cache => { root.clear-cache(); }
+
+                            reset-defaults => { root.reset-defaults(); }
+
+                            export-diagnostics => { root.export-diagnostics(); }
+
+                            check-updates => { root.check-updates(); }
+
+                        }
+
+
+
+                        if root.current-tab == "Screenshots": ScreenshotsScreen {
+
+                            width: parent.width;
+
+                            height: parent.height;
+
+                            screenshots <=> root.screenshots;
+
+                            animations-enabled: root.smooth-animations;
+
+                            open-folder => { root.open-folder("screenshots"); }
+
+                            refresh => { root.refresh-screenshots(); }
+
+                            delete-screenshot(id) => { root.delete-screenshot(id); }
+
+                        }
+
+                    }
+
+
+
+                    // --- 80px Bottom Launch Bar (EXCLUSIVE TO PLAY HERO TAB, DOCKED WITHIN RIGHT PANE) ---
+
+                    if root.current-tab == "Play": BottomBar {
+
+                        instance-name <=> root.selected-instance;
+
+                        version-id <=> root.selected-version;
+
+                        version-display <=> root.selected-version-display;
+
+                        installation-id <=> root.selected-installation-id;
+
+                        loader <=> root.selected-loader;
+
+                        instance-icon <=> root.selected-instance-icon;
+
+                        profile-name <=> root.username;
+
+                        is-launching <=> root.is-launching;
+
+                        launch-progress: root.launch-progress;
+
+                        launch-log-text: root.launch-log-text;
+
+                        show-launch-logs: root.show-launch-logs;
+
+                        installations <=> root.installations;
+
+
+
+                        cancel-launch => {
+
+                            root.cancel-launch();
+
+                        }
+
+                        play-clicked => {
+
+                            root.is-launching = true;
+
+                            root.launch-game(root.selected-installation-id, root.selected-version, root.selected-loader);
+
+                        }
+
+                        force-update-and-play => {
+
+                            root.is-launching = true;
+
+                            root.force-update-and-play-game(root.selected-installation-id, root.selected-version, root.selected-loader);
+
+                        }
+
+                        instance-selected(inst, ver, id, ldr) => {
+
+                            root.selected-instance = inst;
+
+                            root.selected-version = ver;
+
+                            root.selected-installation-id = id;
+
+                            root.selected-loader = ldr;
+
+                            root.installation-selected(inst, id);
+
+                        }
+
+                        instance-picker-clicked => { }
+
+                    }
+
+                }
+
+
+
+                // --- Floating Walking Mob Layer (runs across top of 80px bottom bar, clips behind sidebar) ---
+
+                if root.current-tab == "Play" && root.walking-mob-visible: Image {
+
+                    x: root.walking-mob-x;
+
+                    y: parent.height - 80px - self.height + (root.walking-mob-is-flying ? -8px : 1px);
+
+                    width: root.walking-mob-width;
+
+                    height: root.walking-mob-height;
+
+                    source: root.walking-mob-frame;
+
+                    image-fit: contain;
+
+                    image-rendering: pixelated;
+
+
+
+                    animate x { duration: Theme.smooth-animations ? 60ms : 0ms; easing: linear; }
+
+                }
+
+            }
+
+        }
+
+    }
+
+
+
+    // --- Slide-over Notification Drawer Overlay (320px wide, right-anchored) ---
+
+    if root.notifications-open: NotificationDrawer {
+
+        x: 0px;
+
+        y: 0px;
+
+        width: root.width;
+
+        height: root.height;
+
+        items <=> root.notifications;
+
+        active-count: root.notifications.length;
+
+        active-downloads: root.active-downloads-count;
+
+        active-sessions: root.active-sessions-count;
+
+        unread-count: root.unread-notifications;
+
+        close => { root.notifications-open = false; }
+
+        clear-all => { root.clear-notifications(); }
+
+        dismiss-item(id) => { root.dismiss-notification(id); }
+
+    }
+
+
+
+    // --- Floating Stacked Notification Toasts (bottom-right anchored, max 4, slides above active-sessions or bottom-bar) ---
+
+    property <bool> show-toasts: root.active-toasts.length > 0 && !root.notifications-open;
+
+    property <length> base-bottom-clearance: root.current-tab == "Play" ? 92px : 16px;
+
+    property <length> active-sessions-offset: root.show-active-sessions ? (active-sessions-widget.height + 10px) : 0px;
+
+    property <length> toast-target-y: root.height - toast-stack-widget.height - root.base-bottom-clearance - root.active-sessions-offset;
+
+    toast-stack-widget := ToastContainer {
+
+        x: max(250px, root.width - self.width - 20px);
+
+        y: root.show-toasts ? root.toast-target-y : (root.height + 60px);
+
+        opacity: root.show-toasts ? 1.0 : 0.0;
+
+        toasts <=> root.active-toasts;
+
+        animations-enabled: root.smooth-animations;
+
+
+
+        animate y { duration: root.smooth-animations ? 250ms : 0ms; easing: ease-out; }
+
+        animate opacity { duration: root.smooth-animations ? 200ms : 0ms; }
+
+
+
+        dismiss-toast(id) => {
+
+            root.dismiss-toast(id);
+
+        }
+
+        copy-error(err) => {
+
+            root.copy-toast-error(err);
+
+        }
+
+        pause-toast(id) => {
+
+            root.pause-toast(id);
+
+        }
+
+        resume-toast(id) => {
+
+            root.resume-toast(id);
+
+        }
+
+    }
+
+
+
+    // --- Account Center Modal (Sharp 0px Modal Overlay) ---
+
+    if root.add-account-modal-open: AddAccountModal {
+
+        x: 0px;
+
+        y: 0px;
+
+        width: root.width;
+
+        height: root.height;
+
+        is-open <=> root.add-account-modal-open;
+
+        mode <=> root.add-account-modal-mode;
+
+        ms-user-code <=> root.ms-user-code;
+
+        ms-verification-uri <=> root.ms-verification-uri;
+
+        ms-status <=> root.ms-status;
+
+        elyby-username <=> root.elyby-username;
+
+        elyby-password <=> root.elyby-password;
+
+        offline-username <=> root.offline-username;
+
+        error-message <=> root.add-account-error;
+
+        is-busy <=> root.add-account-is-busy;
+
+
+
+        close => {
+
+            root.add-account-modal-open = false;
+
+        }
+
+        select-provider(provider) => {
+
+            if (provider == "microsoft") {
+
+                root.add-account-modal-mode = "microsoft";
+
+                root.start-microsoft-auth();
+
+            } else if (provider == "elyby") {
+
+                root.add-account-modal-mode = "elyby";
+
+            } else if (provider == "offline") {
+
+                root.add-account-modal-mode = "offline";
+
+            }
+
+        }
+
+        open-url(url) => {
+
+            root.open-url(url);
+
+        }
+
+        copy-code(code) => {
+
+            root.copy-clipboard(code);
+
+        }
+
+        login-elyby(u, p) => {
+
+            root.login-elyby(u, p);
+
+        }
+
+        create-offline(u) => {
+
+            root.create-account(u);
+
+        }
+
+    }
+
+    // --- Onboarding Setup Wizard (Sharp 0px Modal Overlay) ---
+    if root.onboarding-wizard-open: OnboardingWizard {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: root.height;
+        is-open <=> root.onboarding-wizard-open;
+        current-step <=> root.onboarding-wizard-step;
+        total-system-ram-mb: root.total-system-ram-mb;
+
+        // Account State Two-Way Bindings
+        has-account: root.accounts.length > 0;
+        username <=> root.username;
+        account-type <=> root.account-type;
+        ms-user-code <=> root.ms-user-code;
+        ms-verification-uri <=> root.ms-verification-uri;
+        ms-status <=> root.ms-status;
+        elyby-username <=> root.elyby-username;
+        elyby-password <=> root.elyby-password;
+        offline-username <=> root.offline-username;
+        error-message <=> root.add-account-error;
+        is-busy <=> root.add-account-is-busy;
+        username-validation-error <=> root.username-validation-error;
+        post-launch-action <=> root.post-launch-action;
+        minimize-to-tray <=> root.minimize-to-tray;
+        smooth-animations <=> root.smooth-animations;
+        enable-walking-mobs <=> root.enable-walking-mobs;
+
+        check-username(name) => {
+            root.check-username(name);
+        }
+
+        minimize-window => {
+            root.minimize-window();
+        }
+
+        maximize-window => {
+            root.maximize-window();
+        }
+
+        close => {
+            root.close-window();
+        }
+
+        start-microsoft-auth => {
+            root.start-microsoft-auth();
+        }
+
+        open-url(url) => {
+            root.open-url(url);
+        }
+
+        copy-code(code) => {
+            root.copy-clipboard(code);
+        }
+
+        login-elyby(u, p) => {
+            root.login-elyby(u, p);
+        }
+
+        create-offline(u) => {
+            root.create-account(u);
+        }
+
+        open-account-modal => {
+            root.add-account-modal-open = true;
+        }
+
+        preview-theme(theme-name) => {
+            root.select-theme(theme-name);
+        }
+
+        preview-accent(hex) => {
+            root.apply-custom-hex(hex);
+        }
+
+        complete(username, s-ldr, s-ver, ram-mb, post-launch, tray-on-close, theme-name, accent-hex, rpc-on, streamer-on) => {
+            root.onboarding-wizard-open = false;
+            root.complete-onboarding-full(username, s-ldr, s-ver, ram-mb, post-launch, tray-on-close, theme-name, accent-hex, rpc-on, streamer-on);
+        }
+    }
+
+
+
+    // --- Floating Active Game Sessions Widget (bottom-right anchored, emerges out of bottom bar) ---
+
+    property <bool> show-active-sessions: root.active-sessions.length > 0;
+
+    property <length> sessions-target-y: root.height - active-sessions-widget.height - (root.current-tab == "Play" ? 92px : 16px);
+
+
+
+    sessions-viewport := Rectangle {
+
+        x: 0px;
+
+        y: 0px;
+
+        width: root.width;
+
+        height: root.height - (root.current-tab == "Play" ? 80px : 0px);
+
+        clip: true;
+
+        background: transparent;
+
+
+
+        active-sessions-widget := ActiveSessionsPanel {
+
+            x: max(250px, root.width - self.width - 20px);
+
+            y: root.show-active-sessions ? root.sessions-target-y : (root.height - (root.current-tab == "Play" ? 80px : 0px));
+
+            opacity: root.show-active-sessions ? 1.0 : 0.0;
+
+            sessions <=> root.active-sessions;
+
+            animations-enabled: root.smooth-animations;
+
+
+
+            animate y { duration: root.smooth-animations ? 320ms : 0ms; easing: cubic-bezier(0.16, 1, 0.3, 1); }
+
+            animate opacity { duration: root.smooth-animations ? 200ms : 0ms; }
+
+
+
+            terminate-session(id) => {
+
+                root.terminate-game-session(id);
+
+            }
+
+        }
+
+    }
+
+
+
+    // --- Full-Window Startup Splash Overlay (Pulsating Logo & Progress Indicator) ---
+
+    StartupSplash {
+
+        x: 0px;
+
+        y: 0px;
+
+        width: root.width;
+
+        height: root.height;
+
+        is-active <=> root.startup-splash-active;
+        ready-to-dismiss: root.startup-splash-ready;
+
+        progress: root.startup-splash-progress;
+
+        status-text: root.startup-splash-status;
+
+        animations-enabled: root.smooth-animations;
+
+        loading-spinner-frame: root.loading-spinner-frame;
+
+    }
+
+}
+

@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'WIKI.md'
+      - 'docs/WIKI.md'
       - '.github/workflows/sync-wiki.yml'
 
 jobs:
@@ -20,7 +20,7 @@ jobs:
       - name: Prepare Wiki Content
         run: |
           mkdir wiki_sync
-          cp WIKI.md wiki_sync/Home.md
+          cp docs/WIKI.md wiki_sync/Home.md
 
       - name: Sync Wiki
         uses: Andrew-Chen-Wang/github-wiki-action@v4

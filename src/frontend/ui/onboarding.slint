@@ -1,0 +1,2341 @@
+import { Theme } from "theme.slint";
+import { PixelSwitch, PixelCloseIcon } from "components.slint";
+
+export component OnboardingWizard inherits Rectangle {
+    in-out property <bool> is-open: false;
+    in-out property <int> current-step: 1; // 1: Identity, 2: Performance, 3: Appearance
+    in-out property <int> total-system-ram-mb: 16384;
+    
+    // Dynamic Memory Tiers (Adaptive to host total RAM)
+    property <bool> is-small-ram: root.total-system-ram-mb <= 5000;
+    property <bool> is-medium-ram: root.total-system-ram-mb > 5000 && root.total-system-ram-mb <= 10000;
+    property <bool> is-ultra-ram: root.total-system-ram-mb > 20000;
+
+    property <int> t1-mb: root.is-small-ram ? 1024 : (root.is-ultra-ram ? 4096 : 2048);
+    property <string> t1-name: (root.t1-mb / 1024) + " GB";
+    property <string> t1-desc: "Vanilla / Lightweight";
+
+    property <int> t2-mb: root.is-small-ram ? 2048 : (root.is-ultra-ram ? 8192 : 4096);
+    property <string> t2-name: (root.t2-mb / 1024) + " GB";
+    property <string> t2-desc: root.is-small-ram ? "Standard Vanilla" : "Standard Modded";
+    property <string> t2-badge: (root.is-small-ram || root.is-medium-ram) ? "STANDARD [REC]" : "";
+
+    property <int> t3-mb: root.is-small-ram ? 3072 : (root.is-medium-ram ? 6144 : (root.is-ultra-ram ? 12288 : 8192));
+    property <string> t3-name: (root.t3-mb / 1024) + " GB";
+    property <string> t3-desc: root.is-medium-ram ? "Heavy Mods / Shaders" : "Modded & Shaders";
+    property <string> t3-badge: (!root.is-small-ram && !root.is-medium-ram) ? "OPTIMAL [REC]" : "";
+
+    property <int> t4-mb: root.is-small-ram ? 4096 : (root.is-medium-ram ? 8192 : (root.is-ultra-ram ? 16384 : 12288));
+    property <string> t4-name: (root.t4-mb / 1024) + " GB";
+    property <string> t4-desc: root.is-medium-ram ? "Max System Capacity" : "Heavy Modpacks";
+
+    property <int> t5-mb: root.is-ultra-ram ? 24576 : 16384;
+    property <string> t5-name: (root.t5-mb / 1024) + " GB";
+    property <string> t5-desc: "Extreme / Ultra Shaders";
+    
+    // Step 1: Identity & Authentication State
+    in-out property <bool> has-account: false;
+    in-out property <string> username: "";
+    in-out property <string> account-type: "Offline";
+    in-out property <string> auth-choice: "offline"; // "offline", "microsoft", "elyby"
+    in-out property <string> ms-user-code: "";
+    in-out property <string> ms-verification-uri: "https://microsoft.com/link";
+    in-out property <string> ms-status: "";
+    in-out property <string> elyby-username: "";
+    in-out property <string> elyby-password: "";
+    in-out property <string> offline-username: "";
+    in-out property <string> error-message: "";
+    in-out property <bool> is-busy: false;
+    in-out property <bool> smooth-animations: Theme.smooth-animations;
+    in-out property <bool> enable-walking-mobs: true;
+    
+    // Step 2 & 3: Performance & Appearance
+    in-out property <string> starter-loader: "Vanilla";
+    in-out property <string> starter-version: "";
+    in-out property <int> selected-ram-mb: 4096;
+    in-out property <string> post-launch-action: "Minimise to tray";
+    in-out property <bool> minimize-to-tray: true;
+    in-out property <string> selected-theme: "obsidian";
+    in-out property <string> custom-accent-hex: "#00E5FF";
+
+    // Full-Window Intro Prologue State
+    property <bool> intro-active: true;
+    property <float> intro-overlay-opacity: 1.0;
+    property <float> intro-logo-scale: 0.88;
+    property <float> intro-logo-opacity: 0.0;
+    property <float> intro-glow-opacity: 0.0;
+    property <length> intro-word-width: 0px;
+    property <float> intro-word-opacity: 0.0;
+    property <int> intro-timer-ticks: 0;
+
+    animate intro-overlay-opacity { duration: 600ms; easing: ease-out; }
+    animate intro-logo-scale { duration: 1800ms; easing: cubic-bezier(0.2, 0.8, 0.2, 1.0); }
+    animate intro-logo-opacity { duration: 1600ms; easing: ease-out; }
+    animate intro-glow-opacity { duration: 2000ms; easing: ease-out; }
+    animate intro-word-width { duration: 1700ms; easing: cubic-bezier(0.65, 0.0, 0.25, 1.0); }
+    animate intro-word-opacity { duration: 1000ms; easing: ease-out; }
+
+    // Callbacks
+    callback complete(string, string, string, int, string, bool, string, string, bool, bool);
+    callback close();
+    callback minimize-window();
+    callback maximize-window();
+    callback open-account-modal();
+    callback preview-theme(string);
+    callback preview-accent(string);
+    callback start-microsoft-auth();
+    callback open-url(string);
+    callback copy-code(string);
+    callback login-elyby(string, string);
+    callback create-offline(string);
+    callback check-username(string);
+
+    in-out property <string> username-validation-error: "";
+
+    changed offline-username => {
+        root.check-username(root.offline-username);
+    }
+
+    changed total-system-ram-mb => {
+        if root.selected-ram-mb > root.total-system-ram-mb {
+            if root.total-system-ram-mb <= 5000 {
+                root.selected-ram-mb = 2048;
+            } else if root.total-system-ram-mb <= 10000 {
+                root.selected-ram-mb = 4096;
+            } else {
+                root.selected-ram-mb = 4096;
+            }
+        }
+    }
+
+    // Auto-advance to Step 2 the instant Microsoft authentication succeeds
+    changed ms-status => {
+        if (root.ms-status == "Login Successful!" || root.has-account) && root.current-step == 1 && root.auth-choice == "microsoft" {
+            root.current-step = 2;
+        }
+    }
+    changed has-account => {
+        if root.has-account && root.current-step == 1 && root.auth-choice == "microsoft" {
+            root.current-step = 2;
+        }
+    }
+
+    function finish-intro() {
+        root.intro-overlay-opacity = 0.0;
+    }
+
+    // Timer driving the Intro Reveal Animation
+    intro-timer := Timer {
+        interval: 100ms;
+        running: root.is-open && root.intro-active;
+        triggered => {
+            root.intro-timer-ticks = root.intro-timer-ticks + 1;
+            if root.intro-timer-ticks == 4 {
+                root.intro-logo-scale = 1.0;
+                root.intro-logo-opacity = 1.0;
+                root.intro-glow-opacity = 1.0;
+            }
+            if root.intro-timer-ticks == 26 {
+                root.intro-word-width = 245px;
+                root.intro-word-opacity = 1.0;
+            }
+            // After 5.5s (tick 55), automatically fade out intro overlay
+            if root.intro-timer-ticks == 55 {
+                root.finish-intro();
+            }
+            // Turn off overlay visibility after fade completes
+            if root.intro-timer-ticks >= 62 {
+                root.intro-active = false;
+            }
+        }
+    }
+
+    width: 100%;
+    height: 100%;
+    background: #08090D;
+
+    // =========================================================================
+    // MAIN SETUP WIZARD (3 STEPS)
+    // =========================================================================
+    VerticalLayout {
+        width: 100%;
+        height: 100%;
+        spacing: 0px;
+
+        // Top 3px Thin Precision Progress Line
+        Rectangle {
+            height: 3px;
+            width: 100%;
+            background: #141822;
+
+            Rectangle {
+                x: 0px;
+                y: 0px;
+                height: 3px;
+                width: (root.current-step / 3.0) * parent.width;
+                background: Theme.accent;
+
+                animate width {
+                    duration: 350ms;
+                    easing: cubic-bezier(0.2, 0.8, 0.2, 1.0);
+                }
+            }
+        }
+
+        // Top Header Bar (52px)
+        Rectangle {
+            height: 52px;
+            background: #0E1015;
+
+            // Bottom border line
+            Rectangle {
+                y: parent.height - 1px;
+                height: 1px;
+                width: 100%;
+                background: #1F2432;
+            }
+
+            HorizontalLayout {
+                padding-left: 24px;
+                padding-right: 0px;
+                alignment: space-between;
+
+                // Left: App Monogram & Title
+                HorizontalLayout {
+                    spacing: 12px;
+                    alignment: start;
+
+                    Rectangle {
+                        width: 32px;
+                        height: 24px;
+                        y: (parent.height - self.height) / 2;
+                        background: #151822;
+                        border-width: 1px;
+                        border-color: Theme.accent;
+
+                        HorizontalLayout {
+                            alignment: center;
+                            Text {
+                                text: "NLC";
+                                color: Theme.accent;
+                                font-family: Theme.font-family-mono;
+                                font-size: 10px;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    Text {
+                        text: "NY-LUNA CORE SETUP";
+                        color: #FFFFFF;
+                        font-family: Theme.font-family;
+                        font-size: 13px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+                }
+
+                // Center: Monospace Step Indicators (3 Steps)
+                HorizontalLayout {
+                    spacing: 24px;
+                    alignment: center;
+
+                    // 01 Identity
+                    HorizontalLayout {
+                        spacing: 6px;
+                        alignment: center;
+                        Text {
+                            text: root.current-step > 1 ? "✓ 01" : "● 01";
+                            color: root.current-step == 1 ? Theme.accent : (root.current-step > 1 ? #00E5FFAA : #58627A);
+                            font-family: Theme.font-family-mono;
+                            font-size: 11px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: "IDENTITY";
+                            color: root.current-step == 1 ? #FFFFFF : (root.current-step > 1 ? #A0B0C8 : #58627A);
+                            font-family: Theme.font-family-mono;
+                            font-size: 11px;
+                            font-weight: root.current-step == 1 ? 700 : 400;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    // 02 Performance
+                    HorizontalLayout {
+                        spacing: 6px;
+                        alignment: center;
+                        Text {
+                            text: root.current-step > 2 ? "✓ 02" : (root.current-step == 2 ? "● 02" : "○ 02");
+                            color: root.current-step == 2 ? Theme.accent : (root.current-step > 2 ? #00E5FFAA : #58627A);
+                            font-family: Theme.font-family-mono;
+                            font-size: 11px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: "PERFORMANCE";
+                            color: root.current-step == 2 ? #FFFFFF : (root.current-step > 2 ? #A0B0C8 : #58627A);
+                            font-family: Theme.font-family-mono;
+                            font-size: 11px;
+                            font-weight: root.current-step == 2 ? 700 : 400;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    // 03 Appearance
+                    HorizontalLayout {
+                        spacing: 6px;
+                        alignment: center;
+                        Text {
+                            text: root.current-step == 3 ? "● 03" : "○ 03";
+                            color: root.current-step == 3 ? Theme.accent : #58627A;
+                            font-family: Theme.font-family-mono;
+                            font-size: 11px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: "APPEARANCE";
+                            color: root.current-step == 3 ? #FFFFFF : #58627A;
+                            font-family: Theme.font-family-mono;
+                            font-size: 11px;
+                            font-weight: root.current-step == 3 ? 700 : 400;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                // Right: Window Controls (Minimize, Maximize, Close)
+                HorizontalLayout {
+                    spacing: 0px;
+                    alignment: end;
+
+                    // Minimize Button
+                    Rectangle {
+                        width: 44px;
+                        height: 52px;
+                        background: min-t.has-hover ? #1F2432 : transparent;
+
+                        Rectangle {
+                            width: 10px;
+                            height: 1px;
+                            y: (parent.height - self.height) / 2;
+                            x: (parent.width - self.width) / 2;
+                            background: #A0B0C8;
+                        }
+
+                        min-t := TouchArea {
+                            clicked => {
+                                root.minimize-window();
+                            }
+                        }
+                    }
+
+                    // Maximize Button
+                    Rectangle {
+                        width: 44px;
+                        height: 52px;
+                        background: max-t.has-hover ? #1F2432 : transparent;
+
+                        Rectangle {
+                            width: 10px;
+                            height: 10px;
+                            y: (parent.height - self.height) / 2;
+                            x: (parent.width - self.width) / 2;
+                            border-width: 1px;
+                            border-color: #A0B0C8;
+                            background: transparent;
+                        }
+
+                        max-t := TouchArea {
+                            clicked => {
+                                root.maximize-window();
+                            }
+                        }
+                    }
+
+                    // Close Button
+                    Rectangle {
+                        width: 48px;
+                        height: 52px;
+                        background: close-t.has-hover ? #E81123 : transparent;
+
+                        PixelCloseIcon {
+                            x: (parent.width - self.width) / 2;
+                            y: (parent.height - self.height) / 2;
+                            icon-color: close-t.has-hover ? #FFFFFF : #A0B0C8;
+                        }
+
+                        close-t := TouchArea {
+                            clicked => {
+                                root.close();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Stage Viewport with smooth step transition crossfade
+        Rectangle {
+            width: 100%;
+            height: parent.height - 55px;
+
+            // -----------------------------------------------------------------
+            // STEP 1: IDENTITY & AUTHENTICATION
+            // -----------------------------------------------------------------
+            Rectangle {
+                width: 100%;
+                height: 100%;
+                opacity: root.current-step == 1 ? 1.0 : 0.0;
+                visible: root.current-step == 1 || self.opacity > 0.01;
+
+                animate opacity {
+                    duration: 250ms;
+                    easing: ease-out;
+                }
+
+                VerticalLayout {
+                    width: 100%;
+                    height: 100%;
+                    padding-left: 48px;
+                    padding-right: 48px;
+                    padding-top: 28px;
+                    padding-bottom: 28px;
+                    alignment: space-between;
+
+                    // Heading
+                    VerticalLayout {
+                        spacing: 6px;
+                        alignment: center;
+
+                        Text {
+                            text: "Select Player Identity";
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 20px;
+                            font-weight: 700;
+                            horizontal-alignment: center;
+                        }
+                        Text {
+                            text: "Sign in to authenticate your player profile and sync multiplayer privileges.";
+                            color: #8C99B0;
+                            font-family: Theme.font-family;
+                            font-size: 12px;
+                            horizontal-alignment: center;
+                        }
+                    }
+
+                    // Center Column
+                    VerticalLayout {
+                        spacing: 16px;
+                        alignment: center;
+
+                        // Provider Tabs
+                        HorizontalLayout {
+                            alignment: center;
+                            spacing: 12px;
+
+                            // Microsoft Tab
+                            Rectangle {
+                                width: 150px;
+                                height: 38px;
+                                background: root.auth-choice == "microsoft" ? #1C2332 : #12151E;
+                                border-width: 1px;
+                                border-color: root.auth-choice == "microsoft" ? Theme.accent : #283042;
+
+                                Text {
+                                    text: "Microsoft";
+                                    color: root.auth-choice == "microsoft" ? #FFFFFF : #8C99B0;
+                                    font-family: Theme.font-family;
+                                    font-size: 12px;
+                                    font-weight: 700;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+
+                                TouchArea {
+                                    clicked => {
+                                        root.auth-choice = "microsoft";
+                                        root.start-microsoft-auth();
+                                    }
+                                }
+                            }
+
+                            // Ely.by Tab
+                            Rectangle {
+                                width: 150px;
+                                height: 38px;
+                                background: root.auth-choice == "elyby" ? #1C2332 : #12151E;
+                                border-width: 1px;
+                                border-color: root.auth-choice == "elyby" ? Theme.accent : #283042;
+
+                                Text {
+                                    text: "Ely.by";
+                                    color: root.auth-choice == "elyby" ? #FFFFFF : #8C99B0;
+                                    font-family: Theme.font-family;
+                                    font-size: 12px;
+                                    font-weight: 700;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+
+                                TouchArea {
+                                    clicked => {
+                                        root.auth-choice = "elyby";
+                                    }
+                                }
+                            }
+
+                            // Offline Tab
+                            Rectangle {
+                                width: 150px;
+                                height: 38px;
+                                background: root.auth-choice == "offline" ? #1C2332 : #12151E;
+                                border-width: 1px;
+                                border-color: root.auth-choice == "offline" ? Theme.accent : #283042;
+
+                                Text {
+                                    text: "Offline";
+                                    color: root.auth-choice == "offline" ? #FFFFFF : #8C99B0;
+                                    font-family: Theme.font-family;
+                                    font-size: 12px;
+                                    font-weight: 700;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+
+                                TouchArea {
+                                    clicked => {
+                                        root.auth-choice = "offline";
+                                    }
+                                }
+                            }
+                        }
+
+                        // Microsoft Centered Container
+                        if root.auth-choice == "microsoft": HorizontalLayout {
+                            alignment: center;
+
+                            Rectangle {
+                                width: 480px;
+                                background: #11141C;
+                                border-width: 1px;
+                                border-color: #242B3C;
+
+                                VerticalLayout {
+                                    padding-top: 24px;
+                                    padding-bottom: 24px;
+                                    padding-left: 28px;
+                                    padding-right: 28px;
+                                    spacing: 16px;
+                                    alignment: center;
+
+                                    // Instructions (Centered)
+                                    VerticalLayout {
+                                        spacing: 6px;
+                                        alignment: center;
+                                        Text {
+                                            text: "1. Open verification link in your browser";
+                                            color: #A0B0C8;
+                                            font-family: Theme.font-family;
+                                            font-size: 12px;
+                                            horizontal-alignment: center;
+                                        }
+                                        Text {
+                                            text: "2. Enter the device code shown below";
+                                            color: #A0B0C8;
+                                            font-family: Theme.font-family;
+                                            font-size: 12px;
+                                            horizontal-alignment: center;
+                                        }
+                                        Text {
+                                            text: "3. Complete sign-in with your Microsoft account";
+                                            color: #A0B0C8;
+                                            font-family: Theme.font-family;
+                                            font-size: 12px;
+                                            horizontal-alignment: center;
+                                        }
+                                    }
+
+                                    // Code Box (Centered)
+                                    HorizontalLayout {
+                                        alignment: center;
+                                        Rectangle {
+                                            width: 320px;
+                                            height: 52px;
+                                            background: #151824;
+                                            border-width: 2px;
+                                            border-color: #FF69B4;
+
+                                            Text {
+                                                text: root.ms-user-code != "" ? root.ms-user-code : "GENERATING...";
+                                                color: #FF69B4;
+                                                font-family: Theme.font-family-mono;
+                                                font-size: 24px;
+                                                font-weight: 700;
+                                                horizontal-alignment: center;
+                                                vertical-alignment: center;
+                                            }
+                                        }
+                                    }
+
+                                    // Actions (Centered, beautifully styled)
+                                    HorizontalLayout {
+                                        alignment: center;
+                                        spacing: 12px;
+
+                                        Rectangle {
+                                            width: 154px;
+                                            height: 38px;
+                                            background: ms-c-t.has-hover ? #242B3A : #181D28;
+                                            border-width: 1px;
+                                            border-color: ms-c-t.has-hover ? Theme.accent : #30384C;
+
+                                            Text {
+                                                text: "COPY CODE";
+                                                color: #FFFFFF;
+                                                font-family: Theme.font-family;
+                                                font-size: 12px;
+                                                font-weight: 600;
+                                                horizontal-alignment: center;
+                                                vertical-alignment: center;
+                                            }
+
+                                            ms-c-t := TouchArea {
+                                                clicked => {
+                                                    if root.ms-user-code != "" {
+                                                        root.copy-code(root.ms-user-code);
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            width: 154px;
+                                            height: 38px;
+                                            background: ms-o-t.has-hover ? #00E5FF : #00E5FFDD;
+
+                                            Text {
+                                                text: "Open Link  ↗";
+                                                color: #0A0C10;
+                                                font-family: Theme.font-family;
+                                                font-size: 12px;
+                                                font-weight: 700;
+                                                horizontal-alignment: center;
+                                                vertical-alignment: center;
+                                            }
+
+                                            ms-o-t := TouchArea {
+                                                clicked => {
+                                                    root.open-url(root.ms-verification-uri);
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Text {
+                                        text: root.ms-status != "" ? root.ms-status : "● Waiting for Microsoft authentication...";
+                                        color: root.ms-status == "Login Successful!" ? #2ECC71 : (root.is-busy ? Theme.accent : #708098);
+                                        font-family: Theme.font-family-mono;
+                                        font-size: 11px;
+                                        horizontal-alignment: center;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Ely.by Centered Container
+                        if root.auth-choice == "elyby": HorizontalLayout {
+                            alignment: center;
+                            Rectangle {
+                                width: 440px;
+                                background: #11141C;
+                                border-width: 1px;
+                                border-color: #242B3C;
+
+                                VerticalLayout {
+                                    padding-top: 24px;
+                                    padding-bottom: 24px;
+                                    padding-left: 28px;
+                                    padding-right: 28px;
+                                    spacing: 12px;
+                                    alignment: center;
+
+                                    Text {
+                                        text: "Sign in with your Ely.by credentials";
+                                        color: #A0B0C8;
+                                        font-family: Theme.font-family;
+                                        font-size: 12px;
+                                        horizontal-alignment: center;
+                                    }
+
+                                    // Field 1: Username
+                                    HorizontalLayout {
+                                        alignment: center;
+                                        VerticalLayout {
+                                            width: 320px;
+                                            spacing: 4px;
+
+                                            Text {
+                                                text: "USERNAME OR EMAIL";
+                                                color: #8C99B0;
+                                                font-family: Theme.font-family-mono;
+                                                font-size: 10px;
+                                                font-weight: 700;
+                                            }
+
+                                            Rectangle {
+                                                height: 38px;
+                                                background: #181D28;
+                                                border-width: 1px;
+                                                border-color: #30384C;
+
+                                                HorizontalLayout {
+                                                    padding-left: 12px;
+                                                    padding-right: 12px;
+
+                                                    Rectangle {
+                                                        if root.elyby-username == "": Text {
+                                                            text: "e.g. Steve or user@ely.by";
+                                                            color: #505A6F;
+                                                            font-family: Theme.font-family;
+                                                            font-size: 12px;
+                                                            vertical-alignment: center;
+                                                        }
+
+                                                        TextInput {
+                                                            text <=> root.elyby-username;
+                                                            color: #FFFFFF;
+                                                            font-family: Theme.font-family;
+                                                            font-size: 12px;
+                                                            vertical-alignment: center;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Field 2: Password
+                                    HorizontalLayout {
+                                        alignment: center;
+                                        VerticalLayout {
+                                            width: 320px;
+                                            spacing: 4px;
+
+                                            Text {
+                                                text: "PASSWORD";
+                                                color: #8C99B0;
+                                                font-family: Theme.font-family-mono;
+                                                font-size: 10px;
+                                                font-weight: 700;
+                                            }
+
+                                            Rectangle {
+                                                height: 38px;
+                                                background: #181D28;
+                                                border-width: 1px;
+                                                border-color: #30384C;
+
+                                                HorizontalLayout {
+                                                    padding-left: 12px;
+                                                    padding-right: 12px;
+
+                                                    Rectangle {
+                                                        if root.elyby-password == "": Text {
+                                                            text: "••••••••••••";
+                                                            color: #505A6F;
+                                                            font-family: Theme.font-family;
+                                                            font-size: 12px;
+                                                            vertical-alignment: center;
+                                                        }
+
+                                                        TextInput {
+                                                            text <=> root.elyby-password;
+                                                            input-type: password;
+                                                            color: #FFFFFF;
+                                                            font-family: Theme.font-family;
+                                                            font-size: 12px;
+                                                            vertical-alignment: center;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Inline Error Message if any
+                                    if root.error-message != "": HorizontalLayout {
+                                        alignment: center;
+                                        Text {
+                                            width: 320px;
+                                            text: root.error-message;
+                                            color: #EF4444;
+                                            font-family: Theme.font-family;
+                                            font-size: 11px;
+                                            horizontal-alignment: center;
+                                            wrap: word-wrap;
+                                        }
+                                    }
+
+                                    // Sign In Button
+                                    HorizontalLayout {
+                                        alignment: center;
+                                        Rectangle {
+                                            width: 320px;
+                                            height: 38px;
+                                            background: root.is-busy ? #1C2332 : (ely-t.has-hover ? Theme.accent : #00E5FFDD);
+
+                                            Text {
+                                                text: root.is-busy ? "Connecting to Ely.by..." : "Sign In with Ely.by";
+                                                color: root.is-busy ? #8C99B0 : #0A0C10;
+                                                font-family: Theme.font-family;
+                                                font-size: 12px;
+                                                font-weight: 700;
+                                                horizontal-alignment: center;
+                                                vertical-alignment: center;
+                                            }
+
+                                            ely-t := TouchArea {
+                                                enabled: !root.is-busy;
+                                                clicked => {
+                                                    if root.elyby-username != "" && root.elyby-password != "" {
+                                                        root.login-elyby(root.elyby-username, root.elyby-password);
+                                                    } else {
+                                                        root.error-message = "Please enter Ely.by username and password.";
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Offline Centered Container
+                        if root.auth-choice == "offline": HorizontalLayout {
+                            alignment: center;
+                            Rectangle {
+                                width: 440px;
+                                background: #11141C;
+                                border-width: 1px;
+                                border-color: #242B3C;
+
+                                VerticalLayout {
+                                    padding-top: 24px;
+                                    padding-bottom: 24px;
+                                    padding-left: 28px;
+                                    padding-right: 28px;
+                                    spacing: 12px;
+                                    alignment: center;
+
+                                    Text {
+                                        text: "Enter a player handle for offline local play";
+                                        color: #A0B0C8;
+                                        font-family: Theme.font-family;
+                                        font-size: 12px;
+                                        horizontal-alignment: center;
+                                    }
+
+                                    // Field: Player Handle
+                                    HorizontalLayout {
+                                        alignment: center;
+                                        VerticalLayout {
+                                            width: 320px;
+                                            spacing: 4px;
+
+                                            Text {
+                                                text: "PLAYER HANDLE";
+                                                color: #8C99B0;
+                                                font-family: Theme.font-family-mono;
+                                                font-size: 10px;
+                                                font-weight: 700;
+                                            }
+
+                                            Rectangle {
+                                                height: 38px;
+                                                background: #181D28;
+                                                border-width: 1px;
+                                                border-color: root.offline-username == "" ? #30384C : (root.username-validation-error != "" ? #EF4444 : #2ECC71);
+
+                                                HorizontalLayout {
+                                                    padding-left: 12px;
+                                                    padding-right: 12px;
+
+                                                    Rectangle {
+                                                        if root.offline-username == "": Text {
+                                                            text: "e.g. Steve_123";
+                                                            color: #505A6F;
+                                                            font-family: Theme.font-family;
+                                                            font-size: 12px;
+                                                            vertical-alignment: center;
+                                                        }
+
+                                                        TextInput {
+                                                            text <=> root.offline-username;
+                                                            color: #FFFFFF;
+                                                            font-family: Theme.font-family;
+                                                            font-size: 12px;
+                                                            vertical-alignment: center;
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            // Validation Status Text
+                                            if root.offline-username != "" && root.username-validation-error != "": Text {
+                                                text: root.username-validation-error;
+                                                color: #EF4444;
+                                                font-family: Theme.font-family;
+                                                font-size: 10px;
+                                                wrap: word-wrap;
+                                            }
+                                            if root.offline-username != "" && root.username-validation-error == "": Text {
+                                                text: "✓ Valid player handle";
+                                                color: #2ECC71;
+                                                font-family: Theme.font-family;
+                                                font-size: 10px;
+                                                font-weight: 700;
+                                            }
+                                        }
+                                    }
+
+                                    // Create Profile Button
+                                    HorizontalLayout {
+                                        alignment: center;
+                                        Rectangle {
+                                            width: 320px;
+                                            height: 38px;
+                                            property <bool> is-valid-handle: root.offline-username != "" && root.username-validation-error == "";
+                                            background: !self.is-valid-handle ? #181D28 : (off-t.has-hover ? Theme.accent.brighter(15%) : Theme.accent);
+
+                                            Text {
+                                                text: "Create Offline Profile";
+                                                color: !parent.is-valid-handle ? #505A6F : #0A0C10;
+                                                font-family: Theme.font-family;
+                                                font-size: 12px;
+                                                font-weight: 700;
+                                                horizontal-alignment: center;
+                                                vertical-alignment: center;
+                                            }
+
+                                            off-t := TouchArea {
+                                                enabled: parent.is-valid-handle;
+                                                clicked => {
+                                                    if parent.is-valid-handle {
+                                                        root.username = root.offline-username;
+                                                        root.account-type = "Offline";
+                                                        root.create-offline(root.offline-username);
+                                                        root.current-step = 2;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if root.error-message != "" && root.auth-choice != "elyby": Text {
+                            text: root.error-message;
+                            color: #EF4444;
+                            font-family: Theme.font-family;
+                            font-size: 11px;
+                            horizontal-alignment: center;
+                        }
+                    }
+
+                    // Footer Navigation
+                    HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 12px;
+                        alignment: end;
+
+                        Rectangle {
+                            width: 170px;
+                            height: 42px;
+                            background: next-s1-t.has-hover ? Theme.accent.brighter(15%) : Theme.accent;
+
+                            Text {
+                                text: "NEXT: PERFORMANCE";
+                                color: #0A0C10;
+                                font-family: Theme.font-family;
+                                font-size: 13px;
+                                font-weight: 700;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+
+                            next-s1-t := TouchArea {
+                                clicked => {
+                                    root.current-step = 2;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // -----------------------------------------------------------------
+            // STEP 2: PERFORMANCE (RAM ALLOCATION)
+            // -----------------------------------------------------------------
+            Rectangle {
+                width: 100%;
+                height: 100%;
+                opacity: root.current-step == 2 ? 1.0 : 0.0;
+                visible: root.current-step == 2 || self.opacity > 0.01;
+
+                animate opacity {
+                    duration: 250ms;
+                    easing: ease-out;
+                }
+
+                VerticalLayout {
+                    width: 100%;
+                    height: 100%;
+                    padding-left: 48px;
+                    padding-right: 48px;
+                    padding-top: 28px;
+                    padding-bottom: 28px;
+                    alignment: space-between;
+
+                    // Title
+                    VerticalLayout {
+                        spacing: 6px;
+                        Text {
+                            text: "JVM Runtime Memory Calibration";
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 20px;
+                            font-weight: 700;
+                        }
+                        Text {
+                            text: "Configure dedicated RAM allocation for the Minecraft Java runtime environment.";
+                            color: #8C99B0;
+                            font-family: Theme.font-family;
+                            font-size: 12px;
+                        }
+                    }
+
+                    // Dynamic Memory Tier Cards (Scaled to Host RAM - Compact 112px)
+                    HorizontalLayout {
+                        spacing: 12px;
+                        height: 112px;
+
+                        // Tier 1 Card
+                        Rectangle {
+                            horizontal-stretch: 1;
+                            background: root.selected-ram-mb == root.t1-mb ? #1C2332 : (ram-1-t.has-hover ? #171B26 : #11141C);
+                            border-width: root.selected-ram-mb == root.t1-mb ? 2px : 1px;
+                            border-color: root.selected-ram-mb == root.t1-mb ? Theme.accent : (ram-1-t.has-hover ? #3A4560 : #242B3C);
+
+                            VerticalLayout {
+                                padding: 12px;
+                                spacing: 4px;
+                                alignment: space-between;
+
+                                Text {
+                                    text: root.t1-name;
+                                    color: #FFFFFF;
+                                    font-family: Theme.font-family;
+                                    font-size: 18px;
+                                    font-weight: 700;
+                                }
+                                Text {
+                                    text: root.t1-mb + " MB";
+                                    color: Theme.accent;
+                                    font-family: Theme.font-family-mono;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                }
+                                Text {
+                                    text: root.t1-desc;
+                                    color: #8C99B0;
+                                    font-family: Theme.font-family;
+                                    font-size: 10px;
+                                }
+}
+
+                            ram-1-t := TouchArea {
+                                clicked => { root.selected-ram-mb = root.t1-mb; }
+                            }
+                        }
+
+                        // Tier 2 Card
+                        Rectangle {
+                            horizontal-stretch: 1;
+                            background: root.selected-ram-mb == root.t2-mb ? #1C2332 : (ram-2-t.has-hover ? #171B26 : #11141C);
+                            border-width: root.selected-ram-mb == root.t2-mb ? 2px : 1px;
+                            border-color: root.selected-ram-mb == root.t2-mb ? Theme.accent : (ram-2-t.has-hover ? #3A4560 : #242B3C);
+
+                            VerticalLayout {
+                                padding: 12px;
+                                spacing: 4px;
+                                alignment: space-between;
+
+                                Text {
+                                    text: root.t2-name;
+                                    color: #FFFFFF;
+                                    font-family: Theme.font-family;
+                                    font-size: 18px;
+                                    font-weight: 700;
+                                }
+                                Text {
+                                    text: root.t2-mb + " MB";
+                                    color: Theme.accent;
+                                    font-family: Theme.font-family-mono;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                }
+                                Text {
+                                    text: root.t2-badge != "" ? root.t2-badge : root.t2-desc;
+                                    color: root.t2-badge != "" ? #2ECC71 : #8C99B0;
+                                    font-family: Theme.font-family;
+                                    font-size: 10px;
+                                    font-weight: root.t2-badge != "" ? 700 : 400;
+                                }
+}
+
+                            ram-2-t := TouchArea {
+                                clicked => { root.selected-ram-mb = root.t2-mb; }
+                            }
+                        }
+
+                        // Tier 3 Card
+                        Rectangle {
+                            horizontal-stretch: 1;
+                            background: root.selected-ram-mb == root.t3-mb ? #1C2332 : (ram-3-t.has-hover ? #171B26 : #11141C);
+                            border-width: root.selected-ram-mb == root.t3-mb ? 2px : 1px;
+                            border-color: root.selected-ram-mb == root.t3-mb ? Theme.accent : (ram-3-t.has-hover ? #3A4560 : #242B3C);
+
+                            VerticalLayout {
+                                padding: 12px;
+                                spacing: 4px;
+                                alignment: space-between;
+
+                                Text {
+                                    text: root.t3-name;
+                                    color: #FFFFFF;
+                                    font-family: Theme.font-family;
+                                    font-size: 18px;
+                                    font-weight: 700;
+                                }
+                                Text {
+                                    text: root.t3-mb + " MB";
+                                    color: Theme.accent;
+                                    font-family: Theme.font-family-mono;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                }
+                                Text {
+                                    text: root.t3-badge != "" ? root.t3-badge : root.t3-desc;
+                                    color: root.t3-badge != "" ? #2ECC71 : #8C99B0;
+                                    font-family: Theme.font-family;
+                                    font-size: 10px;
+                                    font-weight: root.t3-badge != "" ? 700 : 400;
+                                }
+}
+
+                            ram-3-t := TouchArea {
+                                clicked => { root.selected-ram-mb = root.t3-mb; }
+                            }
+                        }
+
+                        // Tier 4 Card
+                        Rectangle {
+                            horizontal-stretch: 1;
+                            background: root.selected-ram-mb == root.t4-mb ? #1C2332 : (ram-4-t.has-hover ? #171B26 : #11141C);
+                            border-width: root.selected-ram-mb == root.t4-mb ? 2px : 1px;
+                            border-color: root.selected-ram-mb == root.t4-mb ? Theme.accent : (ram-4-t.has-hover ? #3A4560 : #242B3C);
+
+                            VerticalLayout {
+                                padding: 12px;
+                                spacing: 4px;
+                                alignment: space-between;
+
+                                Text {
+                                    text: root.t4-name;
+                                    color: #FFFFFF;
+                                    font-family: Theme.font-family;
+                                    font-size: 18px;
+                                    font-weight: 700;
+                                }
+                                Text {
+                                    text: root.t4-mb + " MB";
+                                    color: Theme.accent;
+                                    font-family: Theme.font-family-mono;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                }
+                                Text {
+                                    text: root.t4-desc;
+                                    color: #8C99B0;
+                                    font-family: Theme.font-family;
+                                    font-size: 10px;
+                                }
+}
+
+                            ram-4-t := TouchArea {
+                                clicked => { root.selected-ram-mb = root.t4-mb; }
+                            }
+                        }
+
+                        // Tier 5 Card (ONLY rendered when host has > 10000 MB physical RAM)
+                        if !root.is-small-ram && !root.is-medium-ram: Rectangle {
+                            horizontal-stretch: 1;
+                            background: root.selected-ram-mb == root.t5-mb ? #1C2332 : (ram-5-t.has-hover ? #171B26 : #11141C);
+                            border-width: root.selected-ram-mb == root.t5-mb ? 2px : 1px;
+                            border-color: root.selected-ram-mb == root.t5-mb ? Theme.accent : (ram-5-t.has-hover ? #3A4560 : #242B3C);
+
+                            VerticalLayout {
+                                padding: 12px;
+                                spacing: 4px;
+                                alignment: space-between;
+
+                                Text {
+                                    text: root.t5-name;
+                                    color: #FFFFFF;
+                                    font-family: Theme.font-family;
+                                    font-size: 18px;
+                                    font-weight: 700;
+                                }
+                                Text {
+                                    text: root.t5-mb + " MB";
+                                    color: Theme.accent;
+                                    font-family: Theme.font-family-mono;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                }
+                                Text {
+                                    text: root.t5-desc;
+                                    color: #8C99B0;
+                                    font-family: Theme.font-family;
+                                    font-size: 10px;
+                                }
+}
+
+                            ram-5-t := TouchArea {
+                                clicked => { root.selected-ram-mb = root.t5-mb; }
+                            }
+                        }
+                    }
+
+                    // Callout Banner
+                    Rectangle {
+                        height: 34px;
+                        background: #141822;
+                        border-width: 1px;
+                        border-color: #242B3C;
+
+                        HorizontalLayout {
+                            padding-left: 16px;
+                            padding-right: 16px;
+                            alignment: start;
+                            y: (parent.height - self.height) / 2;
+
+                            Text {
+                                text: "RECOMMENDED: 4 GB default allocation for standard gameplay, preventing Java GC latency spikes.";
+                                color: #A0B0C8;
+                                font-family: Theme.font-family;
+                                font-size: 11px;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    // Launcher Behavior Bento Section
+                    VerticalLayout {
+                        spacing: 8px;
+
+                        Text {
+                            text: "Launcher Behavior";
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 15px;
+                            font-weight: 700;
+                        }
+
+                        Rectangle {
+                            background: #11141C;
+                            border-width: 1px;
+                            border-color: #242B3C;
+
+                            VerticalLayout {
+                                padding: 14px;
+                                spacing: 12px;
+
+                                // Post-Launch Behavior Option Row
+                                VerticalLayout {
+                                    spacing: 6px;
+
+                                    Text {
+                                        text: "Post-Launch Behavior";
+                                        color: #FFFFFF;
+                                        font-family: Theme.font-family;
+                                        font-size: 12px;
+                                        font-weight: 700;
+                                    }
+HorizontalLayout {
+                                        spacing: 8px;
+                                        height: 30px;
+
+                                        for opt in ["Minimise to taskbar", "Minimise to tray", "Close", "Do nothing"]: Rectangle {
+                                            horizontal-stretch: 1;
+                                            background: root.post-launch-action == opt ? Theme.accent : #161A24;
+                                            border-width: 1px;
+                                            border-color: root.post-launch-action == opt ? Theme.accent-hover : (opt-touch.has-hover ? #3D4556 : #283042);
+
+                                            HorizontalLayout {
+                                                alignment: center;
+
+                                                Text {
+                                                    text: opt;
+                                                    color: root.post-launch-action == opt ? #FFFFFF : #A0B0C8;
+                                                    font-family: Theme.font-family;
+                                                    font-size: 10px;
+                                                    font-weight: 700;
+                                                    vertical-alignment: center;
+                                                }
+                                            }
+
+                                            opt-touch := TouchArea {
+                                                mouse-cursor: pointer;
+                                                clicked => {
+                                                    root.post-launch-action = opt;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Separator
+                                Rectangle {
+                                    height: 1px;
+                                    background: #1D2331;
+                                }
+
+                                // Minimise to tray on close
+                                HorizontalLayout {
+                                    alignment: space-between;
+
+                                    VerticalLayout {
+                                        spacing: 3px;
+
+                                        Text {
+                                            text: "Minimise to tray when closing launcher";
+                                            color: #FFFFFF;
+                                            font-family: Theme.font-family;
+                                            font-size: 12px;
+                                            font-weight: 700;
+                                        }
+}
+
+                                    PixelSwitch {
+                                        checked: root.minimize-to-tray;
+                                        toggled(val) => {
+                                            root.minimize-to-tray = val;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Footer Navigation
+                    HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 12px;
+                        alignment: space-between;
+
+                        Rectangle {
+                            width: 130px;
+                            height: 42px;
+                            background: prev-s2-t.has-hover ? #202636 : #151822;
+                            border-width: 1px;
+                            border-color: prev-s2-t.has-hover ? Theme.accent : #30384C;
+
+                            Text {
+                                text: "BACK";
+                                color: prev-s2-t.has-hover ? Theme.accent : #90A0B8;
+                                font-family: Theme.font-family;
+                                font-size: 12px;
+                                font-weight: 600;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+
+                            prev-s2-t := TouchArea {
+                                clicked => { root.current-step = 1; }
+                            }
+                        }
+
+                        Rectangle {
+                            width: 190px;
+                            height: 42px;
+                            background: next-s2-t.has-hover ? Theme.accent.brighter(15%) : Theme.accent;
+
+                            Text {
+                                text: "NEXT: APPEARANCE";
+                                color: #0A0C10;
+                                font-family: Theme.font-family;
+                                font-size: 13px;
+                                font-weight: 700;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+
+                            next-s2-t := TouchArea {
+                                clicked => { root.current-step = 3; }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // -----------------------------------------------------------------
+            // STEP 3: APPEARANCE (THEMES, ACCENTS & LIVE PREVIEW)
+            // -----------------------------------------------------------------
+            Rectangle {
+                width: 100%;
+                height: 100%;
+                opacity: root.current-step == 3 ? 1.0 : 0.0;
+                visible: root.current-step == 3 || self.opacity > 0.01;
+
+                animate opacity {
+                    duration: 250ms;
+                    easing: ease-out;
+                }
+
+                VerticalLayout {
+                    width: 100%;
+                    height: 100%;
+                    padding-left: 48px;
+                    padding-right: 48px;
+                    padding-top: 18px;
+                    padding-bottom: 18px;
+                    spacing: 12px;
+                    alignment: space-between;
+
+                    // Title
+                    VerticalLayout {
+                        spacing: 3px;
+                        Text {
+                            text: "Visual Theme & Accent Tone";
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 18px;
+                            font-weight: 700;
+                        }
+}
+
+                    // Content Split: Themes & Controls Matrix (Left) + Live UI Preview (Right)
+                    HorizontalLayout {
+                        spacing: 14px;
+                        vertical-stretch: 1;
+
+                        // Left Column: Themes + Accent Swatches + Motion Controls
+                        VerticalLayout {
+                            horizontal-stretch: 3;
+                            spacing: 10px;
+
+                            // 1. Curated Designer Themes (6 Themes in 2x3 Grid)
+                            Rectangle {
+                                background: #11141C;
+                                border-width: 1px;
+                                border-color: #242B3C;
+
+                                VerticalLayout {
+                                    padding: 12px;
+                                    spacing: 8px;
+
+                                    HorizontalLayout {
+                                        alignment: space-between;
+                                        Text {
+                                            text: "THEMES";
+                                            color: Theme.accent;
+                                            font-family: Theme.font-family-mono;
+                                            font-size: 11px;
+                                            font-weight: 700;
+                                        }
+                                    }
+
+                                    // Row 1: Obsidian, Dark Slate, Catppuccin Mocha
+                                    HorizontalLayout {
+                                        spacing: 8px;
+
+                                        for th in [
+                                            { id: "obsidian", name: "Obsidian", desc: "Pure Onyx & Cyan", dot: #00E5FF, accent: "#00E5FF" },
+                                            { id: "slate", name: "Dark Slate", desc: "Muted Steel & Emerald", dot: #2ECC71, accent: "#2ECC71" },
+                                            { id: "catppuccin", name: "Catppuccin", desc: "Warm Pastel Mauve", dot: #CBA6F7, accent: "#CBA6F7" }
+                                        ]: Rectangle {
+                                            horizontal-stretch: 1;
+                                            height: 50px;
+                                            background: root.selected-theme == th.id ? #1C2332 : (th-t1.has-hover ? #171B26 : #151924);
+                                            border-width: root.selected-theme == th.id ? 2px : 1px;
+                                            border-color: root.selected-theme == th.id ? Theme.accent : #283042;
+
+                                            HorizontalLayout {
+                                                padding-left: 8px;
+                                                padding-right: 8px;
+                                                spacing: 8px;
+                                                alignment: space-between;
+                                                y: (parent.height - self.height) / 2;
+
+                                                HorizontalLayout {
+                                                    spacing: 8px;
+                                                    Rectangle {
+                                                        width: 12px;
+                                                        height: 12px;
+                                                        background: th.dot;
+                                                        y: (parent.height - self.height) / 2;
+                                                    }
+                                                    VerticalLayout {
+                                                        spacing: 1px;
+                                                        alignment: center;
+                                                        Text {
+                                                            text: th.name;
+                                                            color: #FFFFFF;
+                                                            font-family: Theme.font-family;
+                                                            font-size: 11px;
+                                                            font-weight: 700;
+                                                        }
+                                                        Text {
+                                                            text: th.desc;
+                                                            color: #8C99B0;
+                                                            font-family: Theme.font-family;
+                                                            font-size: 9px;
+                                                        }
+                                                    }
+                                                }
+
+                                                if root.selected-theme == th.id : Rectangle {
+                                                    width: 8px;
+                                                    height: 8px;
+                                                    background: Theme.accent;
+                                                    y: (parent.height - self.height) / 2;
+                                                }
+                                            }
+
+                                            th-t1 := TouchArea {
+                                                mouse-cursor: pointer;
+                                                clicked => {
+                                                    root.selected-theme = th.id;
+                                                    root.custom-accent-hex = th.accent;
+                                                    root.preview-theme(th.id);
+                                                    root.preview-accent(th.accent);
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Row 2: Nord Frost, Dracula Midnight, Emerald Pine
+                                    HorizontalLayout {
+                                        spacing: 8px;
+
+                                        for th in [
+                                            { id: "nord", name: "Nord Frost", desc: "Arctic Blue Glaze", dot: #88C0D0, accent: "#88C0D0" },
+                                            { id: "dracula", name: "Dracula", desc: "Charcoal & Violet", dot: #BD93F9, accent: "#BD93F9" },
+                                            { id: "emerald", name: "Emerald Pine", desc: "Evergreen Forest", dot: #10B981, accent: "#10B981" }
+                                        ]: Rectangle {
+                                            horizontal-stretch: 1;
+                                            height: 50px;
+                                            background: root.selected-theme == th.id ? #1C2332 : (th-t2.has-hover ? #171B26 : #151924);
+                                            border-width: root.selected-theme == th.id ? 2px : 1px;
+                                            border-color: root.selected-theme == th.id ? Theme.accent : #283042;
+
+                                            HorizontalLayout {
+                                                padding-left: 8px;
+                                                padding-right: 8px;
+                                                spacing: 8px;
+                                                alignment: space-between;
+                                                y: (parent.height - self.height) / 2;
+
+                                                HorizontalLayout {
+                                                    spacing: 8px;
+                                                    Rectangle {
+                                                        width: 12px;
+                                                        height: 12px;
+                                                        background: th.dot;
+                                                        y: (parent.height - self.height) / 2;
+                                                    }
+                                                    VerticalLayout {
+                                                        spacing: 1px;
+                                                        alignment: center;
+                                                        Text {
+                                                            text: th.name;
+                                                            color: #FFFFFF;
+                                                            font-family: Theme.font-family;
+                                                            font-size: 11px;
+                                                            font-weight: 700;
+                                                        }
+                                                        Text {
+                                                            text: th.desc;
+                                                            color: #8C99B0;
+                                                            font-family: Theme.font-family;
+                                                            font-size: 9px;
+                                                        }
+                                                    }
+                                                }
+
+                                                if root.selected-theme == th.id : Rectangle {
+                                                    width: 8px;
+                                                    height: 8px;
+                                                    background: Theme.accent;
+                                                    y: (parent.height - self.height) / 2;
+                                                }
+                                            }
+
+                                            th-t2 := TouchArea {
+                                                mouse-cursor: pointer;
+                                                clicked => {
+                                                    root.selected-theme = th.id;
+                                                    root.custom-accent-hex = th.accent;
+                                                    root.preview-theme(th.id);
+                                                    root.preview-accent(th.accent);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 2. Lower Bento Row: Accent Swatches + Motion Controls
+                            HorizontalLayout {
+                                spacing: 10px;
+
+                                // Bento A: Signature Accent Palette
+                                Rectangle {
+                                    horizontal-stretch: 3;
+                                    background: #11141C;
+                                    border-width: 1px;
+                                    border-color: #242B3C;
+
+                                    VerticalLayout {
+                                        padding: 12px;
+                                        spacing: 8px;
+
+                                        HorizontalLayout {
+                                            alignment: space-between;
+                                            Text {
+                                                text: "ACCENT COLOR";
+                                                color: Theme.accent;
+                                                font-family: Theme.font-family-mono;
+                                                font-size: 11px;
+                                                font-weight: 700;
+                                            }
+}
+
+                                        // Row 1: Cyan, Emerald, Mauve, Frost
+                                        HorizontalLayout {
+                                            spacing: 6px;
+
+                                            for sw in [
+                                                { name: "Cyan", hex: "#00E5FF", col: #00E5FF },
+                                                { name: "Emerald", hex: "#2ECC71", col: #2ECC71 },
+                                                { name: "Mauve", hex: "#CBA6F7", col: #CBA6F7 },
+                                                { name: "Frost", hex: "#88C0D0", col: #88C0D0 }
+                                            ]: Rectangle {
+                                                horizontal-stretch: 1;
+                                                height: 32px;
+                                                background: root.custom-accent-hex == sw.hex ? #202738 : #151924;
+                                                border-width: root.custom-accent-hex == sw.hex ? 2px : 1px;
+                                                border-color: root.custom-accent-hex == sw.hex ? #FFFFFF : #283042;
+
+                                                HorizontalLayout {
+                                                    padding-left: 6px;
+                                                    padding-right: 6px;
+                                                    spacing: 6px;
+                                                    alignment: center;
+
+                                                    Rectangle {
+                                                        width: 10px;
+                                                        height: 10px;
+                                                        background: sw.col;
+                                                        y: (parent.height - self.height) / 2;
+                                                    }
+
+                                                    Text {
+                                                        text: sw.name;
+                                                        color: root.custom-accent-hex == sw.hex ? #FFFFFF : #A0B0C8;
+                                                        font-family: Theme.font-family;
+                                                        font-size: 10px;
+                                                        font-weight: 700;
+                                                        vertical-alignment: center;
+                                                    }
+                                                }
+
+                                                TouchArea {
+                                                    mouse-cursor: pointer;
+                                                    clicked => {
+                                                        root.custom-accent-hex = sw.hex;
+                                                        root.preview-accent(sw.hex);
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        // Row 2: Purple, Pine, Rose, Amber
+                                        HorizontalLayout {
+                                            spacing: 6px;
+
+                                            for sw in [
+                                                { name: "Purple", hex: "#BD93F9", col: #BD93F9 },
+                                                { name: "Pine", hex: "#10B981", col: #10B981 },
+                                                { name: "Rose", hex: "#FF69B4", col: #FF69B4 },
+                                                { name: "Amber", hex: "#FFAA00", col: #FFAA00 }
+                                            ]: Rectangle {
+                                                horizontal-stretch: 1;
+                                                height: 32px;
+                                                background: root.custom-accent-hex == sw.hex ? #202738 : #151924;
+                                                border-width: root.custom-accent-hex == sw.hex ? 2px : 1px;
+                                                border-color: root.custom-accent-hex == sw.hex ? #FFFFFF : #283042;
+
+                                                HorizontalLayout {
+                                                    padding-left: 6px;
+                                                    padding-right: 6px;
+                                                    spacing: 6px;
+                                                    alignment: center;
+
+                                                    Rectangle {
+                                                        width: 10px;
+                                                        height: 10px;
+                                                        background: sw.col;
+                                                        y: (parent.height - self.height) / 2;
+                                                    }
+
+                                                    Text {
+                                                        text: sw.name;
+                                                        color: root.custom-accent-hex == sw.hex ? #FFFFFF : #A0B0C8;
+                                                        font-family: Theme.font-family;
+                                                        font-size: 10px;
+                                                        font-weight: 700;
+                                                        vertical-alignment: center;
+                                                    }
+                                                }
+
+                                                TouchArea {
+                                                    mouse-cursor: pointer;
+                                                    clicked => {
+                                                        root.custom-accent-hex = sw.hex;
+                                                        root.preview-accent(sw.hex);
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        // Custom Color Fine-Tuning Bar
+                                        HorizontalLayout {
+                                            spacing: 8px;
+                                            alignment: space-between;
+
+                                            HorizontalLayout {
+                                                spacing: 6px;
+                                                alignment: start;
+                                                y: (parent.height - self.height) / 2;
+
+                                                Text {
+                                                    text: "CUSTOM HEX CODE:";
+                                                    color: #8C99B0;
+                                                    font-family: Theme.font-family-mono;
+                                                    font-size: 9px;
+                                                    font-weight: 700;
+                                                    vertical-alignment: center;
+                                                }
+                                            }
+
+                                            HorizontalLayout {
+                                                spacing: 6px;
+                                                alignment: end;
+
+                                                Rectangle {
+                                                    width: 16px;
+                                                    height: 16px;
+                                                    background: Theme.accent;
+                                                    border-width: 1px;
+                                                    border-color: #FFFFFF;
+                                                    y: (parent.height - self.height) / 2;
+                                                }
+
+                                                Rectangle {
+                                                    width: 80px;
+                                                    height: 24px;
+                                                    background: #161A24;
+                                                    border-width: 1px;
+                                                    border-color: #2D3548;
+
+                                                    HorizontalLayout {
+                                                        padding-left: 6px;
+                                                        padding-right: 6px;
+                                                        TextInput {
+                                                            text <=> root.custom-accent-hex;
+                                                            color: #FFFFFF;
+                                                            font-family: Theme.font-family-mono;
+                                                            font-size: 10px;
+                                                            vertical-alignment: center;
+                                                            single-line: true;
+                                                            edited => {
+                                                                root.preview-accent(root.custom-accent-hex);
+                                                            }
+                                                            accepted => {
+                                                                root.preview-accent(root.custom-accent-hex);
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Bento B: Motion & Micro-Animations
+                                Rectangle {
+                                    horizontal-stretch: 2;
+                                    background: #11141C;
+                                    border-width: 1px;
+                                    border-color: #242B3C;
+
+                                    VerticalLayout {
+                                        padding: 12px;
+                                        spacing: 10px;
+                                        alignment: start;
+
+                                        Text {
+                                            text: "MOTION";
+                                            color: Theme.accent;
+                                            font-family: Theme.font-family-mono;
+                                            font-size: 11px;
+                                            font-weight: 700;
+                                        }
+
+                                        // Smooth 60 FPS transitions toggle
+                                        HorizontalLayout {
+                                            alignment: space-between;
+                                            VerticalLayout {
+                                                spacing: 2px;
+                                                Text {
+                                                    text: "60 FPS Transitions";
+                                                    color: #FFFFFF;
+                                                    font-family: Theme.font-family;
+                                                    font-size: 11px;
+                                                    font-weight: 700;
+                                                }
+                                                Text {
+                                                    text: "Smooth tab slides & hover glows";
+                                                    color: #8C99B0;
+                                                    font-family: Theme.font-family;
+                                                    font-size: 9px;
+                                                }
+                                            }
+
+                                            PixelSwitch {
+                                                checked: root.smooth-animations;
+                                                toggled(val) => { root.smooth-animations = val; }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Right Column: Authentic Launcher Window Component Preview
+                        Rectangle {
+                            horizontal-stretch: 2;
+                            background: #11141C;
+                            border-width: 1px;
+                            border-color: #2D3548;
+
+                            VerticalLayout {
+                                padding: 12px;
+                                spacing: 8px;
+                                alignment: space-between;
+
+                                // Header
+                                HorizontalLayout {
+                                    alignment: space-between;
+                                    HorizontalLayout {
+                                        spacing: 6px;
+                                        Rectangle {
+                                            width: 8px;
+                                            height: 8px;
+                                            background: Theme.accent;
+                                            y: (parent.height - self.height) / 2;
+                                        }
+                                        Text {
+                                            text: "LAUNCHER PREVIEW";
+                                            color: Theme.accent;
+                                            font-family: Theme.font-family-mono;
+                                            font-size: 11px;
+                                            font-weight: 700;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+
+                                // Mini Launcher Frame
+                                Rectangle {
+                                    height: 236px;
+                                    background: root.selected-theme == "obsidian" ? #0D1016 : (root.selected-theme == "slate" ? #141820 : (root.selected-theme == "catppuccin" ? #1E1E2E : (root.selected-theme == "nord" ? #242933 : (root.selected-theme == "dracula" ? #282A36 : #162119))));
+                                    border-width: 1px;
+                                    border-color: #2A3245;
+
+                                    VerticalLayout {
+                                        spacing: 0px;
+
+                                        // Mini Titlebar
+                                        Rectangle {
+                                            height: 24px;
+                                            background: #090B0F;
+
+                                            Rectangle {
+                                                y: parent.height - 1px;
+                                                height: 1px;
+                                                width: 100%;
+                                                background: #1C2230;
+                                            }
+
+                                            HorizontalLayout {
+                                                padding-left: 8px;
+                                                padding-right: 8px;
+                                                alignment: space-between;
+
+                                                HorizontalLayout {
+                                                    spacing: 6px;
+                                                    alignment: start;
+                                                    Text {
+                                                        text: "NLC";
+                                                        color: Theme.accent;
+                                                        font-family: Theme.font-family-mono;
+                                                        font-size: 9px;
+                                                        font-weight: 700;
+                                                        vertical-alignment: center;
+                                                    }
+                                                    Text {
+                                                        text: "NY-LUNA CORE";
+                                                        color: #A0B0C8;
+                                                        font-family: Theme.font-family;
+                                                        font-size: 9px;
+                                                        vertical-alignment: center;
+                                                    }
+                                                }
+
+                                                HorizontalLayout {
+                                                    spacing: 6px;
+                                                    alignment: end;
+                                                    Rectangle { width: 6px; height: 1px; y: (parent.height - self.height) / 2; background: #606C84; }
+                                                    Rectangle { width: 6px; height: 6px; y: (parent.height - self.height) / 2; border-width: 1px; border-color: #606C84; }
+                                                    Rectangle { width: 6px; height: 6px; y: (parent.height - self.height) / 2; background: #E74C3C; }
+                                                }
+                                            }
+                                        }
+
+                                        // Mini Window Body: Mini Sidebar + Mini Content Area
+                                        HorizontalLayout {
+                                            height: 168px;
+                                            spacing: 0px;
+
+                                            // Mini Sidebar (54px)
+                                            Rectangle {
+                                                width: 54px;
+                                                background: #0B0E14;
+
+                                                Rectangle {
+                                                    x: parent.width - 1px;
+                                                    width: 1px;
+                                                    height: 100%;
+                                                    background: #1A202E;
+                                                }
+
+                                                VerticalLayout {
+                                                    padding-top: 6px;
+                                                    padding-bottom: 6px;
+                                                    spacing: 3px;
+
+                                                    // Active PLAY Tab
+                                                    Rectangle {
+                                                        height: 22px;
+                                                        background: #151A24;
+
+                                                        Rectangle {
+                                                            x: 0px;
+                                                            width: 2px;
+                                                            height: 100%;
+                                                            background: Theme.accent;
+                                                        }
+
+                                                        Text {
+                                                            text: "▶ PLAY";
+                                                            color: Theme.accent;
+                                                            font-family: Theme.font-family-mono;
+                                                            font-size: 8px;
+                                                            font-weight: 700;
+                                                            horizontal-alignment: center;
+                                                            vertical-alignment: center;
+                                                        }
+                                                    }
+
+                                                    // Inactive Tab: INSTALLS
+                                                    Rectangle {
+                                                        height: 18px;
+                                                        Text {
+                                                            text: "INSTALLS";
+                                                            color: #606C84;
+                                                            font-family: Theme.font-family-mono;
+                                                            font-size: 7px;
+                                                            horizontal-alignment: center;
+                                                            vertical-alignment: center;
+                                                        }
+                                                    }
+
+                                                    // Inactive Tab: MODPACKS
+                                                    Rectangle {
+                                                        height: 18px;
+                                                        Text {
+                                                            text: "MODPACKS";
+                                                            color: #606C84;
+                                                            font-family: Theme.font-family-mono;
+                                                            font-size: 7px;
+                                                            horizontal-alignment: center;
+                                                            vertical-alignment: center;
+                                                        }
+                                                    }
+
+                                                    // Inactive Tab: MODRINTH
+                                                    Rectangle {
+                                                        height: 18px;
+                                                        Text {
+                                                            text: "MODRINTH";
+                                                            color: #606C84;
+                                                            font-family: Theme.font-family-mono;
+                                                            font-size: 7px;
+                                                            horizontal-alignment: center;
+                                                            vertical-alignment: center;
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            // Mini Main Workspace: Instance Card + Badges
+                                            VerticalLayout {
+                                                padding: 8px;
+                                                spacing: 6px;
+                                                alignment: center;
+
+                                                Rectangle {
+                                                    height: 56px;
+                                                    background: #161B26;
+                                                    border-width: 1px;
+                                                    border-color: Theme.accent;
+
+                                                    HorizontalLayout {
+                                                        padding-left: 8px;
+                                                        padding-right: 8px;
+                                                        spacing: 8px;
+                                                        alignment: space-between;
+                                                        y: (parent.height - self.height) / 2;
+
+                                                        HorizontalLayout {
+                                                            spacing: 8px;
+                                                            Rectangle {
+                                                                width: 32px;
+                                                                height: 32px;
+                                                                background: #0E121A;
+                                                                border-width: 1px;
+                                                                border-color: Theme.accent;
+                                                                y: (parent.height - self.height) / 2;
+
+                                                                Text {
+                                                                    text: "MC";
+                                                                    color: Theme.accent;
+                                                                    font-family: Theme.font-family-mono;
+                                                                    font-size: 11px;
+                                                                    font-weight: 700;
+                                                                    horizontal-alignment: center;
+                                                                    vertical-alignment: center;
+                                                                }
+                                                            }
+
+                                                            VerticalLayout {
+                                                                spacing: 2px;
+                                                                alignment: center;
+                                                                Text {
+                                                                    text: "Default Profile";
+                                                                    color: #FFFFFF;
+                                                                    font-family: Theme.font-family;
+                                                                    font-size: 11px;
+                                                                    font-weight: 700;
+                                                                }
+                                                                Text {
+                                                                    text: "Vanilla 1.21.4  •  " + (root.selected-ram-mb / 1024) + " GB";
+                                                                    color: #8C99B0;
+                                                                    font-family: Theme.font-family;
+                                                                    font-size: 9px;
+                                                                }
+                                                            }
+                                                        }
+
+                                                        Rectangle {
+                                                            width: 44px;
+                                                            height: 18px;
+                                                            background: #2ECC7122;
+                                                            border-width: 1px;
+                                                            border-color: #2ECC71;
+                                                            y: (parent.height - self.height) / 2;
+
+                                                            Text {
+                                                                text: "READY";
+                                                                color: #2ECC71;
+                                                                font-family: Theme.font-family-mono;
+                                                                font-size: 8px;
+                                                                font-weight: 700;
+                                                                horizontal-alignment: center;
+                                                                vertical-alignment: center;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+                                                // Mini Badges Row
+                                                HorizontalLayout {
+                                                    spacing: 6px;
+                                                    Rectangle {
+                                                        height: 18px;
+                                                        background: #111520;
+                                                        border-width: 1px;
+                                                        border-color: Theme.accent;
+                                                        HorizontalLayout {
+                                                            padding-left: 6px;
+                                                            padding-right: 6px;
+                                                            alignment: center;
+                                                            Text {
+                                                                text: "ACCENT: " + root.custom-accent-hex;
+                                                                color: Theme.accent;
+                                                                font-family: Theme.font-family-mono;
+                                                                font-size: 8px;
+                                                                font-weight: 700;
+                                                                vertical-alignment: center;
+                                                            }
+                                                        }
+                                                    }
+                                                    Rectangle {
+                                                        width: 76px;
+                                                        height: 18px;
+                                                        background: #111520;
+                                                        border-width: 1px;
+                                                        border-color: #2A3245;
+                                                        HorizontalLayout {
+                                                            alignment: center;
+                                                            Text {
+                                                                text: "FPS BOOST: ON";
+                                                                color: #2ECC71;
+                                                                font-family: Theme.font-family-mono;
+                                                                font-size: 8px;
+                                                                vertical-alignment: center;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        // Mini Bottom Bar: Launch control bar
+                                        Rectangle {
+                                            height: 44px;
+                                            background: #0E1118;
+
+                                            Rectangle {
+                                                y: 0px;
+                                                height: 1px;
+                                                width: 100%;
+                                                background: #1D2332;
+                                            }
+
+                                            HorizontalLayout {
+                                                padding-left: 10px;
+                                                padding-right: 10px;
+                                                alignment: space-between;
+
+                                                Text {
+                                                    text: "● Ready to Launch";
+                                                    color: #8C99B0;
+                                                    font-family: Theme.font-family-mono;
+                                                    font-size: 9px;
+                                                    vertical-alignment: center;
+                                                }
+
+                                                // Glowing Launch Button
+                                                Rectangle {
+                                                    width: 96px;
+                                                    height: 28px;
+                                                    background: Theme.accent;
+                                                    y: (parent.height - self.height) / 2;
+
+                                                    Text {
+                                                        text: "PLAY NOW";
+                                                        color: #0A0C10;
+                                                        font-family: Theme.font-family;
+                                                        font-size: 10px;
+                                                        font-weight: 700;
+                                                        horizontal-alignment: center;
+                                                        vertical-alignment: center;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+
+                            }
+                        }
+                    }
+
+                    // Spacer pushing footer actions to the bottom of the screen
+                    Rectangle { vertical-stretch: 1; }
+
+                    // Footer Actions (anchored at bottom edge)
+                    HorizontalLayout {
+                        padding-left: 0px;
+                        padding-right: 0px;
+                        alignment: space-between;
+
+                        Rectangle {
+                            width: 120px;
+                            height: 42px;
+                            background: prev-s3-t.has-hover ? #202636 : #151822;
+                            border-width: 1px;
+                            border-color: prev-s3-t.has-hover ? Theme.accent : #30384C;
+
+                            Text {
+                                text: "BACK";
+                                color: prev-s3-t.has-hover ? Theme.accent : #90A0B8;
+                                font-family: Theme.font-family;
+                                font-size: 12px;
+                                font-weight: 600;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+
+                            prev-s3-t := TouchArea {
+                                clicked => { root.current-step = 2; }
+                            }
+                        }
+
+                        Rectangle {
+                            width: 320px;
+                            height: 42px;
+                            background: finish-t.has-hover ? Theme.accent.brighter(15%) : Theme.accent;
+
+                            Text {
+                                text: "FINISH SETUP & ENTER LAUNCHER";
+                                color: #0A0C10;
+                                font-family: Theme.font-family;
+                                font-size: 13px;
+                                font-weight: 700;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+
+                            finish-t := TouchArea {
+                                clicked => {
+                                    root.complete(
+                                        root.username,
+                                        root.starter-loader,
+                                        root.starter-version,
+                                        root.selected-ram-mb,
+                                        root.post-launch-action,
+                                        root.minimize-to-tray,
+                                        root.selected-theme,
+                                        root.custom-accent-hex,
+                                        true,
+                                        false
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // =========================================================================
+    // SEAMLESS FULL-WINDOW CINEMATIC INTRO PROLOGUE (NO BARS, NO BUTTONS)
+    // =========================================================================
+    if root.intro-active: Rectangle {
+        x: 0px;
+        y: 0px;
+        width: 100%;
+        height: 100%;
+        background: #07060B;
+        opacity: root.intro-overlay-opacity;
+
+        animate opacity {
+            duration: 600ms;
+            easing: ease-out;
+        }
+
+        // Radial Pink Glow
+        Image {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: 660px;
+            height: 520px;
+            source: @image-url("../../../assets/branding/pink_radial_glow.png");
+            opacity: root.intro-glow-opacity;
+        }
+
+        // Center Lockup: Logo + Wordmark
+        HorizontalLayout {
+            alignment: center;
+            y: (parent.height - self.height) / 2;
+            spacing: 0px;
+
+            // Logo Image (scale & fade)
+            Rectangle {
+                width: 136px;
+                height: 136px;
+                y: (parent.height - self.height) / 2;
+
+                Image {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    width: 136px * root.intro-logo-scale;
+                    height: 136px * root.intro-logo-scale;
+                    source: @image-url("../../../logo.png");
+                    opacity: root.intro-logo-opacity;
+                }
+            }
+
+            // Wordmark Slide Clip
+            Rectangle {
+                clip: true;
+                width: root.intro-word-width;
+                height: 64px;
+                y: (parent.height - self.height) / 2;
+
+                HorizontalLayout {
+                    padding-left: 24px;
+                    Image {
+                        width: 232px;
+                        height: 60px;
+                        source: @image-url("../../../assets/branding/nyluna_wordmark.png");
+                        opacity: root.intro-word-opacity;
+                    }
+                }
+            }
+        }
+
+        // Click anywhere to skip intro and reveal the wizard
+        TouchArea {
+            width: 100%;
+            height: 100%;
+            clicked => {
+                root.finish-intro();
+            }
+        }
+    }
+}

@@ -1,0 +1,434 @@
+import { Theme } from "theme.slint";
+import { PixelCloseIcon } from "components.slint";
+
+export struct NotificationItemData {
+    id: string,
+    category: string,
+    title: string,
+    description: string,
+    timestamp: string,
+    is-read: bool,
+}
+
+export component NotificationDrawer {
+    in-out property <string> selected-category: "All";
+    in-out property <int> unread-count: 0;
+    in-out property <int> active-count: root.items.length;
+    in-out property <int> active-downloads: 0;
+    in-out property <int> active-sessions: 0;
+
+    property <bool> is-empty: (root.selected-category == "All" && root.items.length == 0)
+        || (root.selected-category == "Downloads" && (root.items.length == 0 || root.active-downloads <= 0))
+        || (root.selected-category == "Sessions" && (root.items.length == 0 || root.active-sessions <= 0));
+
+    in-out property <[NotificationItemData]> items: [];
+
+    callback close();
+    callback clear-all();
+    callback dismiss-item(string);
+
+    clear-all => {
+        root.items = [];
+        root.active-count = 0;
+        root.active-downloads = 0;
+        root.active-sessions = 0;
+        root.unread-count = 0;
+    }
+
+    // Full Backdrop (clicking outside dismisses)
+    Rectangle {
+        width: root.width;
+        height: root.height;
+        background: #000000.with-alpha(0.45);
+
+        TouchArea {
+            clicked => { root.close(); }
+        }
+    }
+
+    // Slide-over Drawer Panel (width: 320px, anchored right, 90° sharp pixel styling)
+    Rectangle {
+        x: root.width - self.width;
+        y: 0px;
+        width: 320px;
+        height: root.height;
+        background: Theme.card-bg;
+
+        // 1px Left Border
+        Rectangle {
+            x: 0px;
+            width: 1px;
+            background: Theme.border;
+        }
+
+        // Absorb clicks on the drawer so they don't trigger the backdrop
+        TouchArea { }
+
+        VerticalLayout {
+            spacing: 0px;
+
+            // 1. Header Bar
+            Rectangle {
+                height: 52px;
+                background: #191B20;
+
+                Rectangle {
+                    y: parent.height - 1px;
+                    height: 1px;
+                    background: Theme.border-subtle;
+                }
+
+                HorizontalLayout {
+                    padding-left: 16px;
+                    padding-right: 16px;
+                    alignment: space-between;
+
+                    // Left: Title + Unread Count Badge
+                    HorizontalLayout {
+                        spacing: 8px;
+                        alignment: start;
+
+                        Text {
+                            text: "Notifications";
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 12px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+
+                        if root.unread-count > 0: Rectangle {
+                            height: 18px;
+                            y: (parent.height - self.height) / 2;
+                            background: Theme.accent;
+
+                            HorizontalLayout {
+                                padding-left: 6px;
+                                padding-right: 6px;
+
+                                Text {
+                                    text: root.unread-count;
+                                    color: #FFFFFF;
+                                    font-family: Theme.font-family;
+                                    font-size: 9px;
+                                    font-weight: 700;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+                    }
+
+                    // Right: Clear All + Close (✕)
+                    HorizontalLayout {
+                        spacing: 12px;
+                        alignment: end;
+
+                        // Clear All Button
+                        Rectangle {
+                            height: 24px;
+                            y: (parent.height - self.height) / 2;
+                            background: clear-touch.has-hover ? #252A34 : transparent;
+
+                            HorizontalLayout {
+                                padding-left: 6px;
+                                padding-right: 6px;
+
+                                Text {
+                                    text: "Clear All";
+                                    color: clear-touch.has-hover ? #FFFFFF : Theme.text-muted;
+                                    font-family: Theme.font-family;
+                                    font-size: 10px;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            clear-touch := TouchArea {
+                                clicked => { root.clear-all(); }
+                            }
+                        }
+
+                        // Close Button (✕)
+                        Rectangle {
+                            width: 24px;
+                            height: 24px;
+                            y: (parent.height - self.height) / 2;
+                            background: close-touch.has-hover ? #2A2F3D : transparent;
+
+                            PixelCloseIcon {
+                                x: (parent.width - self.width) / 2;
+                                y: (parent.height - self.height) / 2;
+                                icon-color: close-touch.has-hover ? #FFFFFF : Theme.text-secondary;
+                            }
+
+                            close-touch := TouchArea {
+                                clicked => { root.close(); }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. Category Filter Pills: "All", "Downloads", "Sessions"
+            Rectangle {
+                height: 44px;
+                background: #16181C;
+
+                Rectangle {
+                    y: parent.height - 1px;
+                    height: 1px;
+                    background: Theme.border-subtle;
+                }
+
+                HorizontalLayout {
+                    padding-left: 14px;
+                    padding-right: 14px;
+                    spacing: 8px;
+                    alignment: start;
+
+                    // Filter Pill: All
+                    Rectangle {
+                        height: 26px;
+                        y: (parent.height - self.height) / 2;
+                        background: root.selected-category == "All" ? Theme.accent :
+                                    (pill-all-touch.has-hover ? #262B36 : Theme.input-bg);
+                        border-width: 1px;
+                        border-color: root.selected-category == "All" ? Theme.accent : #292E3A;
+
+                        HorizontalLayout {
+                            padding-left: 12px;
+                            padding-right: 12px;
+
+                            Text {
+                                text: "All";
+                                color: root.selected-category == "All" ? #FFFFFF : Theme.text-secondary;
+                                font-family: Theme.font-family;
+                                font-size: 10px;
+                                font-weight: 700;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        pill-all-touch := TouchArea {
+                            clicked => { root.selected-category = "All"; }
+                        }
+                    }
+
+                    // Filter Pill: Downloads
+                    Rectangle {
+                        height: 26px;
+                        y: (parent.height - self.height) / 2;
+                        background: root.selected-category == "Downloads" ? Theme.accent :
+                                    (pill-dl-touch.has-hover ? #262B36 : Theme.input-bg);
+                        border-width: 1px;
+                        border-color: root.selected-category == "Downloads" ? Theme.accent : #292E3A;
+
+                        HorizontalLayout {
+                            padding-left: 12px;
+                            padding-right: 12px;
+
+                            Text {
+                                text: "Downloads";
+                                color: root.selected-category == "Downloads" ? #FFFFFF : Theme.text-secondary;
+                                font-family: Theme.font-family;
+                                font-size: 10px;
+                                font-weight: 700;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        pill-dl-touch := TouchArea {
+                            clicked => { root.selected-category = "Downloads"; }
+                        }
+                    }
+
+                    // Filter Pill: Sessions
+                    Rectangle {
+                        height: 26px;
+                        y: (parent.height - self.height) / 2;
+                        background: root.selected-category == "Sessions" ? Theme.accent :
+                                    (pill-sess-touch.has-hover ? #262B36 : Theme.input-bg);
+                        border-width: 1px;
+                        border-color: root.selected-category == "Sessions" ? Theme.accent : #292E3A;
+
+                        HorizontalLayout {
+                            padding-left: 12px;
+                            padding-right: 12px;
+
+                            Text {
+                                text: "Sessions";
+                                color: root.selected-category == "Sessions" ? #FFFFFF : Theme.text-secondary;
+                                font-family: Theme.font-family;
+                                font-size: 10px;
+                                font-weight: 700;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        pill-sess-touch := TouchArea {
+                            clicked => { root.selected-category = "Sessions"; }
+                        }
+                    }
+                }
+            }
+
+            // 3. Notification Items Feed
+            Flickable {
+                vertical-stretch: 1;
+                interactive: true;
+
+                VerticalLayout {
+                    padding: 12px;
+                    spacing: 0px;
+                    alignment: start;
+
+                    // Empty State
+                    if root.is-empty: VerticalLayout {
+                        alignment: center;
+                        spacing: 6px;
+                        padding-top: 60px;
+                        padding-bottom: 60px;
+
+                        Text {
+                            text: "Nothing to show here";
+                            color: Theme.text-primary;
+                            font-family: Theme.font-family;
+                            font-size: 13px;
+                            font-weight: 700;
+                            horizontal-alignment: center;
+                        }
+
+                        Text {
+                            text: "Downloads, updates, and play sessions\nwill appear here.";
+                            color: Theme.text-muted;
+                            font-family: Theme.font-family;
+                            font-size: 10px;
+                            horizontal-alignment: center;
+                        }
+                    }
+
+                    for item in root.items: notif_card := Rectangle {
+                        property <bool> is-dismissed: false;
+                        property <bool> is-visible: (root.selected-category == "All" || root.selected-category == item.category) && !self.is-dismissed;
+
+                        visible: self.is-visible;
+                        height: self.is-visible ? 70px : 0px;
+                        clip: true;
+
+                        Rectangle {
+                            height: 62px;
+                            y: 0px;
+                            background: item-touch.has-hover ? #232731 : #1C1F26;
+                            border-width: 1px;
+                            border-color: #292E3A;
+
+                            HorizontalLayout {
+                                padding-left: 10px;
+                                padding-right: 10px;
+                                padding-top: 8px;
+                                padding-bottom: 8px;
+                                spacing: 10px;
+                                alignment: start;
+
+                                // Category Block Icon (28x28)
+                                Rectangle {
+                                    width: 28px;
+                                    height: 28px;
+                                    y: (parent.height - self.height) / 2;
+                                    background: #111215;
+                                    border-width: 1px;
+                                    border-color: #282C35;
+
+                                    Image {
+                                        source: item.category == "Downloads" ? @image-url("../../../icons/2x/shulker_box.png") :
+                                                (item.category == "Sessions" ? @image-url("../../../icons/2x/observer_back.png") :
+                                                 @image-url("../../../icons/2x/bell_side.png"));
+                                        width: 20px;
+                                        height: 20px;
+                                        image-fit: contain;
+                                        image-rendering: pixelated;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+                                }
+
+                                // Info: Title, Description, Timestamp
+                                VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    alignment: center;
+                                    spacing: 2px;
+
+                                    Text {
+                                        text: item.title;
+                                        color: #FFFFFF;
+                                        font-family: Theme.font-family;
+                                        font-size: 11px;
+                                        font-weight: 700;
+                                        overflow: elide;
+                                    }
+
+                                    Text {
+                                        text: item.description;
+                                        color: Theme.text-secondary;
+                                        font-family: Theme.font-family;
+                                        font-size: 9px;
+                                        overflow: elide;
+                                    }
+
+                                    Text {
+                                        text: item.timestamp;
+                                        color: Theme.text-muted;
+                                        font-family: Theme.font-family;
+                                        font-size: 8px;
+                                    }
+                                }
+
+                                // Dismiss Action (✕)
+                                Rectangle {
+                                    width: 20px;
+                                    height: 20px;
+                                    y: (parent.height - self.height) / 2;
+                                    background: dismiss-touch.has-hover ? #2F3543 : transparent;
+
+                                    Text {
+                                        text: "X";
+                                        color: dismiss-touch.has-hover ? #FFFFFF : Theme.text-muted;
+                                        font-family: Theme.font-family;
+                                        font-size: 10px;
+                                        font-weight: 700;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+
+                                    dismiss-touch := TouchArea {
+                                        clicked => {
+                                            notif_card.is-dismissed = true;
+                                            if (root.active-count > 0) {
+                                                root.active-count = root.active-count - 1;
+                                            }
+                                            if (item.category == "Downloads" && root.active-downloads > 0) {
+                                                root.active-downloads = root.active-downloads - 1;
+                                            }
+                                            if (item.category == "Sessions" && root.active-sessions > 0) {
+                                                root.active-sessions = root.active-sessions - 1;
+                                            }
+                                            if (!item.is-read && root.unread-count > 0) {
+                                                root.unread-count = root.unread-count - 1;
+                                            }
+                                            root.dismiss-item(item.id);
+                                        }
+                                    }
+                                }
+                            }
+
+                            item-touch := TouchArea { }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

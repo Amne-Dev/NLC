@@ -1,0 +1,293 @@
+import { Theme } from "theme.slint";
+
+export struct ActiveSessionData {
+    id: string,
+    name: string,
+    version: string,
+    loader: string,
+    elapsed_seconds: int,
+    elapsed_text: string,
+    status: string,
+    icon: image,
+}
+
+component ChevronIcon inherits Path {
+    in property <bool> is-open: true;
+    in property <color> icon-color: Theme.accent;
+    width: 10px;
+    height: 6px;
+    viewbox-x: 0;
+    viewbox-y: 0;
+    viewbox-width: 10;
+    viewbox-height: 6;
+    stroke: root.icon-color;
+    stroke-width: 1.5px;
+    fill: transparent;
+
+    MoveTo { x: 1.5; y: root.is-open ? 1.5 : 4.5; }
+    LineTo { x: 5.0; y: root.is-open ? 4.5 : 1.5; }
+    LineTo { x: 8.5; y: root.is-open ? 1.5 : 4.5; }
+}
+
+component CloseIcon inherits Path {
+    in property <color> icon-color: #FFFFFF;
+    width: 10px;
+    height: 10px;
+    viewbox-x: 0;
+    viewbox-y: 0;
+    viewbox-width: 10;
+    viewbox-height: 10;
+    stroke: root.icon-color;
+    stroke-width: 1.75px;
+    fill: transparent;
+
+    MoveTo { x: 1.5; y: 1.5; }
+    LineTo { x: 8.5; y: 8.5; }
+    MoveTo { x: 8.5; y: 1.5; }
+    LineTo { x: 1.5; y: 8.5; }
+}
+
+component KillButton inherits Rectangle {
+    in property <bool> animations-enabled: true;
+    callback clicked();
+
+    property <bool> is-hovered: touch.has-hover;
+
+    // Smoothly expands on hover from compact 28px square to 68px pill (Kill fits with no ellipsis)
+    width: root.is-hovered ? 68px : 28px;
+    height: 26px;
+    background: root.is-hovered ? (touch.pressed ? #A93226 : Theme.danger) : Theme.button-dark;
+    border-width: 1px;
+    border-color: root.is-hovered ? Theme.danger-hover : Theme.border;
+    clip: true;
+
+    animate width { duration: root.animations-enabled ? 160ms : 0ms; easing: ease-out; }
+    animate background { duration: root.animations-enabled ? 120ms : 0ms; }
+    animate border-color { duration: root.animations-enabled ? 120ms : 0ms; }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    HorizontalLayout {
+        padding-left: 7px;
+        padding-right: 7px;
+        spacing: 6px;
+        alignment: center;
+
+        CloseIcon {
+            y: (parent.height - self.height) / 2;
+            icon-color: root.is-hovered ? #FFFFFF : Theme.text-secondary;
+        }
+
+        if root.is-hovered: Text {
+            text: "Kill";
+            font-family: Theme.font-family;
+            font-size: 10px;
+            font-weight: 700;
+            color: #FFFFFF;
+            vertical-alignment: center;
+        }
+    }
+}
+
+component ActiveSessionCard inherits Rectangle {
+    in property <ActiveSessionData> data;
+    in property <bool> animations-enabled: true;
+    callback terminate(string);
+
+    background: Theme.input-bg;
+    border-width: 1px;
+    border-color: Theme.border;
+    height: 52px;
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 8px;
+        spacing: 8px;
+        alignment: center;
+
+        // Instance / Modpack icon vertically centered
+        if root.data.icon.width > 0: Rectangle {
+            width: 28px;
+            height: 28px;
+            y: (parent.height - self.height) / 2;
+            background: #111215;
+            border-width: 1px;
+            border-color: Theme.border;
+
+            Image {
+                source: root.data.icon;
+                width: 22px;
+                height: 22px;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                image-fit: contain;
+                image-rendering: pixelated;
+            }
+        }
+
+        // Session identity and runtime stats
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            spacing: 2px;
+
+            Text {
+                text: root.data.name != "" ? root.data.name : root.data.version;
+                font-family: Theme.font-family;
+                font-size: 11px;
+                font-weight: 700;
+                color: Theme.text-primary;
+                overflow: elide;
+            }
+
+            HorizontalLayout {
+                spacing: 6px;
+
+                Text {
+                    text: root.data.elapsed-text != "" ? root.data.elapsed-text : "0s";
+                    font-family: Theme.font-family;
+                    font-size: 10px;
+                    color: Theme.accent;
+                }
+
+                if root.data.loader != "" && root.data.loader != "Vanilla": Text {
+                    text: "• " + root.data.loader;
+                    font-family: Theme.font-family;
+                    font-size: 10px;
+                    color: Theme.text-muted;
+                }
+
+                if root.data.version != "" && root.data.version != root.data.name: Text {
+                    text: "• " + root.data.version;
+                    font-family: Theme.font-family;
+                    font-size: 10px;
+                    color: Theme.text-muted;
+                    overflow: elide;
+                }
+            }
+        }
+
+        // Hover-expanding Kill button vertically centered
+        KillButton {
+            y: (parent.height - self.height) / 2;
+            animations-enabled: root.animations-enabled;
+            clicked => { root.terminate(root.data.id); }
+        }
+    }
+}
+
+export component ActiveSessionsPanel inherits Rectangle {
+    in property <[ActiveSessionData]> sessions: [];
+    in property <bool> animations-enabled: true;
+    in-out property <bool> is-minimized: false;
+    callback terminate-session(string);
+
+    property <int> total-sessions: root.sessions.length;
+    property <int> visible-count: min(root.total-sessions, 2);
+    property <length> item-height: 52px;
+    property <length> item-gap: 6px;
+    property <length> cards-area-height: root.is-minimized ? 0px : (root.visible-count * root.item-height + max(0, root.visible-count - 1) * root.item-gap + 16px);
+
+    width: 340px;
+    height: 36px + root.cards-area-height;
+    background: Theme.card-bg;
+    border-width: 1px;
+    border-color: Theme.border;
+    clip: true;
+
+    animate height { duration: root.animations-enabled ? 200ms : 0ms; easing: ease-out; }
+
+    VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
+
+        // --- Header Bar (always visible; click anywhere to minimize/expand) ---
+        Rectangle {
+            height: 36px;
+            background: header-touch.has-hover ? Theme.card-hover : Theme.sidebar-bg;
+            border-width: root.is-minimized ? 0px : 1px;
+            border-color: Theme.border-subtle;
+
+            header-touch := TouchArea {
+                mouse-cursor: pointer;
+                clicked => {
+                    root.is-minimized = !root.is-minimized;
+                }
+            }
+
+            HorizontalLayout {
+                padding-left: 8px;
+                padding-right: 12px;
+                alignment: start;
+                spacing: 8px;
+
+                // Chevron icon anchored to far left and vertically centered
+                Rectangle {
+                    width: 16px;
+                    height: 16px;
+                    y: (parent.height - self.height) / 2;
+
+                    ChevronIcon {
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        is-open: !root.is-minimized;
+                        icon-color: Theme.accent;
+                    }
+                }
+
+                Text {
+                    text: "Active Game Sessions";
+                    font-family: Theme.font-family;
+                    font-size: 11px;
+                    font-weight: 700;
+                    color: Theme.text-primary;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+
+                // Active count badge vertically centered
+                Rectangle {
+                    background: Theme.accent-subtle;
+                    border-width: 1px;
+                    border-color: Theme.accent;
+                    height: 18px;
+                    width: 24px;
+                    y: (parent.height - self.height) / 2;
+
+                    Text {
+                        text: root.total-sessions;
+                        font-family: Theme.font-family;
+                        font-size: 10px;
+                        font-weight: 700;
+                        color: #FFFFFF;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+
+        // --- Active Session Rows (Max 2 visible; scrollable if > 2) ---
+        if !root.is-minimized && root.total-sessions > 0: Rectangle {
+            height: root.cards-area-height;
+
+            Flickable {
+                interactive: true;
+                content-height: root.total-sessions * (root.item-height + root.item-gap) - root.item-gap + 16px;
+
+                VerticalLayout {
+                    padding: 8px;
+                    spacing: root.item-gap;
+                    for s in root.sessions: ActiveSessionCard {
+                        data: s;
+                        animations-enabled: root.animations-enabled;
+                        terminate(id) => { root.terminate-session(id); }
+                    }
+                }
+            }
+        }
+    }
+}

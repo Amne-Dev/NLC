@@ -1,0 +1,14 @@
+[
+  {
+    "id": "custom_crosshair",
+    "name": "Custom Crosshair",
+    "version": "1.0.0",
+    "author": "Amne-Dev",
+    "description": "Dynamic customizable HUD crosshairs with multiple shapes, thickness options, and RGB color presets.",
+    "icon_url": "https://raw.githubusercontent.com/Amne-Dev/Community-addons-nlc/main/addons/custom_crosshair/icon.png",
+    "download_url": "https://github.com/Amne-Dev/Community-addons-nlc/raw/main/addons/custom_crosshair/addon.zip",
+    "action_label": "Install",
+    "tags": ["HUD", "Visual"]
+  }
+]
+

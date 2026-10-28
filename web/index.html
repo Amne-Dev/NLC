@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>New Launcher - The Modern, Lightweight Minecraft Launcher</title>
+    <title>Ny-Luna Core — The Modern, Lightweight Minecraft Launcher</title>
     
     <!-- SEO Meta Tags -->
     <meta name="description" content="A modern, blazing fast, and ad-free Minecraft launcher featuring 3D skin customization, 1-click Modrinth modpacks, local skin injection, and zero telemetry.">
@@ -13,52 +13,96 @@
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://amne-dev.github.io/New-launcher/">
-    <meta property="og:title" content="New Launcher - The Modern Minecraft Launcher">
+    <meta property="og:url" content="https://amne-dev.github.io/NLC/">
+    <meta property="og:title" content="Ny-Luna - The Modern Minecraft Launcher">
     <meta property="og:description" content="Blazing fast, 100% ad-free Minecraft launcher with 3D skin wardrobe, 1-click Modrinth modpacks, and offline skin injection.">
-    <meta property="og:image" content="https://raw.githubusercontent.com/Amne-Dev/New-launcher/main/preview.png">
+    <meta property="og:image" content="https://raw.githubusercontent.com/Amne-Dev/NLC/main/preview.png">
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://amne-dev.github.io/New-launcher/">
-    <meta property="twitter:title" content="New Launcher - The Modern Minecraft Launcher">
+    <meta property="twitter:url" content="https://amne-dev.github.io/NLC/">
+    <meta property="twitter:title" content="Ny-Luna - The Modern Minecraft Launcher">
     <meta property="twitter:description" content="Blazing fast, 100% ad-free Minecraft launcher with 3D skin wardrobe, 1-click Modrinth modpacks, and offline skin injection.">
-    <meta property="twitter:image" content="https://raw.githubusercontent.com/Amne-Dev/New-launcher/main/preview.png">
+    <meta property="twitter:image" content="https://raw.githubusercontent.com/Amne-Dev/NLC/main/preview.png">
 
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Amne-Dev/New-launcher/main/logo.png">
+    <link rel="icon" type="image/png" href="logo.png">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- Intro Reveal Animation Overlay (plays once on first visit) -->
+    <div class="intro-overlay" id="intro-overlay">
+        <div class="intro-glow"></div>
+        <div id="intro-px"></div>
+        <div class="intro-lockup" id="intro-lockup">
+            <img src="logo.png" alt="Ny-Luna Logo" class="intro-logo" id="intro-logo">
+            <div class="intro-wrap" id="intro-wrap">
+                <div class="intro-clip">
+                    <svg class="intro-word" id="intro-word" viewBox="0 0 42 10" xmlns="http://www.w3.org/2000/svg" aria-label="Ny-Luna"></svg>
+                </div>
+            </div>
+        </div>
+        <div class="intro-vig"></div>
+        <button id="intro-skip" class="intro-skip-btn">Skip</button>
+    </div>
+
     <nav>
-        <div class="logo">
-            <img src="https://raw.githubusercontent.com/Amne-Dev/New-launcher/main/logo.png" alt="Logo" class="logo-icon-img">
-            <span class="logo-text-pixel">NEW LAUNCHER</span>
+        <div class="logo" id="nav-brand">
+            <img src="logo.png" alt="Ny-Luna Logo" class="logo-icon-img" id="nav-logo-img">
+            <svg class="logo-wordmark-svg" id="nav-logo-word" viewBox="0 0 42 10" xmlns="http://www.w3.org/2000/svg" aria-label="Ny-Luna"><g fill="#6b2650"><rect x="1" y="1" width="1" height="1"/><rect x="5" y="1" width="1" height="1"/><rect x="1" y="2" width="1" height="1"/><rect x="2" y="2" width="1" height="1"/><rect x="5" y="2" width="1" height="1"/><rect x="1" y="3" width="1" height="1"/><rect x="2" y="3" width="1" height="1"/><rect x="5" y="3" width="1" height="1"/><rect x="1" y="4" width="1" height="1"/><rect x="3" y="4" width="1" height="1"/><rect x="5" y="4" width="1" height="1"/><rect x="1" y="5" width="1" height="1"/><rect x="4" y="5" width="1" height="1"/><rect x="5" y="5" width="1" height="1"/><rect x="1" y="6" width="1" height="1"/><rect x="4" y="6" width="1" height="1"/><rect x="5" y="6" width="1" height="1"/><rect x="1" y="7" width="1" height="1"/><rect x="5" y="7" width="1" height="1"/><rect x="7" y="3" width="1" height="1"/><rect x="11" y="3" width="1" height="1"/><rect x="7" y="4" width="1" height="1"/><rect x="11" y="4" width="1" height="1"/><rect x="7" y="5" width="1" height="1"/><rect x="11" y="5" width="1" height="1"/><rect x="7" y="6" width="1" height="1"/><rect x="11" y="6" width="1" height="1"/><rect x="8" y="7" width="1" height="1"/><rect x="9" y="7" width="1" height="1"/><rect x="10" y="7" width="1" height="1"/><rect x="11" y="7" width="1" height="1"/><rect x="11" y="8" width="1" height="1"/><rect x="7" y="9" width="1" height="1"/><rect x="8" y="9" width="1" height="1"/><rect x="9" y="9" width="1" height="1"/><rect x="10" y="9" width="1" height="1"/><rect x="13" y="4" width="1" height="1"/><rect x="14" y="4" width="1" height="1"/><rect x="15" y="4" width="1" height="1"/><rect x="16" y="4" width="1" height="1"/><rect x="17" y="4" width="1" height="1"/><rect x="19" y="1" width="1" height="1"/><rect x="19" y="2" width="1" height="1"/><rect x="19" y="3" width="1" height="1"/><rect x="19" y="4" width="1" height="1"/><rect x="19" y="5" width="1" height="1"/><rect x="19" y="6" width="1" height="1"/><rect x="19" y="7" width="1" height="1"/><rect x="20" y="7" width="1" height="1"/><rect x="21" y="7" width="1" height="1"/><rect x="22" y="7" width="1" height="1"/><rect x="23" y="7" width="1" height="1"/><rect x="25" y="3" width="1" height="1"/><rect x="29" y="3" width="1" height="1"/><rect x="25" y="4" width="1" height="1"/><rect x="29" y="4" width="1" height="1"/><rect x="25" y="5" width="1" height="1"/><rect x="29" y="5" width="1" height="1"/><rect x="25" y="6" width="1" height="1"/><rect x="29" y="6" width="1" height="1"/><rect x="26" y="7" width="1" height="1"/><rect x="27" y="7" width="1" height="1"/><rect x="28" y="7" width="1" height="1"/><rect x="29" y="7" width="1" height="1"/><rect x="31" y="3" width="1" height="1"/><rect x="32" y="3" width="1" height="1"/><rect x="33" y="3" width="1" height="1"/><rect x="34" y="3" width="1" height="1"/><rect x="31" y="4" width="1" height="1"/><rect x="35" y="4" width="1" height="1"/><rect x="31" y="5" width="1" height="1"/><rect x="35" y="5" width="1" height="1"/><rect x="31" y="6" width="1" height="1"/><rect x="35" y="6" width="1" height="1"/><rect x="31" y="7" width="1" height="1"/><rect x="35" y="7" width="1" height="1"/><rect x="38" y="3" width="1" height="1"/><rect x="39" y="3" width="1" height="1"/><rect x="40" y="3" width="1" height="1"/><rect x="41" y="4" width="1" height="1"/><rect x="38" y="5" width="1" height="1"/><rect x="39" y="5" width="1" height="1"/><rect x="40" y="5" width="1" height="1"/><rect x="41" y="5" width="1" height="1"/><rect x="37" y="6" width="1" height="1"/><rect x="41" y="6" width="1" height="1"/><rect x="38" y="7" width="1" height="1"/><rect x="39" y="7" width="1" height="1"/><rect x="40" y="7" width="1" height="1"/><rect x="41" y="7" width="1" height="1"/></g><g fill="#ffffff"><rect x="0" y="0" width="1" height="1"/><rect x="4" y="0" width="1" height="1"/><rect x="0" y="1" width="1" height="1"/><rect x="1" y="1" width="1" height="1"/><rect x="4" y="1" width="1" height="1"/><rect x="0" y="2" width="1" height="1"/><rect x="1" y="2" width="1" height="1"/><rect x="4" y="2" width="1" height="1"/><rect x="0" y="3" width="1" height="1"/><rect x="2" y="3" width="1" height="1"/><rect x="4" y="3" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="3" y="4" width="1" height="1"/><rect x="4" y="4" width="1" height="1"/><rect x="0" y="5" width="1" height="1"/><rect x="3" y="5" width="1" height="1"/><rect x="4" y="5" width="1" height="1"/><rect x="0" y="6" width="1" height="1"/><rect x="4" y="6" width="1" height="1"/><rect x="6" y="2" width="1" height="1"/><rect x="10" y="2" width="1" height="1"/><rect x="6" y="3" width="1" height="1"/><rect x="10" y="3" width="1" height="1"/><rect x="6" y="4" width="1" height="1"/><rect x="10" y="4" width="1" height="1"/><rect x="6" y="5" width="1" height="1"/><rect x="10" y="5" width="1" height="1"/><rect x="7" y="6" width="1" height="1"/><rect x="8" y="6" width="1" height="1"/><rect x="9" y="6" width="1" height="1"/><rect x="10" y="6" width="1" height="1"/><rect x="10" y="7" width="1" height="1"/><rect x="6" y="8" width="1" height="1"/><rect x="7" y="8" width="1" height="1"/><rect x="8" y="8" width="1" height="1"/><rect x="9" y="8" width="1" height="1"/><rect x="12" y="3" width="1" height="1"/><rect x="13" y="3" width="1" height="1"/><rect x="14" y="3" width="1" height="1"/><rect x="15" y="3" width="1" height="1"/><rect x="16" y="3" width="1" height="1"/><rect x="18" y="0" width="1" height="1"/><rect x="18" y="1" width="1" height="1"/><rect x="18" y="2" width="1" height="1"/><rect x="18" y="3" width="1" height="1"/><rect x="18" y="4" width="1" height="1"/><rect x="18" y="5" width="1" height="1"/><rect x="18" y="6" width="1" height="1"/><rect x="19" y="6" width="1" height="1"/><rect x="20" y="6" width="1" height="1"/><rect x="21" y="6" width="1" height="1"/><rect x="22" y="6" width="1" height="1"/><rect x="24" y="2" width="1" height="1"/><rect x="28" y="2" width="1" height="1"/><rect x="24" y="3" width="1" height="1"/><rect x="28" y="3" width="1" height="1"/><rect x="24" y="4" width="1" height="1"/><rect x="28" y="4" width="1" height="1"/><rect x="24" y="5" width="1" height="1"/><rect x="28" y="5" width="1" height="1"/><rect x="25" y="6" width="1" height="1"/><rect x="26" y="6" width="1" height="1"/><rect x="27" y="6" width="1" height="1"/><rect x="28" y="6" width="1" height="1"/><rect x="30" y="2" width="1" height="1"/><rect x="31" y="2" width="1" height="1"/><rect x="32" y="2" width="1" height="1"/><rect x="33" y="2" width="1" height="1"/><rect x="30" y="3" width="1" height="1"/><rect x="34" y="3" width="1" height="1"/><rect x="30" y="4" width="1" height="1"/><rect x="34" y="4" width="1" height="1"/><rect x="30" y="5" width="1" height="1"/><rect x="34" y="5" width="1" height="1"/><rect x="30" y="6" width="1" height="1"/><rect x="34" y="6" width="1" height="1"/><rect x="37" y="2" width="1" height="1"/><rect x="38" y="2" width="1" height="1"/><rect x="39" y="2" width="1" height="1"/><rect x="40" y="3" width="1" height="1"/><rect x="37" y="4" width="1" height="1"/><rect x="38" y="4" width="1" height="1"/><rect x="39" y="4" width="1" height="1"/><rect x="40" y="4" width="1" height="1"/><rect x="36" y="5" width="1" height="1"/><rect x="40" y="5" width="1" height="1"/><rect x="37" y="6" width="1" height="1"/><rect x="38" y="6" width="1" height="1"/><rect x="39" y="6" width="1" height="1"/><rect x="40" y="6" width="1" height="1"/></g></svg>
         </div>
         <div class="links">
-            <a href="#locker">Locker</a>
-            <a href="#modrinth">Modrinth</a>
-            <a href="#benchmarks">Benchmarks</a>
-            <a href="#features">Features</a>
-            <a href="changelog.html">Changelog</a>
             <a href="wiki.html">Wiki</a>
-            <a href="https://github.com/Amne-Dev/New-launcher" target="_blank" rel="noopener">GitHub</a>
-            <a href="https://github.com/Amne-Dev/New-launcher/releases" class="btn-nav">Download</a>
+            <a href="faq.html">FAQ</a>
+            <a href="changelog.html">Changelog</a>
+            <a href="https://github.com/Amne-Dev/NLC" target="_blank" rel="noopener">GitHub</a>
+            <a href="#download" class="btn-nav btn-trigger-download">Download</a>
         </div>
     </nav>
 
+    <!-- Dynamic Vertical Timeline Section Spy (Right Rail) -->
+    <nav class="vertical-timeline" id="vertical-timeline" aria-label="Page Sections">
+        <div class="timeline-track-bg"></div>
+        <div class="timeline-progress-bar" id="timeline-progress-bar"></div>
+        <a href="#hero" class="timeline-node active" data-section="hero" title="Overview">
+            <span class="timeline-dot"><span class="timeline-dot-inner"></span></span>
+            <span class="timeline-label"><span class="timeline-idx">01</span> Overview</span>
+        </a>
+        <a href="#locker" class="timeline-node" data-section="locker" title="3D Wardrobe">
+            <span class="timeline-dot"><span class="timeline-dot-inner"></span></span>
+            <span class="timeline-label"><span class="timeline-idx">02</span> Wardrobe</span>
+        </a>
+        <a href="#modrinth" class="timeline-node" data-section="modrinth" title="Modrinth Discovery">
+            <span class="timeline-dot"><span class="timeline-dot-inner"></span></span>
+            <span class="timeline-label"><span class="timeline-idx">03</span> Modrinth</span>
+        </a>
+        <a href="#benchmarks" class="timeline-node" data-section="benchmarks" title="Benchmarks">
+            <span class="timeline-dot"><span class="timeline-dot-inner"></span></span>
+            <span class="timeline-label"><span class="timeline-idx">04</span> Benchmarks</span>
+        </a>
+        <a href="#requirements" class="timeline-node" data-section="requirements" title="System Requirements">
+            <span class="timeline-dot"><span class="timeline-dot-inner"></span></span>
+            <span class="timeline-label"><span class="timeline-idx">05</span> Specs</span>
+        </a>
+        <a href="#features" class="timeline-node" data-section="features" title="Core Features">
+            <span class="timeline-dot"><span class="timeline-dot-inner"></span></span>
+            <span class="timeline-label"><span class="timeline-idx">06</span> Features</span>
+        </a>
+    </nav>
+
     <!-- Hero Section -->
-    <header class="hero">
+    <header class="hero" id="hero">
         <div class="hero-content">
             <span class="pixel-badge blue">NEXT-GEN MINECRAFT CLIENT</span>
             <h1>The Better Way to Play <span class="accent">Minecraft</span>.</h1>
             <p class="hero-subtitle">Blazing fast startup, zero telemetry, and a sleek Neo interface. Experience an interactive 3D skin locker, 1-click Modrinth modpacks, and offline skin injection out of the box.</p>
             <div class="cta-group">
-                <a href="https://github.com/Amne-Dev/New-launcher/releases" class="btn-primary">
+                <a href="#download" class="btn-primary btn-trigger-download">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                     Download for Windows
                 </a>
@@ -67,7 +111,7 @@
                     Linux AppImage Guide
                 </a>
             </div>
-            <p id="version-text" class="sub-text">Version 2.7 • 100% Free & Open Source • Zero Ads • No Bloat</p>
+            <p id="version-text" class="sub-text">Version 4.0.0 • 100% Free & Open Source • Zero Ads • No Bloat</p>
         </div>
 
         <!-- Hero Window Mockup -->
@@ -77,10 +121,10 @@
                     <div class="dots">
                         <span></span><span></span><span></span>
                     </div>
-                    <div class="window-title">New Launcher — Minecraft Java Edition</div>
+                    <div class="window-title">Ny-Luna — Minecraft Java Edition</div>
                     <div style="width: 40px;"></div>
                 </div>
-                <img src="img/hero.png" alt="New Launcher Java Edition Interface" class="window-img" fetchpriority="high" loading="eager" width="1920" height="1080">
+                <img src="../preview.png" alt="Ny-Luna Java Edition Interface" class="window-img" fetchpriority="high" loading="eager" width="1920" height="1080">
             </div>
         </div>
     </header>
@@ -94,23 +138,20 @@
                 <p class="lead">Express yourself with complete control over your character's look. Inspect your skin in real time on an interactive 3D stage, manage wardrobe presets, and see your custom skin even in offline sessions.</p>
                 <ul class="showcase-features">
                     <li>
-                        <span class="feature-check-icon">✓</span>
+                        <span class="feature-check-icon"><i class="ri-check-line"></i></span>
                         <div><strong>Interactive 3D Stage:</strong> Inspect skins with real-time pose controls (Stand, Front, and Back view) with dynamic lighting and pedestal shadows.</div>
                     </li>
+                    
                     <li>
-                        <span class="feature-check-icon">✓</span>
-                        <div><strong>Dynamic Arm Geometry:</strong> Switch effortlessly between Steve (Classic 4px) and Alex (Slim 3px) models with single-click geometry adaptation.</div>
-                    </li>
-                    <li>
-                        <span class="feature-check-icon">✓</span>
+                        <span class="feature-check-icon"><i class="ri-check-line"></i></span>
                         <div><strong>Saved Wardrobe Presets:</strong> Organize your skins in visual cards with instant 1-click equip, search filtering, and open-folder access.</div>
                     </li>
                     <li>
-                        <span class="feature-check-icon">✓</span>
+                        <span class="feature-check-icon"><i class="ri-check-line"></i></span>
                         <div><strong>Local Skin Injection:</strong> View custom skins locally during offline singleplayer sessions without relying on external skin services.</div>
                     </li>
                     <li>
-                        <span class="feature-check-icon">✓</span>
+                        <span class="feature-check-icon"><i class="ri-check-line"></i></span>
                         <div><strong>Wallpaper Studio & Skin Stealer:</strong> Customize launcher backgrounds from scenic wallpapers and clone public skins by username in seconds.</div>
                     </li>
                 </ul>
@@ -124,7 +165,7 @@
                         <div class="window-title">Locker & Customization — 3D Wardrobe Studio</div>
                         <div style="width: 40px;"></div>
                     </div>
-                    <img src="img/locker.png" alt="New Launcher Locker and 3D Skin Studio" class="window-img" loading="lazy" decoding="async" width="1920" height="1080">
+                    <img src="img/locker.png" alt="Ny-Luna Locker and 3D Skin Studio" class="window-img" loading="lazy" decoding="async" width="1920" height="1080">
                 </div>
             </div>
         </div>
@@ -145,8 +186,8 @@
                         </div>
                         <div class="window-title">Modrinth Network</div>
                     </div>
-                    <img id="img-modpacks" src="img/modpacks.png" alt="New Launcher Modrinth Modpack Discovery" class="window-img" loading="lazy" decoding="async" width="1920" height="1080">
-                    <img id="img-mods" src="img/mods.png" alt="New Launcher Modrinth Mods Browser" class="window-img" style="display: none;" loading="lazy" decoding="async" width="1920" height="1080">
+                    <img id="img-modpacks" src="img/modpacks.png" alt="Ny-Luna Modrinth Modpack Discovery" class="window-img" loading="lazy" decoding="async" width="1920" height="1080">
+                    <img id="img-mods" src="img/mods.png" alt="Ny-Luna Modrinth Mods Browser" class="window-img" style="display: none;" loading="lazy" decoding="async" width="1920" height="1080">
                 </div>
             </div>
             <div class="showcase-info">
@@ -155,25 +196,19 @@
                 <p class="lead">Skip the hassle of visiting external sites and manually dragging `.jar` files into directories. Discover, download, and launch hundreds of community-loved modpacks directly from the Modrinth Network.</p>
                 <ul class="showcase-features cyan">
                     <li>
-                        <span class="feature-check-icon">✓</span>
-                        <div><strong>Instant 1-Click Installs:</strong> Fabulously Optimized, Cobblemon, Better MC, Sodium Plus, Prominence II, and hundreds more with crisp high-res logos.</div>
+                        <span class="feature-check-icon"><i class="ri-check-line"></i></span>
+                        <div><strong>Instant 1-Click Installs:</strong> Fabulously Optimized, Cobblemon, Better MC, Sodium Plus, Prominence II, and hundreds more.</div>
                     </li>
+                    
                     <li>
-                        <span class="feature-check-icon">✓</span>
-                        <div><strong>Automatic Installation Linking:</strong> The launcher automatically creates matching instances configured with the correct loader, game version, and Java runtime.</div>
-                    </li>
-                    <li>
-                        <span class="feature-check-icon">✓</span>
+                        <span class="feature-check-icon"><i class="ri-check-line"></i></span>
                         <div><strong>Smart Mod Manager:</strong> Inspect every mod bundled in a modpack and toggle individual mods ON or OFF with responsive switches.</div>
                     </li>
                     <li>
-                        <span class="feature-check-icon">✓</span>
+                        <span class="feature-check-icon"><i class="ri-check-line"></i></span>
                         <div><strong>Integrated Loader Filters:</strong> Seamlessly filter by Fabric, Forge, Quilt, or NeoForge with instant keyword search.</div>
                     </li>
-                    <li>
-                        <span class="feature-check-icon">✓</span>
-                        <div><strong>Zero Manual Zip Handling:</strong> Downloads are verified and deployed straight to your game directory with zero manual intervention.</div>
-                    </li>
+                    
                 </ul>
             </div>
         </div>
@@ -183,8 +218,8 @@
     <section id="benchmarks" class="benchmarks-section">
         <div class="section-header">
             <span class="pixel-badge blue">PERFORMANCE & TRANSPARENCY</span>
-            <h2>How Does New Launcher Compare?</h2>
-            <p>We benchmarked New Launcher against the Official Minecraft Launcher, Prism, SKlauncher, and TLauncher. Built for players who demand maximum performance, zero ads, and respect for their privacy.</p>
+            <h2>How Does Ny-Luna Compare?</h2>
+            <p>We benchmarked Ny-Luna against the Official Minecraft Launcher, Prism, SKlauncher, and TLauncher. Built for players who demand maximum performance, zero ads, and respect for their privacy.</p>
         </div>
 
         <!-- Benchmark Highlight Cards -->
@@ -192,13 +227,13 @@
             <div class="benchmark-card">
                 <div class="benchmark-badge">COLD STARTUP SPEED</div>
                 <h3 class="benchmark-title">Launch Time</h3>
-                <div class="benchmark-stat-main">~0.6 <span class="unit">sec</span></div>
-                <div class="benchmark-sub">Instant native launch without heavy CEF or Electron frameworks.</div>
+                <div class="benchmark-stat-main">~0.3 <span class="unit">sec</span></div>
+                <div class="benchmark-sub">Instant native launch powered by compiled native Rust and Slint.</div>
                 <div class="benchmark-bars">
                     <div class="benchmark-bar-row">
-                        <span class="benchmark-bar-name">New Launcher</span>
-                        <div class="benchmark-bar-track"><div class="benchmark-bar-fill win" style="width: 15%;"></div></div>
-                        <span class="benchmark-bar-val win">0.6s</span>
+                        <span class="benchmark-bar-name">Ny-Luna</span>
+                        <div class="benchmark-bar-track"><div class="benchmark-bar-fill win" style="width: 8%;"></div></div>
+                        <span class="benchmark-bar-val win">0.3s</span>
                     </div>
                     <div class="benchmark-bar-row">
                         <span class="benchmark-bar-name">Prism</span>
@@ -222,10 +257,10 @@
                 <div class="benchmark-badge">IDLE MEMORY USAGE</div>
                 <h3 class="benchmark-title">RAM Footprint</h3>
                 <div class="benchmark-stat-main">~48 <span class="unit">MB</span></div>
-                <div class="benchmark-sub">Leaves maximum RAM available for Minecraft and heavy shaders.</div>
+                <div class="benchmark-sub">Lightweight native footprint leaves maximum RAM available for Minecraft.</div>
                 <div class="benchmark-bars">
                     <div class="benchmark-bar-row">
-                        <span class="benchmark-bar-name">New Launcher</span>
+                        <span class="benchmark-bar-name">Ny-Luna</span>
                         <div class="benchmark-bar-track"><div class="benchmark-bar-fill win" style="width: 14%;"></div></div>
                         <span class="benchmark-bar-val win">48 MB</span>
                     </div>
@@ -254,7 +289,7 @@
                 <div class="benchmark-sub">100% clean, offline-ready, no user tracking, no injected promotions.</div>
                 <div class="benchmark-bars">
                     <div class="benchmark-bar-row">
-                        <span class="benchmark-bar-name">New Launcher</span>
+                        <span class="benchmark-bar-name">Ny-Luna</span>
                         <div class="benchmark-bar-track"><div class="benchmark-bar-fill win" style="width: 100%;"></div></div>
                         <span class="benchmark-bar-val win">Clean</span>
                     </div>
@@ -285,7 +320,7 @@
                         <th style="min-width: 220px;">Feature / Metric</th>
                         <th class="col-highlight" style="min-width: 180px;">
                             <span class="best-tag">RECOMMENDED</span>
-                            New Launcher (NLC)
+                            Ny-Luna (NLC)
                         </th>
                         <th style="min-width: 150px;">Official Launcher</th>
                         <th style="min-width: 140px;">Prism Launcher</th>
@@ -300,7 +335,7 @@
                             <div class="table-feature-sub">Time from click to fully interactive UI</div>
                         </td>
                         <td class="col-highlight">
-                            <span class="pill-status success">⚡ ~0.6s (Instant)</span>
+                            <span class="pill-status success"><i class="ri-flashlight-line"></i> ~0.3s (Instant)</span>
                         </td>
                         <td><span class="pill-status danger">5.5s - 8s</span></td>
                         <td><span class="pill-status success">~1.8s</span></td>
@@ -326,10 +361,10 @@
                             <div class="table-feature-sub">In-app modpack & mod browser with auto-linking</div>
                         </td>
                         <td class="col-highlight">
-                            <span class="pill-status success">✔ Built-in 1-Click</span>
+                            <span class="pill-status success"><i class="ri-check-line"></i> Built-in 1-Click</span>
                         </td>
-                        <td><span class="pill-status danger">✖ None</span></td>
-                        <td><span class="pill-status success">✔ Supported</span></td>
+                        <td><span class="pill-status danger"><i class="ri-close-line"></i> None</span></td>
+                        <td><span class="pill-status success"><i class="ri-check-line"></i> Supported</span></td>
                         <td><span class="pill-status warning">Partial</span></td>
                         <td><span class="pill-status warning">Limited</span></td>
                     </tr>
@@ -339,10 +374,10 @@
                             <div class="table-feature-sub">Interactive 3D model, pose controls, and preset cards</div>
                         </td>
                         <td class="col-highlight">
-                            <span class="pill-status success">✔ Full 3D Studio</span>
+                            <span class="pill-status success"><i class="ri-check-line"></i> Full 3D Studio</span>
                         </td>
                         <td><span class="pill-status neutral">Basic 2D</span></td>
-                        <td><span class="pill-status danger">✖ None (External)</span></td>
+                        <td><span class="pill-status danger"><i class="ri-close-line"></i> None (External)</span></td>
                         <td><span class="pill-status neutral">2D Flat</span></td>
                         <td><span class="pill-status neutral">Web-linked</span></td>
                     </tr>
@@ -352,10 +387,10 @@
                             <div class="table-feature-sub">Local skin rendering without internet or auth servers</div>
                         </td>
                         <td class="col-highlight">
-                            <span class="pill-status success">✔ Yes (Local)</span>
+                            <span class="pill-status success"><i class="ri-check-line"></i> Yes (Local)</span>
                         </td>
-                        <td><span class="pill-status danger">✖ Online Only</span></td>
-                        <td><span class="pill-status danger">✖ No</span></td>
+                        <td><span class="pill-status danger"><i class="ri-close-line"></i> Online Only</span></td>
+                        <td><span class="pill-status danger"><i class="ri-close-line"></i> No</span></td>
                         <td><span class="pill-status neutral">Online Auth</span></td>
                         <td><span class="pill-status warning">Skin Server</span></td>
                     </tr>
@@ -365,12 +400,12 @@
                             <div class="table-feature-sub">Disable specific mods without deleting files</div>
                         </td>
                         <td class="col-highlight">
-                            <span class="pill-status success">✔ 1-Click Toggle</span>
+                            <span class="pill-status success"><i class="ri-check-line"></i> 1-Click Toggle</span>
                         </td>
-                        <td><span class="pill-status danger">✖ Manual Deletion</span></td>
-                        <td><span class="pill-status success">✔ Yes</span></td>
-                        <td><span class="pill-status danger">✖ Manual</span></td>
-                        <td><span class="pill-status danger">✖ Manual</span></td>
+                        <td><span class="pill-status danger"><i class="ri-close-line"></i> Manual Deletion</span></td>
+                        <td><span class="pill-status success"><i class="ri-check-line"></i> Yes</span></td>
+                        <td><span class="pill-status danger"><i class="ri-close-line"></i> Manual</span></td>
+                        <td><span class="pill-status danger"><i class="ri-close-line"></i> Manual</span></td>
                     </tr>
                     <tr>
                         <td>
@@ -378,12 +413,12 @@
                             <div class="table-feature-sub">User tracking and background analytics</div>
                         </td>
                         <td class="col-highlight">
-                            <span class="pill-status success">🛡️ Zero Trackers</span>
+                            <span class="pill-status success"><i class="ri-shield-check-line"></i> Zero Trackers</span>
                         </td>
                         <td><span class="pill-status warning">Microsoft Telemetry</span></td>
-                        <td><span class="pill-status success">🛡️ Clean</span></td>
+                        <td><span class="pill-status success"><i class="ri-shield-check-line"></i> Clean</span></td>
                         <td><span class="pill-status warning">Basic Analytics</span></td>
-                        <td><span class="pill-status danger">🚨 Spyware Concerns</span></td>
+                        <td><span class="pill-status danger"><i class="ri-alarm-warning-line"></i> Spyware Concerns</span></td>
                     </tr>
                     <tr>
                         <td>
@@ -391,12 +426,12 @@
                             <div class="table-feature-sub">Sponsored banners, popups, and injected promotions</div>
                         </td>
                         <td class="col-highlight">
-                            <span class="pill-status success">🛡️ 100% Ad-Free</span>
+                            <span class="pill-status success"><i class="ri-shield-check-line"></i> 100% Ad-Free</span>
                         </td>
                         <td><span class="pill-status neutral">Marketplace Banners</span></td>
-                        <td><span class="pill-status success">🛡️ 100% Ad-Free</span></td>
+                        <td><span class="pill-status success"><i class="ri-shield-check-line"></i> 100% Ad-Free</span></td>
                         <td><span class="pill-status neutral">Clean</span></td>
-                        <td><span class="pill-status danger">🚨 Heavy Ads & Popups</span></td>
+                        <td><span class="pill-status danger"><i class="ri-alarm-warning-line"></i> Heavy Ads & Popups</span></td>
                     </tr>
                     <tr>
                         <td>
@@ -404,55 +439,147 @@
                             <div class="table-feature-sub">Transparent, auditable code maintained by community</div>
                         </td>
                         <td class="col-highlight">
-                            <span class="pill-status success">✔ 100% Open Source</span>
+                            <span class="pill-status success"><i class="ri-check-line"></i> 100% Open Source</span>
                         </td>
-                        <td><span class="pill-status danger">✖ Proprietary</span></td>
-                        <td><span class="pill-status success">✔ Open Source</span></td>
-                        <td><span class="pill-status danger">✖ Closed Source</span></td>
-                        <td><span class="pill-status danger">✖ Closed Source</span></td>
+                        <td><span class="pill-status danger"><i class="ri-close-line"></i> Proprietary</span></td>
+                        <td><span class="pill-status success"><i class="ri-check-line"></i> Open Source</span></td>
+                        <td><span class="pill-status danger"><i class="ri-close-line"></i> Closed Source</span></td>
+                        <td><span class="pill-status danger"><i class="ri-close-line"></i> Closed Source</span></td>
                     </tr>
                 </tbody>
             </table>
         </div>
     </section>
 
+    <!-- System Requirements Section -->
+    <section id="requirements" class="requirements-section alt-bg">
+        <div class="section-header text-center">
+            <span class="pixel-badge blue">HARDWARE & COMPATIBILITY</span>
+            <h2>System Requirements</h2>
+        </div>
+
+        <div class="requirements-grid">
+            <!-- Minimum Requirements Card -->
+            <div class="req-card">
+                <span class="req-badge min">MINIMUM SPECIFICATION</span>
+                <h3 class="req-title">Vanilla & Light Modding</h3>
+                <div class="req-target">Standard Minecraft Java Edition • 720p / 60 FPS • 8–10 Render Distance</div>
+                
+                <div class="req-specs-list">
+                    <div class="req-spec-row">
+                        <span class="req-spec-icon"><i class="ri-computer-line"></i></span>
+                        <div class="req-spec-content">
+                            <div class="req-spec-label">Operating System</div>
+                            <div class="req-spec-val">Windows 10 (64-bit, v1809+) or Linux (x86_64)</div>
+                        </div>
+                    </div>
+
+                    <div class="req-spec-row">
+                        <span class="req-spec-icon"><i class="ri-cpu-line"></i></span>
+                        <div class="req-spec-content">
+                            <div class="req-spec-label">Processor (CPU)</div>
+                            <div class="req-spec-val">Intel Core i3-3210 (3.2 GHz) / AMD A8-7600 (3.1 GHz)</div>
+                        </div>
+                    </div>
+
+                    <div class="req-spec-row">
+                        <span class="req-spec-icon"><i class="ri-ram-2-line"></i></span>
+                        <div class="req-spec-content">
+                            <div class="req-spec-label">System Memory (RAM)</div>
+                            <div class="req-spec-val">4 GB Total System Memory</div>
+                        </div>
+                    </div>
+
+                    <div class="req-spec-row">
+                        <span class="req-spec-icon"><i class="ri-gamepad-line"></i></span>
+                        <div class="req-spec-content">
+                            <div class="req-spec-label">Graphics Card (GPU)</div>
+                            <div class="req-spec-val">Intel HD Graphics 4000 / AMD Radeon R5 Series</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recommended Requirements Card -->
+            <div class="req-card recommended">
+                <span class="req-badge rec">RECOMMENDED SPECIFICATION</span>
+                <h3 class="req-title">Modpacks & Shaderpacks</h3>
+                <div class="req-target">Fabric / NeoForge Modpacks • 1080p+ / 144+ FPS • 16–24 Render Distance</div>
+
+                <div class="req-specs-list">
+                    <div class="req-spec-row">
+                        <span class="req-spec-icon"><i class="ri-computer-line"></i></span>
+                        <div class="req-spec-content">
+                            <div class="req-spec-label">Operating System</div>
+                            <div class="req-spec-val">Windows 11 / 10 (64-bit) or Modern Linux (Kernel 6.x+)</div>
+                        </div>
+                    </div>
+
+                    <div class="req-spec-row">
+                        <span class="req-spec-icon"><i class="ri-cpu-line"></i></span>
+                        <div class="req-spec-content">
+                            <div class="req-spec-label">Processor (CPU)</div>
+                            <div class="req-spec-val">Intel Core i5-10400 (2.9 GHz) / AMD Ryzen 5 3600 (3.6 GHz)</div>
+                        </div>
+                    </div>
+
+                    <div class="req-spec-row">
+                        <span class="req-spec-icon"><i class="ri-ram-2-line"></i></span>
+                        <div class="req-spec-content">
+                            <div class="req-spec-label">System Memory (RAM)</div>
+                            <div class="req-spec-val">8 GB to 16 GB Total System Memory</div>
+                        </div>
+                    </div>
+
+                    <div class="req-spec-row">
+                        <span class="req-spec-icon"><i class="ri-gamepad-line"></i></span>
+                        <div class="req-spec-content">
+                            <div class="req-spec-label">Graphics Card (GPU)</div>
+                            <div class="req-spec-val">NVIDIA GeForce GTX 1660 / RTX 3060 or AMD Radeon RX 6600</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Core Features Grid -->
     <section id="features" class="features">
         <div class="feature-card">
-            <div class="icon">⚡</div>
-            <h3>Blazing Fast Core</h3>
-            <p>Starts up in less than a second. Smart background caching and a streamlined UI architecture guarantee immediate access to your games.</p>
+            <div class="icon"><i class="ri-flashlight-line"></i></div>
+            <h3>Instant Game Launch</h3>
+            <p>Opens in the blink of an eye with zero lag, so you can jump right into your world without waiting.</p>
         </div>
         <div class="feature-card">
-            <div class="icon">⚙️</div>
-            <h3>Fabric, Forge & NeoForge</h3>
-            <p>One-click loaders installation. No manual Java path guessing or dependency extraction—the launcher manages your environments automatically.</p>
+            <div class="icon"><i class="ri-tools-line"></i></div>
+            <h3>All Loaders Supported</h3>
+            <p>Play Vanilla, Fabric, Forge, or NeoForge with one click. Everything is set up automatically for you.</p>
         </div>
         <div class="feature-card">
-            <div class="icon">👕</div>
-            <h3>Advanced Skin Engine</h3>
-            <p>Support for Microsoft, Ely.by, and local offline skins. See your custom skin even when offline or disconnected from Mojang services.</p>
+            <div class="icon"><i class="ri-t-shirt-line"></i></div>
+            <h3>Custom Skins Everywhere</h3>
+            <p>Use Microsoft, Ely.by, or offline skins. Your skin always shows up in-game even when playing offline.</p>
         </div>
         <div class="feature-card">
-            <div class="icon">🎨</div>
-            <h3>Personalized Customization</h3>
-            <p>Select custom wallpaper backgrounds, pick genuine Minecraft block icons for instances, and customize Discord Rich Presence to match your activity.</p>
+            <div class="icon"><i class="ri-palette-line"></i></div>
+            <h3>Make It Yours</h3>
+            <p>Choose scenic wallpapers, pick real Minecraft block icons for your profiles, and show your status on Discord.</p>
         </div>
         <div class="feature-card">
-            <div class="icon">🔒</div>
-            <h3>Privacy By Default</h3>
-            <p>No telemetry, no analytics, no ad tracking. Your login tokens and configuration remain entirely local on your machine.</p>
+            <div class="icon"><i class="ri-shield-keyhole-line"></i></div>
+            <h3>Clean & Private</h3>
+            <p>No ads, no trackers, and no bloatware. Your accounts and files stay completely safe on your own PC.</p>
         </div>
         <div class="feature-card">
-            <div class="icon">🐧</div>
-            <h3>Windows & Linux Native</h3>
-            <p>Full support for Windows and Linux (via portable AppImage). Equal features, performance, and polish across both platforms.</p>
+            <div class="icon"><i class="ri-terminal-box-line"></i></div>
+            <h3>Works Everywhere</h3>
+            <p>Runs smoothly on Windows and Linux with the same speed, look, and features across both systems.</p>
         </div>
     </section>
 
     <!-- Footer -->
     <footer>
-        <p>&copy; 2026 New Launcher Project. Not affiliated with Mojang Studios or Microsoft. | <a href="terms.html">Terms of Service</a> | <a href="privacy.html">Privacy</a></p>
+        <p>&copy; 2026 Ny-Luna Project (NLC). Not affiliated with Mojang Studios or Microsoft. | <a href="terms.html">Terms of Service</a> | <a href="privacy.html">Privacy</a> <button id="btn-replay-intro" class="btn-replay-intro" title="Replay the Ny-Luna intro reveal animation"><i class="ri-sparkling-fill"></i> Replay Intro</button></p>
         <div class="footer-links">
             <a href="wiki.html">Wiki</a> · 
             <a href="getting-started.html">Getting Started</a> · 
@@ -462,6 +589,58 @@
             <a href="support.html">Support</a>
         </div>
     </footer>
+
+    <!-- Download Version Selector Modal -->
+    <div class="modal-backdrop" id="download-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" hidden>
+        <div class="modal-card">
+            <div class="modal-header">
+                <div>
+                    <h3 id="modal-title">Select Ny-Luna Release</h3>
+                    <p class="modal-subtitle">Choose the edition best suited for your Windows system.</p>
+                </div>
+                <button class="modal-close" id="modal-close" aria-label="Close modal">&times;</button>
+            </div>
+            <div class="modal-options">
+                <!-- Latest Version Card -->
+                <div class="download-option-card recommended">
+                    <div class="badge-recommended">LATEST (RECOMMENDED)</div>
+                    <div class="option-header">
+                        <h4>Ny-Luna Core <span class="version-tag">v4.0.0</span></h4>
+                        <span class="engine-tag">Rust Core + Slint Native UI</span>
+                    </div>
+                    <p class="option-desc">The next-generation client. Blazing-fast startup, 3D skin wardrobe with offline injection, isolated modpacks, and dynamic theme accents.</p>
+                    <div class="option-actions">
+                        <a href="https://github.com/Amne-Dev/NLC/releases/latest/download/NLCSetup.exe" class="btn-modal-primary">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Installer (.exe)
+                        </a>
+                        <a href="https://github.com/Amne-Dev/NLC/releases/latest/download/NyLuna.exe" class="btn-modal-secondary">
+                            Portable / Standalone (.exe)
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Legacy Version Card -->
+                <div class="download-option-card">
+                    <div class="badge-legacy">LEGACY EDITION</div>
+                    <div class="option-header">
+                        <h4>Ny-Luna Legacy <span class="version-tag">v2.7.0</span></h4>
+                        <span class="engine-tag">Classic Tkinter GUI</span>
+                    </div>
+                    <p class="option-desc">The classic lightweight edition. Compatible with older Windows environments and machines that do not support modern GPU shaders.</p>
+                    <div class="option-actions">
+                        <a href="https://github.com/Amne-Dev/NLC/releases/download/v2.7/NewLauncher.exe" class="btn-modal-secondary">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Download Legacy v2.7 (.exe)
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <p>Looking for Linux or macOS? Check the <a href="getting-started.html">Linux Guide</a> or view <a href="https://github.com/Amne-Dev/NLC/releases" target="_blank" rel="noopener">All GitHub Releases</a>.</p>
+            </div>
+        </div>
+    </div>
 
     <script src="script.js"></script>
 </body>

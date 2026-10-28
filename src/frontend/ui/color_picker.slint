@@ -1,0 +1,443 @@
+import { Theme } from "theme.slint";
+import { PixelCloseIcon } from "components.slint";
+
+export struct RadialSwatchData {
+    x: length,
+    y: length,
+    r: int,
+    g: int,
+    b: int,
+    hex: string,
+}
+
+export component ColorPicker inherits Rectangle {
+    in-out property <int> red: 0;
+    in-out property <int> green: 229;
+    in-out property <int> blue: 255;
+    in-out property <string> hex-code: "#00E5FF";
+    in-out property <bool> wheel-open: false;
+    callback color-selected(string);
+    callback preview-color(string);
+
+    background: Theme.card-bg;
+    border-width: 1px;
+    border-color: Theme.border;
+
+    pure function hex-digit(v: int) -> string {
+        if (v == 0) { return "0"; }
+        if (v == 1) { return "1"; }
+        if (v == 2) { return "2"; }
+        if (v == 3) { return "3"; }
+        if (v == 4) { return "4"; }
+        if (v == 5) { return "5"; }
+        if (v == 6) { return "6"; }
+        if (v == 7) { return "7"; }
+        if (v == 8) { return "8"; }
+        if (v == 9) { return "9"; }
+        if (v == 10) { return "A"; }
+        if (v == 11) { return "B"; }
+        if (v == 12) { return "C"; }
+        if (v == 13) { return "D"; }
+        if (v == 14) { return "E"; }
+        return "F";
+    }
+
+    pure function byte-to-hex(v: int) -> string {
+        let clamped = Math.max(0, Math.min(255, v));
+        let hi = Math.floor(clamped / 16);
+        let lo = Math.mod(clamped, 16);
+        return hex-digit(hi) + hex-digit(lo);
+    }
+
+    changed hex-code => {
+        root.sync-from-hex(root.hex-code);
+    }
+
+    public function sync-from-hex(h: string) {
+        if (h == "#2ECC71") { root.red = 46; root.green = 204; root.blue = 113; }
+        else if (h == "#00E5FF") { root.red = 0; root.green = 229; root.blue = 255; }
+        else if (h == "#BD93F9") { root.red = 189; root.green = 147; root.blue = 249; }
+        else if (h == "#FF69B4") { root.red = 255; root.green = 105; root.blue = 180; }
+        else if (h == "#FFAA00") { root.red = 255; root.green = 170; root.blue = 0; }
+        else if (h == "#EF4444") { root.red = 239; root.green = 68; root.blue = 68; }
+        else if (h == "#38BDF8") { root.red = 56; root.green = 189; root.blue = 248; }
+        else if (h == "#10B981") { root.red = 16; root.green = 185; root.blue = 129; }
+        else if (h == "#FF0000") { root.red = 255; root.green = 0; root.blue = 0; }
+        else if (h == "#FF6000") { root.red = 255; root.green = 96; root.blue = 0; }
+        else if (h == "#D4FF00") { root.red = 212; root.green = 255; root.blue = 0; }
+        else if (h == "#80FF00") { root.red = 128; root.green = 255; root.blue = 0; }
+        else if (h == "#00FF80") { root.red = 0; root.green = 255; root.blue = 128; }
+        else if (h == "#00FFAA") { root.red = 0; root.green = 255; root.blue = 170; }
+        else if (h == "#00A6FF") { root.red = 0; root.green = 166; root.blue = 255; }
+        else if (h == "#3B82F6") { root.red = 59; root.green = 130; root.blue = 246; }
+        else if (h == "#7952FF") { root.red = 121; root.green = 82; root.blue = 255; }
+        else if (h == "#FF0066") { root.red = 255; root.green = 0; root.blue = 102; }
+    }
+
+    public function sync-hex() {
+        root.hex-code = "#" + byte-to-hex(root.red) + byte-to-hex(root.green) + byte-to-hex(root.blue);
+        root.preview-color(root.hex-code);
+    }
+
+    public function set-from-preset(preset-hex: string) {
+        root.hex-code = preset-hex;
+        root.sync-from-hex(preset-hex);
+        root.preview-color(preset-hex);
+        root.color-selected(preset-hex);
+    }
+
+    public function set-from-rgb(r: int, g: int, b: int, hex: string) {
+        root.red = r;
+        root.green = g;
+        root.blue = b;
+        root.hex-code = hex;
+        root.preview-color(hex);
+        root.color-selected(hex);
+    }
+
+    pure function calc-r(sector: int, q: int, t: int) -> int {
+        if (sector == 0 || sector == 5) { return 255; }
+        if (sector == 1) { return q; }
+        if (sector == 4) { return t; }
+        return 0;
+    }
+
+    pure function calc-g(sector: int, q: int, t: int) -> int {
+        if (sector == 1 || sector == 2) { return 255; }
+        if (sector == 0) { return t; }
+        if (sector == 3) { return q; }
+        return 0;
+    }
+
+    pure function calc-b(sector: int, q: int, t: int) -> int {
+        if (sector == 3 || sector == 4) { return 255; }
+        if (sector == 2) { return t; }
+        if (sector == 5) { return q; }
+        return 0;
+    }
+
+    public function select-disc-angle(mx: length, my: length) {
+        let dx = (mx - 80px) / 1px;
+        let dy = (my - 80px) / 1px;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 20.0) {
+            return;
+        }
+        let angle = Math.atan2(dy, dx) / 1deg;
+        let norm = angle < 0.0 ? (angle + 360.0) : angle;
+        let h = Math.mod(norm, 360.0);
+        let sector = Math.floor(h / 60.0);
+        let f = (h / 60.0) - sector;
+        let q = Math.round((1.0 - f) * 255.0);
+        let t = Math.round(f * 255.0);
+        let r = calc-r(sector, q, t);
+        let g = calc-g(sector, q, t);
+        let b = calc-b(sector, q, t);
+        let hex = "#" + byte-to-hex(r) + byte-to-hex(g) + byte-to-hex(b);
+        root.set-from-rgb(r, g, b, hex);
+    }
+
+    property <[RadialSwatchData]> wheel-swatches: [
+        { x: 130px, y: 70px, r: 255, g: 0, b: 0, hex: "#FF0000" },
+        { x: 125px, y: 93px, r: 255, g: 96, b: 0, hex: "#FF6000" },
+        { x: 112px, y: 112px, r: 255, g: 170, b: 0, hex: "#FFAA00" },
+        { x: 93px, y: 125px, r: 212, g: 255, b: 0, hex: "#D4FF00" },
+        { x: 70px, y: 130px, r: 128, g: 255, b: 0, hex: "#80FF00" },
+        { x: 47px, y: 125px, r: 46, g: 204, b: 113, hex: "#2ECC71" },
+        { x: 28px, y: 112px, r: 0, g: 255, b: 128, hex: "#00FF80" },
+        { x: 15px, y: 93px, r: 0, g: 255, b: 170, hex: "#00FFAA" },
+        { x: 10px, y: 70px, r: 0, g: 229, b: 255, hex: "#00E5FF" },
+        { x: 15px, y: 47px, r: 0, g: 166, b: 255, hex: "#00A6FF" },
+        { x: 28px, y: 28px, r: 56, g: 189, b: 248, hex: "#38BDF8" },
+        { x: 47px, y: 15px, r: 59, g: 130, b: 246, hex: "#3B82F6" },
+        { x: 70px, y: 10px, r: 121, g: 82, b: 255, hex: "#7952FF" },
+        { x: 93px, y: 15px, r: 189, g: 147, b: 249, hex: "#BD93F9" },
+        { x: 112px, y: 28px, r: 255, g: 105, b: 180, hex: "#FF69B4" },
+        { x: 125px, y: 47px, r: 255, g: 0, b: 102, hex: "#FF0066" }
+    ];
+
+    VerticalLayout {
+        padding: 12px;
+        spacing: 10px;
+
+        // Header: Live Preview + Hex Input + Apply Button
+        HorizontalLayout {
+            spacing: 12px;
+            alignment: space-between;
+
+            // Live Preview Box + Label (Clicking opens Radial Hue Wheel)
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: start;
+
+                preview_box := Rectangle {
+                    width: 36px;
+                    height: 36px;
+                    y: (parent.height - self.height) / 2;
+                    background: Theme.accent;
+                    border-width: preview_t.has-hover ? 2px : 1px;
+                    border-color: #FFFFFF;
+
+                    preview_t := TouchArea {
+                        clicked => {
+                            root.wheel-open = !root.wheel-open;
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 2px;
+
+                    HorizontalLayout {
+                        spacing: 4px;
+                        Text {
+                            text: "ACCENT PREVIEW";
+                            color: preview_label_t.has-hover ? #FFFFFF : Theme.text-muted;
+                            font-family: Theme.font-family;
+                            font-size: 8px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+                        Rectangle {
+                            width: 6px;
+                            height: 6px;
+                            y: (parent.height - self.height) / 2;
+                            background: root.wheel-open ? Theme.accent : Theme.text-muted;
+                        }
+}
+
+                    Text {
+                        text: root.hex-code;
+                        color: #FFFFFF;
+                        font-family: Theme.font-family;
+                        font-size: 11px;
+                        font-weight: 700;
+                    }
+
+                    preview_label_t := TouchArea {
+                        clicked => {
+                            root.wheel-open = !root.wheel-open;
+                        }
+                    }
+                }
+            }
+
+            // Hex Input and Apply Button
+            HorizontalLayout {
+                spacing: 6px;
+                alignment: end;
+                y: (parent.height - 28px) / 2;
+
+                Rectangle {
+                    width: 84px;
+                    height: 28px;
+                    background: Theme.input-bg;
+                    border-width: 1px;
+                    border-color: Theme.border;
+
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        TextInput {
+                            text <=> root.hex-code;
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 10px;
+                            vertical-alignment: center;
+                            single-line: true;
+                            edited => {
+                                root.sync-from-hex(root.hex-code);
+                                root.preview-color(root.hex-code);
+                            }
+                            accepted => {
+                                root.sync-from-hex(root.hex-code);
+                                root.preview-color(root.hex-code);
+                                root.color-selected(root.hex-code);
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    width: 60px;
+                    height: 28px;
+                    background: apply-t.has-hover ? Theme.accent-hover : Theme.accent;
+                    border-width: 1px;
+                    border-color: Theme.accent;
+
+                    HorizontalLayout {
+                        alignment: center;
+                        Text {
+                            text: "Apply";
+                            color: Theme.accent-text;
+                            font-family: Theme.font-family;
+                            font-size: 10px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    apply-t := TouchArea {
+                        clicked => {
+                            root.sync-from-hex(root.hex-code);
+                            root.preview-color(root.hex-code);
+                            root.color-selected(root.hex-code);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Radial Color Wheel Drawer (Appears when clicking hex code / preview box)
+        if root.wheel-open: Rectangle {
+            height: 200px;
+            background: #111317;
+            border-width: 1px;
+            border-color: Theme.accent;
+
+            VerticalLayout {
+                padding: 8px;
+                spacing: 6px;
+                alignment: center;
+
+                // Circular Color Disc Container (160x160px)
+                HorizontalLayout {
+                    alignment: center;
+
+                    wheel_disc := Rectangle {
+                        width: 160px;
+                        height: 160px;
+                        background: #16181E;
+                        border-width: 1px;
+                        border-color: #2D313A;
+
+                        // Outer ring guide circle
+                        Rectangle {
+                            x: 10px;
+                            y: 10px;
+                            width: 140px;
+                            height: 140px;
+                            border-width: 1px;
+                            border-color: #232730;
+                            background: transparent;
+                        }
+
+                        // 16 Precomputed Radial Hue Swatches around the 360-degree perimeter
+                        for s in root.wheel-swatches: Rectangle {
+                            x: s.x;
+                            y: s.y;
+                            width: 20px;
+                            height: 20px;
+                            background: rgb(s.r, s.g, s.b);
+                            border-width: root.hex-code == s.hex ? 2px : 1px;
+                            border-color: root.hex-code == s.hex ? #FFFFFF : #000000;
+                        }
+
+                        // Center Current Accent Frame
+                        Rectangle {
+                            x: 60px;
+                            y: 60px;
+                            width: 40px;
+                            height: 40px;
+                            background: Theme.accent;
+                            border-width: 2px;
+                            border-color: #FFFFFF;
+
+                            Text {
+                                text: "ACCENT";
+                                color: Theme.accent-text;
+                                font-family: Theme.font-family;
+                                font-size: 7px;
+                                font-weight: 700;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        // Interactive 360-Degree Touch / Drag Area
+                        TouchArea {
+                            width: 100%;
+                            height: 100%;
+
+                            clicked => {
+                                root.select-disc-angle(self.mouse-x, self.mouse-y);
+                            }
+                            moved => {
+                                if self.pressed {
+                                    root.select-disc-angle(self.mouse-x, self.mouse-y);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Close Wheel Bar
+                HorizontalLayout {
+                    alignment: center;
+
+                    Rectangle {
+                        width: 120px;
+                        height: 20px;
+                        background: close_wheel_t.has-hover ? #252933 : Theme.button-dark;
+                        border-width: 1px;
+                        border-color: Theme.border;
+
+                        HorizontalLayout {
+                            spacing: 6px;
+                            alignment: center;
+                            PixelCloseIcon {
+                                icon-size: 8px;
+                                icon-color: close_wheel_t.has-hover ? #FFFFFF : Theme.text-secondary;
+                                y: (parent.height - self.height) / 2;
+                            }
+                            Text {
+                                text: "DONE / CLOSE WHEEL";
+                                color: close_wheel_t.has-hover ? #FFFFFF : Theme.text-secondary;
+                                font-family: Theme.font-family-mono;
+                                font-size: 8px;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        close_wheel_t := TouchArea {
+                            clicked => {
+                                root.wheel-open = false;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Quick Swatches Bar (8 Presets)
+        HorizontalLayout {
+            spacing: 6px;
+            alignment: center;
+
+            for swatch in [
+                { hex: "#00E5FF", col: #00E5FF, name: "Cyan" },
+                { hex: "#2ECC71", col: #2ECC71, name: "Emerald" },
+                { hex: "#CBA6F7", col: #CBA6F7, name: "Mauve" },
+                { hex: "#88C0D0", col: #88C0D0, name: "Frost" },
+                { hex: "#BD93F9", col: #BD93F9, name: "Purple" },
+                { hex: "#10B981", col: #10B981, name: "Pine" },
+                { hex: "#FF69B4", col: #FF69B4, name: "Rose" },
+                { hex: "#FFAA00", col: #FFAA00, name: "Amber" }
+            ]: Rectangle {
+                horizontal-stretch: 1;
+                height: 20px;
+                background: swatch.col;
+                border-width: root.hex-code == swatch.hex ? 2px : 1px;
+                border-color: root.hex-code == swatch.hex ? #FFFFFF : #000000;
+
+                TouchArea {
+                    clicked => {
+                        root.set-from-preset(swatch.hex);
+                    }
+                }
+            }
+        }
+    }
+}

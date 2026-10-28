@@ -1,0 +1,3838 @@
+import { Theme } from "../theme.slint";
+
+import { PixelButton, PixelSwitch, RamSlider } from "../components.slint";
+import { ColorPicker } from "../color_picker.slint";
+
+
+
+component SettingToggleRow {
+
+    in-out property <string> title: "Setting";
+
+    in-out property <string> description: "Description";
+
+    in-out property <bool> checked: true;
+
+    callback toggled(bool);
+
+
+
+    min-height: 52px;
+
+    vertical-stretch: 0;
+
+
+
+    HorizontalLayout {
+
+        padding-left: 16px;
+
+        padding-right: 16px;
+
+        spacing: 12px;
+
+        alignment: space-between;
+
+
+
+        VerticalLayout {
+
+            alignment: center;
+
+            spacing: 3px;
+
+            horizontal-stretch: 1;
+
+
+
+            Text {
+
+                text: root.title;
+
+                color: #FFFFFF;
+
+                font-family: Theme.font-family;
+
+                font-size: 11px;
+
+                font-weight: 700;
+
+                vertical-alignment: center;
+
+                wrap: word-wrap;
+
+            }
+
+
+
+            if root.description != "": Text {
+
+                text: root.description;
+
+                color: Theme.text-secondary;
+
+                font-family: Theme.font-family;
+
+                font-size: 9px;
+
+                vertical-alignment: center;
+
+                wrap: word-wrap;
+
+            }
+
+        }
+
+
+
+        HorizontalLayout {
+
+            horizontal-stretch: 0;
+
+            alignment: end;
+
+            width: 44px;
+
+
+
+            Rectangle {
+
+                width: 44px;
+
+                y: (parent.height - 22px) / 2;
+
+                height: 22px;
+
+
+
+                PixelSwitch {
+
+                    checked: root.checked;
+
+                    toggled(val) => { root.toggled(val); }
+
+                }
+
+            }
+
+        }
+
+    }
+
+}
+
+
+
+component SettingActionRow {
+
+    in-out property <string> title: "Setting";
+
+    in-out property <string> description: "Description";
+
+    in-out property <string> button-text: "Action";
+
+    in-out property <bool> is-danger: false;
+
+    callback clicked();
+
+
+
+    min-height: 52px;
+
+    vertical-stretch: 0;
+
+
+
+    HorizontalLayout {
+
+        padding-left: 16px;
+
+        padding-right: 16px;
+
+        spacing: 12px;
+
+        alignment: space-between;
+
+
+
+        VerticalLayout {
+
+            alignment: center;
+
+            spacing: 3px;
+
+            horizontal-stretch: 1;
+
+
+
+            Text {
+
+                text: root.title;
+
+                color: root.is-danger ? #FF6B6B : #FFFFFF;
+
+                font-family: Theme.font-family;
+
+                font-size: 11px;
+
+                font-weight: 700;
+
+                vertical-alignment: center;
+
+                wrap: word-wrap;
+
+            }
+
+
+
+            if root.description != "": Text {
+
+                text: root.description;
+
+                color: Theme.text-secondary;
+
+                font-family: Theme.font-family;
+
+                font-size: 9px;
+
+                vertical-alignment: center;
+
+                wrap: word-wrap;
+
+            }
+
+        }
+
+
+
+        HorizontalLayout {
+
+            horizontal-stretch: 0;
+
+            alignment: end;
+
+
+
+            Rectangle {
+
+                y: (parent.height - 28px) / 2;
+
+                height: 28px;
+
+                PixelButton {
+
+                    text: root.button-text;
+
+                    danger: root.is-danger;
+
+                    custom-font-size: 10px;
+
+                    clicked => { root.clicked(); }
+
+                }
+
+            }
+
+        }
+
+    }
+
+}
+
+
+
+component ThemeCard {
+
+    in-out property <string> name: "Theme";
+
+    in-out property <string> description: "Description";
+
+    in-out property <color> dot-color: #00A8FF;
+
+    in-out property <color> bg-color: #1E222A;
+
+    in-out property <bool> is-selected: false;
+
+    callback clicked();
+
+
+
+    min-height: 74px;
+
+    horizontal-stretch: 1;
+
+    vertical-stretch: 0;
+
+
+
+    Rectangle {
+
+        background: root.bg-color;
+
+        border-width: 1px;
+
+        border-color: root.is-selected ? Theme.accent : (touch.has-hover ? #3A4254 : #282D37);
+
+
+
+        VerticalLayout {
+
+            padding: 12px;
+
+            alignment: center;
+
+            spacing: 6px;
+
+
+
+            HorizontalLayout {
+
+                spacing: 8px;
+
+                alignment: start;
+
+
+
+                Rectangle {
+
+                    width: 7px;
+
+                    height: 7px;
+
+                    y: (parent.height - self.height) / 2;
+
+                    background: root.dot-color;
+
+                }
+
+
+
+                Text {
+
+                    text: root.name;
+
+                    color: #FFFFFF;
+
+                    font-family: Theme.font-family;
+
+                    font-size: 11px;
+
+                    font-weight: 700;
+
+                    vertical-alignment: center;
+
+                }
+
+            }
+
+
+
+            Text {
+
+                text: root.description;
+
+                color: Theme.text-secondary;
+
+                font-family: Theme.font-family;
+
+                font-size: 9px;
+
+                vertical-alignment: center;
+
+                wrap: word-wrap;
+
+            }
+
+        }
+
+
+
+        touch := TouchArea {
+
+            clicked => { root.clicked(); }
+
+        }
+
+    }
+
+}
+
+
+
+export component SettingsScreen {
+    in-out property <image> launcher-logo: @image-url("../../../../logo.png");
+
+    in-out property <string> current-category: "General";
+
+    in-out property <string> post-launch-action: "Minimise to taskbar";
+
+    in-out property <bool> close-on-launch: true;
+
+    in-out property <bool> minimize-to-tray: false;
+
+    in-out property <bool> keep-console-open: false;
+
+    in-out property <bool> show-launch-logs: true;
+
+    in-out property <bool> smooth-animations: true;
+
+    in-out property <bool> enable-walking-mobs: true;
+
+    in-out property <string> selected-theme: "Dark Slate";
+
+    in-out property <string> custom-hex: "#3498DB";
+
+    in-out property <bool> share-resource-packs: true;
+
+    in-out property <bool> share-shader-packs: true;
+
+    in-out property <bool> share-worlds: false;
+
+    in-out property <bool> share-mod-configs: false;
+
+    in-out property <int> total-system-ram-mb: 8192;
+
+    in-out property <string> total-system-ram-str: "Total Physical System Memory: Detecting...";
+
+    in-out property <int> ram-allocation-mb: 4096;
+
+    in-out property <string> java-executable: "System Default (java)";
+    in-out property <[string]> available-java-paths: [
+        "System Default (Auto-detect)",
+        "C:\\Users\\Ev\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-delta\\windows-x64\\java-runtime-delta\\bin\\javaw.exe",
+        "C:\\Users\\Ev\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-epsilon\\windows-x64\\java-runtime-epsilon\\bin\\javaw.exe"
+    ];
+    in-out property <bool> java-dropdown-open: false;
+    callback deselect-java();
+
+    in-out property <string> jvm-arguments: "";
+
+    in-out property <string> minecraft-directory: "C:\\Users\\Ev\\AppData\\Roaming\\.minecraft";
+
+    in-out property <int> max-modpack-downloads: 1;
+
+    in-out property <int> max-mod-downloads: 3;
+
+    in-out property <bool> throttle-downloads: false;
+
+    in-out property <int> max-download-speed-kb: 2048;
+
+    in-out property <bool> check-updates-startup: true;
+
+    in-out property <bool> discord-rpc: true;
+
+    in-out property <string> discord-detail: "Show Version";
+
+    in-out property <bool> discord-connected: false;
+
+    in-out property <string> discord-status: "Not Connected";
+
+    in-out property <bool> discord-show-timer: true;
+
+    in-out property <bool> discord-show-idle: true;
+
+    in-out property <bool> discord-show-server: true;
+
+    in-out property <string> discord-preview-mode: "game";
+
+    in-out property <bool> streamer-privacy: false;
+
+    in-out property <string> default-offline-name: "Steve";
+
+    in-out property <image> active-head-image;
+
+    in-out property <bool> has-active-head: false;
+
+    in-out property <string> logs-text: "Loading launcher logs...";
+
+    callback refresh-logs();
+
+
+
+    callback setting-toggled(string, bool);
+
+    callback setting-int-changed(string, int);
+
+    callback setting-string-changed(string, string);
+
+    callback browse-java-path();
+
+    callback auto-detect-java();
+
+    callback change-minecraft-dir();
+
+    callback replay-wizard();
+
+    callback open-folder(string);
+
+    callback copy-logs();
+
+    callback export-diagnostics();
+
+    callback clear-cache();
+
+    callback check-updates();
+
+    callback reset-defaults();
+
+    callback open-github();
+
+    callback apply-custom-hex(string);
+
+    callback select-theme(string);
+
+    callback ram-preset-clicked(int);
+
+
+
+    Rectangle {
+
+        background: Theme.main-bg;
+
+
+
+        Flickable {
+
+            width: parent.width;
+
+            height: parent.height;
+
+            interactive: true;
+
+
+
+            VerticalLayout {
+
+                alignment: start;
+
+                width: parent.width;
+
+                padding-left: 20px;
+
+                padding-right: 20px;
+
+                padding-top: 16px;
+
+                padding-bottom: 24px;
+
+                spacing: 16px;
+
+
+
+                // --- Header: SETTINGS / CATEGORY ---
+
+                HorizontalLayout {
+
+                    spacing: 10px;
+
+                    alignment: start;
+
+
+
+                    Text {
+
+                        text: "SETTINGS";
+
+                        color: #FFFFFF;
+
+                        font-family: Theme.font-family;
+
+                        font-size: 15px;
+
+                        font-weight: 700;
+
+                        vertical-alignment: center;
+
+                    }
+
+
+
+                    Text {
+
+                        text: "/  " + root.current-category;
+
+                        color: Theme.accent;
+
+                        font-family: Theme.font-family;
+
+                        font-size: 12px;
+
+                        font-weight: 700;
+
+                        vertical-alignment: center;
+
+                    }
+
+                }
+
+
+
+                // =============================================================
+
+                // 1. GENERAL (07_1_general.png)
+
+                // =============================================================
+
+                if root.current-category == "General" || root.current-category == "GENERAL": VerticalLayout {
+
+                    alignment: start;
+
+                    spacing: 16px;
+
+
+
+                    // Section: LAUNCHER LIFECYCLE
+
+                    Rectangle {
+
+                        background: Theme.card-bg;
+
+                        border-width: 1px;
+
+                        border-color: Theme.border;
+
+
+
+                        VerticalLayout {
+
+                            alignment: start;
+
+                            padding-top: 14px;
+
+                            padding-bottom: 14px;
+
+                            spacing: 12px;
+
+
+
+                            HorizontalLayout {
+
+                                padding-left: 16px;
+
+                                Text {
+
+                                    text: "LAUNCHER LIFECYCLE";
+
+                                    color: #FFFFFF;
+
+                                    font-family: Theme.font-family;
+
+                                    font-size: 11px;
+
+                                    font-weight: 700;
+
+                                }
+
+                            }
+
+
+
+                            // Post-Launch Behavior 4-Way Selector
+
+                            VerticalLayout {
+
+                                alignment: start;
+
+                                padding-left: 16px;
+
+                                padding-right: 16px;
+
+                                spacing: 8px;
+
+
+
+                                VerticalLayout {
+
+                                    spacing: 3px;
+
+                                    Text {
+
+                                        text: "Post-Launch Behavior";
+
+                                        color: #FFFFFF;
+
+                                        font-family: Theme.font-family;
+
+                                        font-size: 11px;
+
+                                        font-weight: 700;
+
+                                    }
+}
+
+
+
+                                HorizontalLayout {
+
+                                    spacing: 8px;
+
+
+
+                                    for opt in ["Minimise to taskbar", "Minimise to tray", "Close", "Do nothing"]: Rectangle {
+
+                                        height: 28px;
+
+                                        horizontal-stretch: 1;
+
+                                        background: root.post-launch-action == opt ? Theme.accent : Theme.button-dark;
+
+                                        border-width: 1px;
+
+                                        border-color: root.post-launch-action == opt ? Theme.accent-hover : (opt-touch.has-hover ? #3D4556 : Theme.border);
+
+
+
+                                        HorizontalLayout {
+
+                                            padding-left: 12px;
+
+                                            padding-right: 12px;
+
+                                            alignment: center;
+
+
+
+                                            Text {
+
+                                                text: opt;
+
+                                                color: root.post-launch-action == opt ? #FFFFFF : #C0C5D0;
+
+                                                font-family: Theme.font-family;
+
+                                                font-size: 10px;
+
+                                                font-weight: 700;
+
+                                                vertical-alignment: center;
+
+                                            }
+
+                                        }
+
+
+
+                                        opt-touch := TouchArea {
+
+                                            clicked => {
+
+                                                root.post-launch-action = opt;
+
+                                                root.setting-string-changed("post_launch_action", opt);
+
+                                            }
+
+                                        }
+
+                                    }
+
+                                }
+
+
+
+                                // Warning Callout / Tooltip when "Close" is selected
+
+                                if root.post-launch-action == "Close" : Rectangle {
+
+                                    background: #251814;
+
+                                    border-width: 1px;
+
+                                    border-color: #8C401C;
+
+
+
+                                    HorizontalLayout {
+
+                                        padding-left: 10px;
+
+                                        padding-right: 10px;
+
+                                        padding-top: 6px;
+
+                                        padding-bottom: 6px;
+
+                                        spacing: 8px;
+
+                                        alignment: start;
+
+
+
+                                        Text {
+
+                                            text: "⚠";
+
+                                            color: #E67E22;
+
+                                            font-family: Theme.font-family;
+
+                                            font-size: 11px;
+
+                                            vertical-alignment: center;
+
+                                        }
+
+
+
+                                        Text {
+
+                                            text: "Note: When the launcher is closed during gameplay, the Playtime Tracker cannot record session playtime or update instance stats.";
+
+                                            color: #F5B041;
+
+                                            font-family: Theme.font-family;
+
+                                            font-size: 9px;
+
+                                            vertical-alignment: center;
+
+                                            wrap: word-wrap;
+
+                                        }
+
+                                    }
+
+                                }
+
+                            }
+
+
+
+                            SettingToggleRow {
+
+                                title: "Minimise to tray when closing launcher";
+
+                                description: "Keep running silently in system tray when window is closed.";
+
+                                checked: root.minimize-to-tray;
+
+                                toggled(v) => { root.minimize-to-tray = v; root.setting-toggled("minimize_to_tray", v); }
+
+                            }
+
+
+
+                            SettingToggleRow {
+
+                                title: "Keep Output Console Open (Debug)";
+
+                                description: "Displays a dedicated real-time console window for debugging mods and crashes.";
+
+                                checked: root.keep-console-open;
+
+                                toggled(v) => { root.keep-console-open = v; root.setting-toggled("keep_console_open", v); }
+
+                            }
+
+
+
+                            SettingToggleRow {
+
+                                title: "Show Launch Logs in Bottom Bar";
+
+                                description: "";
+
+                                checked: root.show-launch-logs;
+
+                                toggled(v) => { root.show-launch-logs = v; root.setting-toggled("show_launch_logs", v); }
+
+                            }
+
+
+
+                            SettingToggleRow {
+
+                                title: "Launch walking animations";
+
+                                description: "";
+
+                                checked: root.enable-walking-mobs;
+
+                                toggled(v) => { root.enable-walking-mobs = v; root.setting-toggled("enable_walking_mobs", v); }
+
+                            }
+
+                        }
+
+                    }
+
+
+
+                    // Section: SETUP & WIZARD
+
+                    Rectangle {
+
+                        background: Theme.card-bg;
+
+                        border-width: 1px;
+
+                        border-color: Theme.border;
+
+
+
+                        VerticalLayout {
+
+                            alignment: start;
+
+                            padding-top: 14px;
+
+                            padding-bottom: 14px;
+
+                            spacing: 12px;
+
+
+
+                            HorizontalLayout {
+
+                                padding-left: 16px;
+
+                                Text {
+
+                                    text: "SETUP & WIZARD";
+
+                                    color: #FFFFFF;
+
+                                    font-family: Theme.font-family;
+
+                                    font-size: 11px;
+
+                                    font-weight: 700;
+
+                                }
+
+                            }
+
+
+
+                            SettingActionRow {
+
+                                title: "Onboarding Setup Wizard";
+
+                                description: "";
+
+                                button-text: "Replay Setup Wizard";
+
+                                clicked => { root.replay-wizard(); }
+
+                            }
+
+                        }
+
+                    }
+
+                }
+
+
+
+                // =============================================================
+
+                // 2. APPEARANCE (07_2_appearance.png)
+
+                // =============================================================
+
+                if root.current-category == "Appearance" || root.current-category == "APPEARANCE": VerticalLayout {
+
+                    alignment: start;
+
+                    spacing: 16px;
+
+
+
+                    // Section: MOTION & ANIMATIONS
+
+                    Rectangle {
+
+                        background: Theme.card-bg;
+
+                        border-width: 1px;
+
+                        border-color: Theme.border;
+
+
+
+                        VerticalLayout {
+
+                            alignment: start;
+
+                            padding-top: 14px;
+
+                            padding-bottom: 14px;
+
+                            spacing: 12px;
+
+
+
+                            HorizontalLayout {
+
+                                padding-left: 16px;
+
+                                Text {
+
+                                    text: "MOTION & ANIMATIONS";
+
+                                    color: #FFFFFF;
+
+                                    font-family: Theme.font-family;
+
+                                    font-size: 11px;
+
+                                    font-weight: 700;
+
+                                }
+
+                            }
+
+
+
+                            SettingToggleRow {
+
+                                title: "Enable Smooth Transitions & Micro-Animations (60 FPS)";
+
+                                description: "Turn off for instant 0ms state changes.";
+
+                                checked: root.smooth-animations;
+
+                                toggled(v) => { root.smooth-animations = v; root.setting-toggled("smooth_animations", v); }
+
+                            }
+
+
+
+                            SettingToggleRow {
+
+                                title: "Launch walking animations";
+
+                                description: "";
+
+                                checked: root.enable-walking-mobs;
+
+                                toggled(v) => { root.enable-walking-mobs = v; root.setting-toggled("enable_walking_mobs", v); }
+
+                            }
+
+                        }
+
+                    }
+
+
+
+                    // Section: CURATED DESIGNER THEMES
+
+                    Rectangle {
+
+                        background: Theme.card-bg;
+
+                        border-width: 1px;
+
+                        border-color: Theme.border;
+
+
+
+                        VerticalLayout {
+
+                            alignment: start;
+
+                            padding: 16px;
+
+                            spacing: 14px;
+
+
+
+                            VerticalLayout {
+
+                                spacing: 4px;
+
+                                Text {
+
+                                    text: "CURATED DESIGNER THEMES";
+
+                                    color: #FFFFFF;
+
+                                    font-family: Theme.font-family;
+
+                                    font-size: 11px;
+
+                                    font-weight: 700;
+
+                                }
+}
+
+
+
+                            // Row 1
+
+                            HorizontalLayout {
+
+                                spacing: 12px;
+
+                                ThemeCard {
+
+                                    name: "Dark Slate";
+
+                                    description: "Refined modern graphite slate with emerald accent";
+
+                                    dot-color: #2ECC71;
+
+                                    bg-color: #1E222A;
+
+                                    is-selected: root.selected-theme == "Dark Slate";
+
+                                    clicked => { root.selected-theme = "Dark Slate"; root.custom-hex = "#2ECC71"; root.select-theme("Dark Slate"); root.apply-custom-hex("#2ECC71"); }
+
+                                }
+
+                                ThemeCard {
+
+                                    name: "OLED Obsidian";
+
+                                    description: "True pitch black contrast with neon cyan accent";
+
+                                    dot-color: #00A8FF;
+
+                                    bg-color: #0E0F12;
+
+                                    is-selected: root.selected-theme == "OLED Obsidian";
+
+                                    clicked => { root.selected-theme = "OLED Obsidian"; root.custom-hex = "#00E5FF"; root.select-theme("OLED Obsidian"); root.apply-custom-hex("#00E5FF"); }
+
+                                }
+
+                                ThemeCard {
+
+                                    name: "Catppuccin Mocha";
+
+                                    description: "Soothing warm dark aesthetic with soft mauve accent";
+
+                                    dot-color: #CBA6F7;
+
+                                    bg-color: #1E1E2E;
+
+                                    is-selected: root.selected-theme == "Catppuccin Mocha";
+
+                                    clicked => { root.selected-theme = "Catppuccin Mocha"; root.custom-hex = "#CBA6F7"; root.select-theme("Catppuccin Mocha"); root.apply-custom-hex("#CBA6F7"); }
+
+                                }
+
+                            }
+
+
+
+                            // Row 2
+
+                            HorizontalLayout {
+
+                                spacing: 12px;
+
+                                ThemeCard {
+
+                                    name: "Nord Frost";
+
+                                    description: "Arctic dusk slate with polar frost blue accent";
+
+                                    dot-color: #88C0D0;
+
+                                    bg-color: #2E3440;
+
+                                    is-selected: root.selected-theme == "Nord Frost";
+
+                                    clicked => { root.selected-theme = "Nord Frost"; root.custom-hex = "#88C0D0"; root.select-theme("Nord Frost"); root.apply-custom-hex("#88C0D0"); }
+
+                                }
+
+                                ThemeCard {
+
+                                    name: "Dracula Midnight";
+
+                                    description: "Deep violet-charcoal with electric purple accent";
+
+                                    dot-color: #BD93F9;
+
+                                    bg-color: #282A36;
+
+                                    is-selected: root.selected-theme == "Dracula Midnight";
+
+                                    clicked => { root.selected-theme = "Dracula Midnight"; root.custom-hex = "#BD93F9"; root.select-theme("Dracula Midnight"); root.apply-custom-hex("#BD93F9"); }
+
+                                }
+
+                                ThemeCard {
+
+                                    name: "Emerald Pine";
+
+                                    description: "Deep evergreen foliage with vibrant pine green accent";
+
+                                    dot-color: #2ECC71;
+
+                                    bg-color: #1B2B23;
+
+                                    is-selected: root.selected-theme == "Emerald Pine";
+
+                                    clicked => { root.selected-theme = "Emerald Pine"; root.custom-hex = "#10B981"; root.select-theme("Emerald Pine"); root.apply-custom-hex("#10B981"); }
+
+                                }
+
+                            }
+
+                        }
+
+                    }
+
+
+
+                    // Section: ACCENT COLOR & LIVE SWATCHES
+
+                    Rectangle {
+
+                        background: Theme.card-bg;
+
+                        border-width: 1px;
+
+                        border-color: Theme.border;
+
+
+
+                        VerticalLayout {
+
+                            alignment: start;
+
+                            padding: 16px;
+
+                            spacing: 12px;
+
+
+
+                            Text {
+                                text: "ACCENT COLOR & LIVE SWATCHES";
+                                color: #FFFFFF;
+                                font-family: Theme.font-family;
+                                font-size: 11px;
+                                font-weight: 700;
+                            }
+
+                            // 8-Card Preset Accent Grid (Restored)
+                            VerticalLayout {
+                                spacing: 6px;
+                                Text {
+                                    text: "PRESET ACCENTS";
+                                    color: Theme.text-muted;
+                                    font-family: Theme.font-family;
+                                    font-size: 9px;
+                                    font-weight: 700;
+                                }
+
+                                GridLayout {
+                                    spacing: 8px;
+                                    Row {
+                                        for preset in [
+                                            { name: "Emerald", hex: "#2ECC71", col: #2ECC71 },
+                                            { name: "Cyan", hex: "#00E5FF", col: #00E5FF },
+                                            { name: "Amethyst", hex: "#BD93F9", col: #BD93F9 },
+                                            { name: "Sakura Pink", hex: "#FF69B4", col: #FF69B4 }
+                                        ]: Rectangle {
+                                            height: 38px;
+                                            background: root.custom-hex == preset.hex ? Theme.sidebar-active : Theme.sidebar-bg;
+                                            border-width: 1px;
+                                            border-color: root.custom-hex == preset.hex ? preset.col : Theme.border;
+
+                                            HorizontalLayout {
+                                                padding: 8px;
+                                                spacing: 8px;
+                                                alignment: start;
+                                                Rectangle {
+                                                    width: 14px;
+                                                    height: 14px;
+                                                    y: (parent.height - self.height) / 2;
+                                                    background: preset.col;
+                                                    border-width: 1px;
+                                                    border-color: #FFFFFF;
+                                                }
+                                                VerticalLayout {
+                                                    alignment: center;
+                                                    spacing: 1px;
+                                                    Text {
+                                                        text: preset.name;
+                                                        color: root.custom-hex == preset.hex ? #FFFFFF : Theme.text-primary;
+                                                        font-family: Theme.font-family;
+                                                        font-size: 10px;
+                                                        font-weight: 700;
+                                                    }
+                                                    Text {
+                                                        text: preset.hex;
+                                                        color: Theme.text-muted;
+                                                        font-family: Theme.font-family;
+                                                        font-size: 8px;
+                                                    }
+                                                }
+                                            }
+
+                                            TouchArea {
+                                                clicked => {
+                                                    root.custom-hex = preset.hex;
+                                                    root.apply-custom-hex(preset.hex);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Row {
+                                        for preset in [
+                                            { name: "Amber", hex: "#FFAA00", col: #FFAA00 },
+                                            { name: "Crimson", hex: "#EF4444", col: #EF4444 },
+                                            { name: "Nord Frost", hex: "#38BDF8", col: #38BDF8 },
+                                            { name: "Mint", hex: "#10B981", col: #10B981 }
+                                        ]: Rectangle {
+                                            height: 38px;
+                                            background: root.custom-hex == preset.hex ? Theme.sidebar-active : Theme.sidebar-bg;
+                                            border-width: 1px;
+                                            border-color: root.custom-hex == preset.hex ? preset.col : Theme.border;
+
+                                            HorizontalLayout {
+                                                padding: 8px;
+                                                spacing: 8px;
+                                                alignment: start;
+                                                Rectangle {
+                                                    width: 14px;
+                                                    height: 14px;
+                                                    y: (parent.height - self.height) / 2;
+                                                    background: preset.col;
+                                                    border-width: 1px;
+                                                    border-color: #FFFFFF;
+                                                }
+                                                VerticalLayout {
+                                                    alignment: center;
+                                                    spacing: 1px;
+                                                    Text {
+                                                        text: preset.name;
+                                                        color: root.custom-hex == preset.hex ? #FFFFFF : Theme.text-primary;
+                                                        font-family: Theme.font-family;
+                                                        font-size: 10px;
+                                                        font-weight: 700;
+                                                    }
+                                                    Text {
+                                                        text: preset.hex;
+                                                        color: Theme.text-muted;
+                                                        font-family: Theme.font-family;
+                                                        font-size: 8px;
+                                                    }
+                                                }
+                                            }
+
+                                            TouchArea {
+                                                clicked => {
+                                                    root.custom-hex = preset.hex;
+                                                    root.apply-custom-hex(preset.hex);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Custom Accent Color Fine-Tuning
+                            VerticalLayout {
+                                spacing: 4px;
+                                Text {
+                                    text: "CUSTOM ACCENT FINE-TUNING";
+                                    color: Theme.text-muted;
+                                    font-family: Theme.font-family;
+                                    font-size: 9px;
+                                    font-weight: 700;
+                                }
+
+                                ColorPicker {
+                                    hex-code <=> root.custom-hex;
+                                    color-selected(hex) => {
+                                        root.custom-hex = hex;
+                                        root.apply-custom-hex(hex);
+                                    }
+                                    preview-color(col) => {
+                                        root.apply-custom-hex(col);
+                                    }
+                                }
+                            }
+
+                        }
+
+                    }
+
+                }
+
+
+
+                // =============================================================
+
+                // 3. MODPACKS & INSTANCES (07_3_modpacks_instances.png)
+
+                // =============================================================
+
+                if root.current-category == "Modpacks & Instances": VerticalLayout {
+
+                    alignment: start;
+
+                    spacing: 16px;
+
+
+
+                    // Section: SHARED ASSETS & INSTANCE SYNCHRONIZATION
+
+                    Rectangle {
+
+                        background: Theme.card-bg;
+
+                        border-width: 1px;
+
+                        border-color: Theme.border;
+
+
+
+                        VerticalLayout {
+
+                            alignment: start;
+
+                            padding-top: 14px;
+
+                            padding-bottom: 14px;
+
+                            spacing: 12px;
+
+
+
+                            HorizontalLayout {
+
+                                padding-left: 16px;
+
+                                Text {
+
+                                    text: "SHARED ASSETS & INSTANCE SYNCHRONIZATION";
+
+                                    color: #FFFFFF;
+
+                                    font-family: Theme.font-family;
+
+                                    font-size: 11px;
+
+                                    font-weight: 700;
+
+                                }
+
+                            }
+
+
+
+                            SettingToggleRow {
+
+                                title: "Share Resource Packs";
+
+                                description: "Resource packs in .minecraft/resourcepacks are linked into every modpack instance.";
+
+                                checked: root.share-resource-packs;
+
+                                toggled(v) => { root.share-resource-packs = v; root.setting-toggled("share_resource_packs", v); }
+
+                            }
+
+
+
+                            SettingToggleRow {
+
+                                title: "Share Shader Packs";
+
+                                description: "Shaderpacks in .minecraft/shaderpacks are linked into every modpack instance.";
+
+                                checked: root.share-shader-packs;
+
+                                toggled(v) => { root.share-shader-packs = v; root.setting-toggled("share_shader_packs", v); }
+
+                            }
+
+
+
+                            SettingToggleRow {
+
+                                title: "Share Worlds (Saves)";
+
+                                description: "Singleplayer saves in .minecraft/saves are shared between instances. Caution: version mismatches may cause corruption.";
+
+                                checked: root.share-worlds;
+
+                                toggled(v) => { root.share-worlds = v; root.setting-toggled("share_worlds", v); }
+
+                            }
+
+
+
+                            SettingToggleRow {
+
+                                title: "Share Mod Configurations";
+
+                                description: "Config files in .minecraft/config are shared between instances.";
+
+                                checked: root.share-mod-configs;
+
+                                toggled(v) => { root.share-mod-configs = v; root.setting-toggled("share_mod_configs", v); }
+
+                            }
+
+                        }
+
+                    }
+
+
+
+                    // Section: INSTANCE STORAGE LOCATIONS
+
+                    Rectangle {
+
+                        background: Theme.card-bg;
+
+                        border-width: 1px;
+
+                        border-color: Theme.border;
+
+
+
+                        VerticalLayout {
+
+                            alignment: start;
+
+                            padding-top: 14px;
+
+                            padding-bottom: 14px;
+
+                            spacing: 12px;
+
+
+
+                            HorizontalLayout {
+
+                                padding-left: 16px;
+
+                                Text {
+
+                                    text: "INSTANCE STORAGE LOCATIONS";
+
+                                    color: #FFFFFF;
+
+                                    font-family: Theme.font-family;
+
+                                    font-size: 11px;
+
+                                    font-weight: 700;
+
+                                }
+
+                            }
+
+
+
+                            SettingActionRow {
+
+                                title: "Modpack Instances Directory";
+
+                                description: "Folder where isolated modpack game files, overrides, and unique configs are stored.";
+
+                                button-text: "Open Modpacks Folder";
+
+                                clicked => { root.open-folder("modpacks"); }
+
+                            }
+
+
+
+                            SettingActionRow {
+
+                                title: "Global Minecraft Directory";
+
+                                description: "Root .minecraft folder containing shared versions, assets, libraries, and global configs.";
+
+                                button-text: "Open .minecraft";
+
+                                clicked => { root.open-folder("minecraft"); }
+
+                            }
+
+                        }
+
+                    }
+
+                }
+
+
+
+                // =============================================================
+
+                // 4. JAVA & MEMORY (07_4_java_memory.png)
+
+                // =============================================================
+
+                if root.current-category == "Java & Memory": VerticalLayout {
+
+                    alignment: start;
+
+                    spacing: 16px;
+
+
+
+                    // Section: MEMORY ALLOCATION (RAM)
+
+                    Rectangle {
+
+                        background: Theme.card-bg;
+
+                        border-width: 1px;
+
+                        border-color: Theme.border;
+
+
+
+                        VerticalLayout {
+
+                            alignment: start;
+
+                            padding: 16px;
+
+                            spacing: 12px;
+
+
+
+                            VerticalLayout {
+
+                                spacing: 2px;
+
+                                Text {
+
+                                    text: "MEMORY ALLOCATION (RAM)";
+
+                                    color: #FFFFFF;
+
+                                    font-family: Theme.font-family;
+
+                                    font-size: 11px;
+
+                                    font-weight: 700;
+
+                                }
+
+                                Text {
+
+                                    text: root.total-system-ram-str;
+
+                                    color: Theme.accent;
+
+                                    font-family: Theme.font-family;
+
+                                    font-size: 9px;
+
+                                }
+
+                            }
+
+
+
+                            // Interactive RAM Slider
+
+                            VerticalLayout {
+
+                                spacing: 6px;
+
+                                HorizontalLayout {
+
+                                    alignment: space-between;
+
+                                    Text {
+
+                                        text: "Custom Allocation Slider (1.0 GB to " + (Math.round((root.total-system-ram-mb / 1024.0) * 10) / 10) + " GB):";
+
+                                        color: Theme.text-secondary;
+
+                                        font-family: Theme.font-family;
+
+                                        font-size: 10px;
+
+                                        vertical-alignment: center;
+
+                                    }
+
+                                    Text {
+
+                                        text: root.ram-allocation-mb + " MB (" + (Math.round((root.ram-allocation-mb / 1024.0) * 10) / 10) + " GB)";
+
+                                        color: #FFFFFF;
+
+                                        font-family: Theme.font-family;
+
+                                        font-size: 11px;
+
+                                        font-weight: 700;
+
+                                        vertical-alignment: center;
+
+                                    }
+
+                                }
+
+
+
+                                RamSlider {
+
+                                    width: 100%;
+
+                                    min-value: 1024;
+
+                                    max-value: Math.max(1024, root.total-system-ram-mb);
+
+                                    step: 512;
+
+                                    value: root.ram-allocation-mb;
+
+                                    changed(val) => {
+
+                                        root.ram-allocation-mb = val;
+
+                                        root.ram-preset-clicked(val);
+
+                                    }
+
+                                }
+
+                            }
+
+
+
+                            // Quick Allocation Presets
+
+                            HorizontalLayout {
+
+                                spacing: 8px;
+
+                                alignment: start;
+
+
+
+                                Text {
+
+                                    text: "Quick Presets:";
+
+                                    color: Theme.text-secondary;
+
+                                    font-family: Theme.font-family;
+
+                                    font-size: 10px;
+
+                                    vertical-alignment: center;
+
+                                }
+
+
+
+                                for preset in [2048, 4096, 6144, 8192]: Rectangle {
+
+                                    visible: preset <= root.total-system-ram-mb || preset == 2048;
+
+                                    width: 52px;
+
+                                    height: 26px;
+
+                                    background: root.ram-allocation-mb == preset ? Theme.accent : Theme.button-dark;
+
+                                    border-width: 1px;
+
+                                    border-color: root.ram-allocation-mb == preset ? Theme.accent-hover : Theme.border;
+
+
+
+                                    Text {
+
+                                        text: (preset / 1024) + " GB";
+
+                                        color: root.ram-allocation-mb == preset ? #FFFFFF : #C0C5D0;
+
+                                        font-family: Theme.font-family;
+
+                                        font-size: 9px;
+
+                                        font-weight: 700;
+
+                                        horizontal-alignment: center;
+
+                                        vertical-alignment: center;
+
+                                    }
+
+
+
+                                    TouchArea {
+
+                                        clicked => {
+
+                                            root.ram-allocation-mb = preset;
+
+                                            root.ram-preset-clicked(preset);
+
+                                        }
+
+                                    }
+
+                                }
+
+                            }
+
+                        }
+
+                    }
+
+
+
+                    // Section: JAVA RUNTIME EXECUTABLE
+
+                    Rectangle {
+
+                        background: Theme.card-bg;
+
+                        border-width: 1px;
+
+                        border-color: Theme.border;
+
+
+
+                        VerticalLayout {
+
+                            alignment: start;
+
+                            padding: 16px;
+
+                            spacing: 12px;
+
+
+
+                            VerticalLayout {
+
+                                spacing: 2px;
+
+                                Text {
+
+                                    text: "JAVA RUNTIME EXECUTABLE";
+
+                                    color: #FFFFFF;
+
+                                    font-family: Theme.font-family;
+
+                                    font-size: 11px;
+
+                                    font-weight: 700;
+
+                                }
+
+                                Text {
+
+                                    text: "Java 21 (1.20.5+), Java 17 (1.17+), Java 8 (Legacy)";
+
+                                    color: Theme.text-secondary;
+
+                                    font-family: Theme.font-family;
+
+                                    font-size: 9px;
+
+                                }
+
+                            }
+
+
+
+                            HorizontalLayout {
+                                spacing: 8px;
+                                alignment: start;
+
+                                java-box := Rectangle {
+                                    height: 28px;
+                                    horizontal-stretch: 1;
+                                    min-width: 140px;
+                                    background: java-touch.has-hover ? Theme.input-bg.brighter(0.1) : Theme.input-bg;
+                                    border-width: 1px;
+                                    border-color: root.java-dropdown-open ? Theme.accent : Theme.border;
+
+                                    HorizontalLayout {
+                                        padding-left: 8px;
+                                        padding-right: 8px;
+                                        alignment: space-between;
+
+                                        Text {
+                                            text: root.java-executable;
+                                            color: #FFFFFF;
+                                            font-family: Theme.font-family;
+                                            font-size: 10px;
+                                            vertical-alignment: center;
+                                            overflow: elide;
+                                        }
+
+                                        Text {
+                                            text: root.java-dropdown-open ? "▲" : "▼";
+                                            font-family: Theme.font-family;
+                                            font-size: 9px;
+                                            color: root.java-dropdown-open ? Theme.accent : Theme.text-muted;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+
+                                    java-touch := TouchArea {
+                                        clicked => {
+                                            java-popup.show();
+                                        }
+                                    }
+
+                                    java-popup := PopupWindow {
+                                        x: 0px;
+                                        y: parent.height + 2px;
+                                        width: parent.width;
+                                        close-policy: close-on-click;
+
+                                        Rectangle {
+                                            background: #14161C;
+                                            border-width: 1px;
+                                            border-color: Theme.accent;
+
+                                            VerticalLayout {
+                                                padding: 4px;
+                                                spacing: 2px;
+
+                                                for path[idx] in root.available-java-paths: Rectangle {
+                                                    height: 26px;
+                                                    background: item-t.has-hover ? Theme.sidebar-active : transparent;
+
+                                                    HorizontalLayout {
+                                                        padding-left: 8px;
+                                                        padding-right: 8px;
+                                                        spacing: 6px;
+                                                        alignment: space-between;
+
+                                                        Text {
+                                                            text: path;
+                                                            color: root.java-executable == path ? Theme.accent : #FFFFFF;
+                                                            font-family: Theme.font-family;
+                                                            font-size: 9px;
+                                                            vertical-alignment: center;
+                                                            overflow: elide;
+                                                        }
+}
+
+                                                    item-t := TouchArea {
+                                                        clicked => {
+                                                            if (idx == 0 || path == "System Default (Auto-detect)") {
+                                                                root.java-executable = "System Default (java)";
+                                                                root.setting-string-changed("java_executable", "");
+                                                                root.deselect-java();
+                                                            } else {
+                                                                root.java-executable = path;
+                                                                root.setting-string-changed("java_executable", path);
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                PixelButton {
+                                    text: "Browse...";
+                                    custom-font-size: 10px;
+                                    clicked => { root.browse-java-path(); }
+                                }
+
+                                PixelButton {
+                                    text: "Auto-Detect";
+                                    custom-font-size: 10px;
+                                    clicked => { root.auto-detect-java(); }
+                                }
+
+                                PixelButton {
+                                    text: "Deselect";
+                                    custom-font-size: 10px;
+                                    clicked => {
+                                        root.java-executable = "System Default (java)";
+                                        root.setting-string-changed("java_executable", "");
+                                        root.deselect-java();
+                                    }
+                                }
+                            }
+
+                        }
+
+                    }
+
+
+
+                    // Section: JVM ARGUMENTS & GAME DIRECTORY
+
+                    Rectangle {
+
+                        background: Theme.card-bg;
+
+                        border-width: 1px;
+
+                        border-color: Theme.border;
+
+
+
+                        VerticalLayout {
+
+                            alignment: start;
+
+                            padding: 16px;
+
+                            spacing: 12px;
+
+
+
+                            Text {
+
+                                text: "JVM ARGUMENTS & GAME DIRECTORY";
+
+                                color: #FFFFFF;
+
+                                font-family: Theme.font-family;
+
+                                font-size: 11px;
+
+                                font-weight: 700;
+
+                            }
+
+
+
+                            VerticalLayout {
+
+                                spacing: 4px;
+
+                                Text {
+
+                                    text: "Java Virtual Machine Arguments (JVM Flags):";
+
+                                    color: Theme.text-secondary;
+
+                                    font-family: Theme.font-family;
+
+                                    font-size: 9px;
+
+                                }
+
+                                Rectangle {
+
+                                    height: 28px;
+
+                                    background: Theme.input-bg;
+
+                                    border-width: 1px;
+
+                                    border-color: Theme.border;
+
+                                    HorizontalLayout {
+
+                                        padding-left: 8px;
+
+                                        padding-right: 8px;
+
+                                        TextInput {
+
+                                            text <=> root.jvm-arguments;
+
+                                            color: #FFFFFF;
+
+                                            font-family: Theme.font-family;
+
+                                            font-size: 10px;
+
+                                            vertical-alignment: center;
+
+                                            single-line: true;
+
+                                            accepted => {
+
+                                                root.setting-string-changed("jvm_args", root.jvm-arguments);
+
+                                            }
+
+                                            edited => {
+
+                                                root.setting-string-changed("jvm_args", root.jvm-arguments);
+
+                                            }
+
+                                        }
+
+                                    }
+
+                                }
+
+                            }
+
+
+
+                            VerticalLayout {
+
+                                spacing: 4px;
+
+                                Text {
+
+                                    text: "Minecraft Data Directory:";
+
+                                    color: Theme.text-secondary;
+
+                                    font-family: Theme.font-family;
+
+                                    font-size: 9px;
+
+                                }
+
+                                HorizontalLayout {
+
+                                    spacing: 10px;
+
+                                    Rectangle {
+
+                                        height: 28px;
+
+                                        horizontal-stretch: 1;
+
+                                        background: Theme.input-bg;
+
+                                        border-width: 1px;
+
+                                        border-color: Theme.border;
+
+                                        HorizontalLayout {
+
+                                            padding-left: 8px;
+
+                                            padding-right: 8px;
+
+                                            Text {
+
+                                                text: root.minecraft-directory;
+
+                                                color: #FFFFFF;
+
+                                                font-family: Theme.font-family;
+
+                                                font-size: 10px;
+
+                                                vertical-alignment: center;
+
+                                                overflow: elide;
+
+                                            }
+
+                                        }
+
+                                    }
+
+                                    PixelButton {
+
+                                        text: "Change";
+
+                                        custom-font-size: 10px;
+
+                                        clicked => { root.change-minecraft-dir(); }
+
+                                    }
+
+                                    PixelButton {
+
+                                        text: "Open Folder";
+
+                                        custom-font-size: 10px;
+
+                                        clicked => { root.open-folder("minecraft"); }
+
+                                    }
+
+                                }
+
+                            }
+
+                        }
+
+                    }
+
+                }
+
+
+
+                // =============================================================
+
+                // 5. DOWNLOADS (07_5_downloads.png)
+
+                // =============================================================
+
+                if root.current-category == "Downloads": VerticalLayout {
+
+                    alignment: start;
+
+                    spacing: 16px;
+
+
+
+                    // Section: DOWNLOAD CONCURRENCY & LIMITS
+
+                    Rectangle {
+
+                        background: Theme.card-bg;
+
+                        border-width: 1px;
+
+                        border-color: Theme.border;
+
+
+
+                        VerticalLayout {
+
+                            alignment: start;
+
+                            padding-top: 14px;
+
+                            padding-bottom: 14px;
+
+                            spacing: 12px;
+
+
+
+                            HorizontalLayout {
+
+                                padding-left: 16px;
+
+                                Text {
+
+                                    text: "DOWNLOAD CONCURRENCY & LIMITS";
+
+                                    color: #FFFFFF;
+
+                                    font-family: Theme.font-family;
+
+                                    font-size: 11px;
+
+                                    font-weight: 700;
+
+                                }
+
+                            }
+
+
+
+                            SettingActionRow {
+
+                                title: "Max Concurrent Modpack Downloads";
+
+                                description: "Simultaneous modpacks downloaded in parallel (1-3).";
+
+                                button-text: root.max-modpack-downloads + " Parallel";
+
+                                clicked => {
+
+                                    root.max-modpack-downloads = root.max-modpack-downloads >= 3 ? 1 : root.max-modpack-downloads + 1;
+
+                                    root.setting-int-changed("max_modpack_downloads", root.max-modpack-downloads);
+
+                                }
+
+                            }
+
+
+
+                            SettingActionRow {
+
+                                title: "Max Concurrent Mod Downloads";
+
+                                description: "Simultaneous individual mods/files downloaded in parallel (1-8).";
+
+                                button-text: root.max-mod-downloads + " Parallel";
+
+                                clicked => {
+
+                                    root.max-mod-downloads = root.max-mod-downloads >= 8 ? 1 : (root.max-mod-downloads == 4 ? 6 : (root.max-mod-downloads == 6 ? 8 : root.max-mod-downloads + 1));
+
+                                    root.setting-int-changed("max_mod_downloads", root.max-mod-downloads);
+
+                                }
+
+                            }
+
+
+
+                            SettingToggleRow {
+
+                                title: "Throttle Download Bandwidth";
+
+                                description: "Limit maximum download speed to avoid saturating network.";
+
+                                checked: root.throttle-downloads;
+
+                                toggled(v) => { root.throttle-downloads = v; root.setting-toggled("throttle_downloads", v); }
+
+                            }
+
+
+
+                            SettingActionRow {
+
+                                title: "Maximum Speed (KB/s)";
+
+                                description: "Rate limit threshold applied when bandwidth throttling is enabled.";
+
+                                button-text: root.max-download-speed-kb + " KB/s";
+
+                                clicked => {
+
+                                    root.max-download-speed-kb = root.max-download-speed-kb >= 16384 ? 1024 : root.max-download-speed-kb * 2;
+
+                                    root.setting-int-changed("max_download_speed_kb", root.max-download-speed-kb);
+
+                                }
+
+                            }
+
+                        }
+
+                    }
+
+
+
+                    // Section: SOFTWARE UPDATES
+
+                    Rectangle {
+
+                        background: Theme.card-bg;
+
+                        border-width: 1px;
+
+                        border-color: Theme.border;
+
+
+
+                        VerticalLayout {
+
+                            alignment: start;
+
+                            padding-top: 14px;
+
+                            padding-bottom: 14px;
+
+                            spacing: 12px;
+
+
+
+                            HorizontalLayout {
+
+                                padding-left: 16px;
+
+                                Text {
+
+                                    text: "SOFTWARE UPDATES";
+
+                                    color: #FFFFFF;
+
+                                    font-family: Theme.font-family;
+
+                                    font-size: 11px;
+
+                                    font-weight: 700;
+
+                                }
+
+                            }
+
+
+
+                            SettingToggleRow {
+
+                                title: "Check for Updates on Startup";
+
+                                description: "Automatically queries GitHub releases on startup for new Ny-Luna versions.";
+
+                                checked: root.check-updates-startup;
+
+                                toggled(v) => { root.check-updates-startup = v; root.setting-toggled("check_updates_startup", v); }
+
+                            }
+
+
+
+                            SettingActionRow {
+
+                                title: "Launcher Version: 4.0.0";
+
+                                description: "Check GitHub for newer releases and download assets.";
+
+                                button-text: "Check Updates Now";
+
+                                clicked => { root.check-updates(); }
+
+                            }
+
+                        }
+
+                    }
+
+                }
+
+
+
+                // =============================================================
+
+                // 6. INTEGRATIONS (07_6_integrations.png)
+
+                // =============================================================
+
+                if root.current-category == "Integrations": VerticalLayout {
+
+                    alignment: start;
+
+                    spacing: 16px;
+
+
+
+                    // Section: DISCORD RICH PRESENCE (RPC)
+
+                    Rectangle {
+
+                        background: Theme.card-bg;
+
+                        border-width: 1px;
+
+                        border-color: Theme.border;
+
+
+
+                        VerticalLayout {
+
+                            alignment: start;
+
+                            padding-top: 14px;
+
+                            padding-bottom: 14px;
+
+                            spacing: 12px;
+
+
+
+                            // Header with Connection Status Pill
+
+                            HorizontalLayout {
+
+                                padding-left: 16px;
+
+                                padding-right: 16px;
+
+                                alignment: space-between;
+
+
+
+                                Text {
+
+                                    text: "DISCORD RICH PRESENCE (RPC)";
+
+                                    color: #FFFFFF;
+
+                                    font-family: Theme.font-family;
+
+                                    font-size: 11px;
+
+                                    font-weight: 700;
+
+                                    vertical-alignment: center;
+
+                                }
+
+
+
+                                // Connection Status Badge
+
+                                HorizontalLayout {
+
+                                    spacing: 6px;
+
+                                    alignment: end;
+
+
+
+                                    Rectangle {
+
+                                        width: 7px;
+
+                                        height: 7px;
+
+                                        y: (parent.height - self.height) / 2;
+
+                                        background: root.discord-connected ? #23A55A : (!root.discord-rpc ? #80848E : #ED4245);
+
+                                    }
+
+
+
+                                    Text {
+
+                                        text: !root.discord-rpc ? "DISABLED" : (root.discord-connected ? "CONNECTED" : (root.discord-status != "" ? root.discord-status : "NOT CONNECTED"));
+
+                                        color: root.discord-connected ? #23A55A : (!root.discord-rpc ? #80848E : #ED4245);
+
+                                        font-family: Theme.font-family;
+
+                                        font-size: 9px;
+
+                                        font-weight: 700;
+
+                                        vertical-alignment: center;
+
+                                    }
+
+                                }
+
+                            }
+
+
+
+                            // Master Toggle
+
+                            SettingToggleRow {
+
+                                title: "Enable Discord Rich Presence";
+
+                                description: "Displays launcher activity, Minecraft session timer, and installation details to friends on Discord.";
+
+                                checked: root.discord-rpc;
+
+                                toggled(v) => { root.discord-rpc = v; root.setting-toggled("discord_rpc", v); }
+
+                            }
+
+
+
+                            if root.discord-rpc: VerticalLayout {
+
+                                alignment: start;
+
+                                spacing: 12px;
+
+
+
+                                // Divider
+
+                                HorizontalLayout {
+
+                                    padding-left: 16px;
+
+                                    padding-right: 16px;
+
+                                    Rectangle {
+
+                                        height: 1px;
+
+                                        background: Theme.border;
+
+                                    }
+
+                                }
+
+
+
+                                // Segmented Detail Selector
+
+                                VerticalLayout {
+
+                                    alignment: start;
+
+                                    padding-left: 16px;
+
+                                    padding-right: 16px;
+
+                                    spacing: 8px;
+
+
+
+                                    VerticalLayout {
+
+                                        spacing: 3px;
+
+                                        Text {
+
+                                            text: "Activity Detail Level";
+
+                                            color: #FFFFFF;
+
+                                            font-family: Theme.font-family;
+
+                                            font-size: 11px;
+
+                                            font-weight: 700;
+
+                                        }
+}
+
+
+
+                                    HorizontalLayout {
+
+                                        spacing: 8px;
+
+
+
+                                        // Option: Show Version
+
+                                        Rectangle {
+
+                                            horizontal-stretch: 1;
+
+                                            height: 28px;
+
+                                            background: root.discord-detail == "Show Version" ? Theme.accent : #1B1D24;
+
+                                            border-width: 1px;
+
+                                            border-color: root.discord-detail == "Show Version" ? Theme.accent : #282D37;
+
+
+
+                                            Text {
+
+                                                text: "Show Version";
+
+                                                color: root.discord-detail == "Show Version" ? #000000 : #FFFFFF;
+
+                                                font-family: Theme.font-family;
+
+                                                font-size: 10px;
+
+                                                font-weight: 700;
+
+                                                horizontal-alignment: center;
+
+                                                vertical-alignment: center;
+
+                                            }
+
+
+
+                                            TouchArea {
+
+                                                clicked => {
+
+                                                    root.discord-detail = "Show Version";
+
+                                                    root.setting-string-changed("discord_detail", "Show Version");
+
+                                                }
+
+                                            }
+
+                                        }
+
+
+
+                                        // Option: Show Installation
+
+                                        Rectangle {
+
+                                            horizontal-stretch: 1;
+
+                                            height: 28px;
+
+                                            background: root.discord-detail == "Show Installation" ? Theme.accent : #1B1D24;
+
+                                            border-width: 1px;
+
+                                            border-color: root.discord-detail == "Show Installation" ? Theme.accent : #282D37;
+
+
+
+                                            Text {
+
+                                                text: "Show Installation";
+
+                                                color: root.discord-detail == "Show Installation" ? #000000 : #FFFFFF;
+
+                                                font-family: Theme.font-family;
+
+                                                font-size: 10px;
+
+                                                font-weight: 700;
+
+                                                horizontal-alignment: center;
+
+                                                vertical-alignment: center;
+
+                                            }
+
+
+
+                                            TouchArea {
+
+                                                clicked => {
+
+                                                    root.discord-detail = "Show Installation";
+
+                                                    root.setting-string-changed("discord_detail", "Show Installation");
+
+                                                }
+
+                                            }
+
+                                        }
+
+
+
+                                        // Option: Playing Modpack
+
+                                        Rectangle {
+
+                                            horizontal-stretch: 1;
+
+                                            height: 28px;
+
+                                            background: root.discord-detail == "Playing Modpack" ? Theme.accent : #1B1D24;
+
+                                            border-width: 1px;
+
+                                            border-color: root.discord-detail == "Playing Modpack" ? Theme.accent : #282D37;
+
+
+
+                                            Text {
+
+                                                text: "Playing Modpack";
+
+                                                color: root.discord-detail == "Playing Modpack" ? #000000 : #FFFFFF;
+
+                                                font-family: Theme.font-family;
+
+                                                font-size: 10px;
+
+                                                font-weight: 700;
+
+                                                horizontal-alignment: center;
+
+                                                vertical-alignment: center;
+
+                                            }
+
+
+
+                                            TouchArea {
+
+                                                clicked => {
+
+                                                    root.discord-detail = "Playing Modpack";
+
+                                                    root.setting-string-changed("discord_detail", "Playing Modpack");
+
+                                                }
+
+                                            }
+
+                                        }
+
+
+
+                                        // Option: Hidden
+
+                                        Rectangle {
+
+                                            horizontal-stretch: 1;
+
+                                            height: 28px;
+
+                                            background: root.discord-detail == "Hidden" ? Theme.accent : #1B1D24;
+
+                                            border-width: 1px;
+
+                                            border-color: root.discord-detail == "Hidden" ? Theme.accent : #282D37;
+
+
+
+                                            Text {
+
+                                                text: "Hidden";
+
+                                                color: root.discord-detail == "Hidden" ? #000000 : #FFFFFF;
+
+                                                font-family: Theme.font-family;
+
+                                                font-size: 10px;
+
+                                                font-weight: 700;
+
+                                                horizontal-alignment: center;
+
+                                                vertical-alignment: center;
+
+                                            }
+
+
+
+                                            TouchArea {
+
+                                                clicked => {
+
+                                                    root.discord-detail = "Hidden";
+
+                                                    root.setting-string-changed("discord_detail", "Hidden");
+
+                                                }
+
+                                            }
+
+                                        }
+
+                                    }
+
+                                }
+
+
+
+                                // Additional Customization Toggles
+
+                                SettingToggleRow {
+
+                                    title: "Show Elapsed Session Timer";
+
+                                    description: "Displays dynamic elapsed time (e.g. 01:24:50 elapsed) on Discord.";
+
+                                    checked: root.discord-show-timer;
+
+                                    toggled(v) => { root.discord-show-timer = v; root.setting-toggled("discord_show_timer", v); }
+
+                                }
+
+
+
+                                SettingToggleRow {
+
+                                    title: "Show Activity When Idle in Launcher";
+
+                                    description: "Displays 'In Launcher' status when browsing modpacks or configuring instances.";
+
+                                    checked: root.discord-show-idle;
+
+                                    toggled(v) => { root.discord-show-idle = v; root.setting-toggled("discord_show_idle", v); }
+
+                                }
+
+
+
+                                SettingToggleRow {
+
+                                    title: "Show Multiplayer Server Address";
+
+                                    description: "Displays server address (e.g. 'Playing on mc.hypixel.net') when playing multiplayer.";
+
+                                    checked: root.discord-show-server;
+
+                                    toggled(v) => { root.discord-show-server = v; root.setting-toggled("discord_show_server", v); }
+
+                                }
+
+
+
+                                // Streamer privacy alert note
+
+                                if root.streamer-privacy: HorizontalLayout {
+
+                                    padding-left: 16px;
+
+                                    padding-right: 16px;
+
+                                    Rectangle {
+
+                                        background: #1B1D24;
+
+                                        border-width: 1px;
+
+                                        border-color: Theme.accent;
+
+
+
+                                        HorizontalLayout {
+
+                                            padding: 10px;
+
+                                            spacing: 8px;
+
+
+
+                                            Text {
+
+                                                text: "Streamer Privacy Mode is active: Discord presence automatically masks server IPs as 'Multiplayer' and hides your username.";
+
+                                                color: Theme.accent;
+
+                                                font-family: Theme.font-family;
+
+                                                font-size: 9px;
+
+                                                wrap: word-wrap;
+
+                                                vertical-alignment: center;
+
+                                            }
+
+                                        }
+
+                                    }
+
+                                }
+
+
+
+                                // Divider before Preview
+
+                                HorizontalLayout {
+
+                                    padding-left: 16px;
+
+                                    padding-right: 16px;
+
+                                    Rectangle {
+
+                                        height: 1px;
+
+                                        background: Theme.border;
+
+                                    }
+
+                                }
+
+
+
+                                // LIVE DISCORD ACTIVITY PREVIEW
+
+                                VerticalLayout {
+
+                                    alignment: start;
+
+                                    padding-left: 16px;
+
+                                    padding-right: 16px;
+
+                                    spacing: 10px;
+
+
+
+                                    HorizontalLayout {
+
+                                        alignment: space-between;
+
+
+
+                                        Text {
+
+                                            text: "DISCORD ACTIVITY PREVIEW";
+
+                                            color: Theme.text-secondary;
+
+                                            font-family: Theme.font-family;
+
+                                            font-size: 10px;
+
+                                            font-weight: 700;
+
+                                            vertical-alignment: center;
+
+                                        }
+
+
+
+                                        // Scenario Selector Tabs
+
+                                        HorizontalLayout {
+
+                                            spacing: 6px;
+
+                                            alignment: end;
+
+
+
+                                            Rectangle {
+
+                                                background: root.discord-preview-mode == "launcher" ? Theme.accent : #1B1D24;
+
+                                                border-width: 1px;
+
+                                                border-color: root.discord-preview-mode == "launcher" ? Theme.accent : #282D37;
+
+                                                height: 22px;
+
+
+
+                                                HorizontalLayout {
+
+                                                    padding-left: 8px;
+
+                                                    padding-right: 8px;
+
+                                                    Text {
+
+                                                        text: "In Launcher";
+
+                                                        color: root.discord-preview-mode == "launcher" ? #000000 : #FFFFFF;
+
+                                                        font-family: Theme.font-family;
+
+                                                        font-size: 9px;
+
+                                                        font-weight: 700;
+
+                                                        vertical-alignment: center;
+
+                                                    }
+
+                                                }
+
+
+
+                                                TouchArea {
+
+                                                    clicked => { root.discord-preview-mode = "launcher"; }
+
+                                                }
+
+                                            }
+
+
+
+                                            Rectangle {
+
+                                                background: root.discord-preview-mode == "game" ? Theme.accent : #1B1D24;
+
+                                                border-width: 1px;
+
+                                                border-color: root.discord-preview-mode == "game" ? Theme.accent : #282D37;
+
+                                                height: 22px;
+
+
+
+                                                HorizontalLayout {
+
+                                                    padding-left: 8px;
+
+                                                    padding-right: 8px;
+
+                                                    Text {
+
+                                                        text: "Singleplayer";
+
+                                                        color: root.discord-preview-mode == "game" ? #000000 : #FFFFFF;
+
+                                                        font-family: Theme.font-family;
+
+                                                        font-size: 9px;
+
+                                                        font-weight: 700;
+
+                                                        vertical-alignment: center;
+
+                                                    }
+
+                                                }
+
+
+
+                                                TouchArea {
+
+                                                    clicked => { root.discord-preview-mode = "game"; }
+
+                                                }
+
+                                            }
+
+
+
+                                            Rectangle {
+
+                                                background: root.discord-preview-mode == "server" ? Theme.accent : #1B1D24;
+
+                                                border-width: 1px;
+
+                                                border-color: root.discord-preview-mode == "server" ? Theme.accent : #282D37;
+
+                                                height: 22px;
+
+
+
+                                                HorizontalLayout {
+
+                                                    padding-left: 8px;
+
+                                                    padding-right: 8px;
+
+                                                    Text {
+
+                                                        text: "Multiplayer Server";
+
+                                                        color: root.discord-preview-mode == "server" ? #000000 : #FFFFFF;
+
+                                                        font-family: Theme.font-family;
+
+                                                        font-size: 9px;
+
+                                                        font-weight: 700;
+
+                                                        vertical-alignment: center;
+
+                                                    }
+
+                                                }
+
+
+
+                                                TouchArea {
+
+                                                    clicked => { root.discord-preview-mode = "server"; }
+
+                                                }
+
+                                            }
+
+                                        }
+
+                                    }
+
+
+
+                                    // Authentic Discord Dark Profile Card (0px sharp corners)
+
+                                    HorizontalLayout {
+
+                                        alignment: start;
+
+
+
+                                        Rectangle {
+
+                                            width: 380px;
+
+                                            background: #1E1F22;
+
+                                            border-width: 1px;
+
+                                            border-color: #2B2D31;
+
+                                            vertical-stretch: 0;
+
+
+
+                                            VerticalLayout {
+
+                                                alignment: start;
+
+                                                padding: 14px;
+
+                                                spacing: 10px;
+
+
+
+                                                Text {
+
+                                                    text: "PLAYING A GAME";
+
+                                                    color: #949BA4;
+
+                                                    font-family: Theme.font-family;
+
+                                                    font-size: 9px;
+
+                                                    font-weight: 700;
+
+                                                }
+
+
+
+                                                HorizontalLayout {
+
+                                                    spacing: 12px;
+
+                                                    alignment: start;
+
+
+
+                                                    // Large Logo + Steve Badge
+
+                                                    Rectangle {
+
+                                                        width: 56px;
+
+                                                        height: 56px;
+
+                                                        background: #111214;
+
+                                                        border-width: 1px;
+
+                                                        border-color: #2B2D31;
+
+                                                        vertical-stretch: 0;
+
+
+
+                                                        Image {
+
+                                                            width: 44px;
+
+                                                            height: 44px;
+
+                                                            x: 6px;
+
+                                                            y: 6px;
+
+                                                            source: root.launcher-logo;
+
+                                                        }
+
+
+
+                                                        // Small badge
+
+                                                        Rectangle {
+
+                                                            x: 36px;
+
+                                                            y: 36px;
+
+                                                            width: 18px;
+
+                                                            height: 18px;
+
+                                                            background: #1E1F22;
+
+                                                            border-width: 1px;
+
+                                                            border-color: #2B2D31;
+
+
+
+                                                            Image {
+
+                                                                width: 14px;
+
+                                                                height: 14px;
+
+                                                                x: 2px;
+
+                                                                y: 2px;
+
+                                                                source: root.has-active-head ? root.active-head-image : @image-url("../../../../skins/steve_head.png");
+
+                                                            }
+
+                                                        }
+
+                                                    }
+
+
+
+                                                    // Right Column Text
+
+                                                    VerticalLayout {
+
+                                                        spacing: 3px;
+
+                                                        alignment: start;
+
+                                                        horizontal-stretch: 1;
+
+
+
+                                                        // Title
+
+                                                        Text {
+
+                                                            text: "Ny-Luna";
+
+                                                            color: #F2F3F5;
+
+                                                            font-family: Theme.font-family;
+
+                                                            font-size: 12px;
+
+                                                            font-weight: 700;
+
+                                                        }
+
+
+
+                                                        // Line 1: Details
+
+                                                        Text {
+
+                                                            text: !root.discord-rpc ? "Rich Presence Disabled" :
+
+                                                                  (root.discord-preview-mode == "launcher" ?
+
+                                                                      (root.discord-show-idle ? "In Launcher" : "Idle (Presence Hidden)") :
+
+                                                                      (root.discord-detail == "Show Version" ? "Playing 1.21.4 (Fabric)" :
+
+                                                                      (root.discord-detail == "Show Installation" ? "Playing Survival 1.21" :
+
+                                                                      (root.discord-detail == "Playing Modpack" ? "Playing All The Mods 9" :
+
+                                                                      "Playing Minecraft"))));
+
+                                                            color: #DBDEE1;
+
+                                                            font-family: Theme.font-family;
+
+                                                            font-size: 10px;
+
+                                                            overflow: elide;
+
+                                                        }
+
+
+
+                                                        // Line 2: State
+
+                                                        Text {
+
+                                                            text: !root.discord-rpc ? "" :
+
+                                                                  (root.discord-preview-mode == "launcher" ?
+
+                                                                      (root.discord-show-idle ? "Ready to Play" : "") :
+
+                                                                      (root.discord-preview-mode == "game" ? "Singleplayer" :
+
+                                                                      (root.discord-show-server && !root.streamer-privacy ?
+
+                                                                          "Playing on mc.hypixel.net" : "Multiplayer")));
+
+                                                            color: #949BA4;
+
+                                                            font-family: Theme.font-family;
+
+                                                            font-size: 10px;
+
+                                                            overflow: elide;
+
+                                                        }
+
+
+
+                                                        // Line 3: Elapsed Timer
+
+                                                        if root.discord-rpc && root.discord-show-timer && (root.discord-preview-mode != "launcher" || root.discord-show-idle): Text {
+
+                                                            text: "01:24:50 elapsed";
+
+                                                            color: #949BA4;
+
+                                                            font-family: Theme.font-family;
+
+                                                            font-size: 9px;
+
+                                                        }
+
+                                                    }
+
+                                                }
+
+                                            }
+
+                                        }
+
+                                    }
+
+                                }
+
+                            }
+
+                        }
+
+                    }
+
+
+
+                    // Section: ACCOUNT & STREAMER PRIVACY
+
+                    Rectangle {
+
+                        background: Theme.card-bg;
+
+                        border-width: 1px;
+
+                        border-color: Theme.border;
+
+
+
+                        VerticalLayout {
+
+                            alignment: start;
+
+                            padding-top: 14px;
+
+                            padding-bottom: 14px;
+
+                            spacing: 12px;
+
+
+
+                            HorizontalLayout {
+
+                                padding-left: 16px;
+
+                                Text {
+
+                                    text: "ACCOUNT & STREAMER PRIVACY";
+
+                                    color: #FFFFFF;
+
+                                    font-family: Theme.font-family;
+
+                                    font-size: 11px;
+
+                                    font-weight: 700;
+
+                                }
+
+                            }
+
+
+
+                            SettingToggleRow {
+
+                                title: "Streamer Privacy Mode";
+
+                                description: "Masks account usernames and sensitive file system directories from view.";
+
+                                checked: root.streamer-privacy;
+
+                                toggled(v) => { root.streamer-privacy = v; root.setting-toggled("streamer_privacy", v); }
+
+                            }
+
+
+
+
+
+                        }
+
+                    }
+
+                }
+
+
+
+                // =============================================================
+
+                // 7. LOGS & DIAGNOSTICS (07_7_logs_diagnostics.png)
+
+                // =============================================================
+
+                if root.current-category == "Logs & Diagnostics": VerticalLayout {
+
+                    alignment: start;
+
+                    spacing: 16px;
+
+
+
+                    Rectangle {
+
+                        background: Theme.card-bg;
+
+                        border-width: 1px;
+
+                        border-color: Theme.border;
+
+
+
+                        VerticalLayout {
+
+                            alignment: start;
+
+                            padding: 16px;
+
+                            spacing: 12px;
+
+
+
+                            VerticalLayout {
+
+                                spacing: 10px;
+
+
+
+                                Text {
+
+                                    text: "REAL-TIME LOG VIEWER & DIAGNOSTICS";
+
+                                    color: #FFFFFF;
+
+                                    font-family: Theme.font-family;
+
+                                    font-size: 11px;
+
+                                    font-weight: 700;
+
+                                    vertical-alignment: center;
+
+                                }
+
+
+
+                                HorizontalLayout {
+
+                                    spacing: 8px;
+
+                                    alignment: start;
+
+                                    PixelButton {
+
+                                        text: "Refresh";
+
+                                        custom-font-size: 10px;
+
+                                        clicked => { root.refresh-logs(); }
+
+                                    }
+
+                                    PixelButton {
+
+                                        text: "Copy Logs";
+
+                                        custom-font-size: 10px;
+
+                                        clicked => { root.copy-logs(); }
+
+                                    }
+
+                                    PixelButton {
+
+                                        text: "Export Diagnostics";
+
+                                        custom-font-size: 10px;
+
+                                        clicked => { root.export-diagnostics(); }
+
+                                    }
+
+                                    PixelButton {
+
+                                        text: "Clear Cache";
+
+                                        custom-font-size: 10px;
+
+                                        clicked => { root.clear-cache(); }
+
+                                    }
+
+                                }
+
+                            }
+
+
+
+                            Rectangle {
+
+                                height: 360px;
+
+                                background: #111216;
+
+                                border-width: 1px;
+
+                                border-color: #252830;
+
+                                clip: true;
+
+
+
+                                Flickable {
+
+                                    x: 0px;
+
+                                    y: 0px;
+
+                                    width: parent.width;
+
+                                    height: parent.height;
+
+                                    interactive: true;
+
+                                    content-height: Math.max(parent.height, log_text.preferred-height + 24px);
+
+
+
+                                    VerticalLayout {
+
+                                        padding: 12px;
+
+                                        alignment: start;
+
+                                        log_text := Text {
+
+                                            width: 100%;
+
+                                            text: root.logs-text;
+
+                                            color: #FFFFFF;
+
+                                            font-family: Theme.font-family;
+
+                                            font-size: 10px;
+
+                                            wrap: word-wrap;
+
+                                        }
+
+                                    }
+
+                                }
+
+                            }
+
+                        }
+
+                    }
+
+                }
+
+
+
+                // =============================================================
+
+                // 8. ABOUT & RESET (07_8_about_reset.png)
+
+                // =============================================================
+
+                if root.current-category == "About & Reset": VerticalLayout {
+
+                    alignment: start;
+
+                    spacing: 16px;
+
+
+
+                    // Section: ABOUT
+
+                    Rectangle {
+
+                        background: Theme.card-bg;
+
+                        border-width: 1px;
+
+                        border-color: Theme.border;
+
+
+
+                        VerticalLayout {
+
+                            alignment: start;
+
+                            padding-top: 14px;
+
+                            padding-bottom: 14px;
+
+                            spacing: 12px;
+
+
+
+                            HorizontalLayout {
+
+                                padding-left: 16px;
+
+                                Text {
+
+                                    text: "ABOUT NY-LUNA (NLC)";
+
+                                    color: #FFFFFF;
+
+                                    font-family: Theme.font-family;
+
+                                    font-size: 11px;
+
+                                    font-weight: 700;
+
+                                }
+
+                            }
+
+
+
+                            HorizontalLayout {
+
+                                padding-left: 16px;
+
+                                padding-right: 16px;
+
+                                Text {
+
+                                    text: "Version: 4.0.0  |  Native Rust & Python Core  |  MIT License\nFast, lightweight Minecraft launcher supporting Vanilla, Fabric, Forge, NeoForged, and Modrinth modpacks.";
+
+                                    color: Theme.text-secondary;
+
+                                    font-family: Theme.font-family;
+
+                                    font-size: 9px;
+
+                                }
+
+                            }
+
+
+
+                            SettingActionRow {
+
+                                title: "Source Code & Issue Tracker";
+
+                                description: "Visit the official repository for releases, updates, and feedback.";
+
+                                button-text: "Open GitHub Repository";
+
+                                clicked => { root.open-github(); }
+
+                            }
+
+                        }
+
+                    }
+
+
+
+                    // Section: UPDATES
+
+                    Rectangle {
+
+                        background: Theme.card-bg;
+
+                        border-width: 1px;
+
+                        border-color: Theme.border;
+
+
+
+                        VerticalLayout {
+
+                            alignment: start;
+
+                            padding-top: 14px;
+
+                            padding-bottom: 14px;
+
+                            spacing: 12px;
+
+
+
+                            HorizontalLayout {
+
+                                padding-left: 16px;
+
+                                Text {
+
+                                    text: "LAUNCHER UPDATES";
+
+                                    color: #FFFFFF;
+
+                                    font-family: Theme.font-family;
+
+                                    font-size: 11px;
+
+                                    font-weight: 700;
+
+                                }
+
+                            }
+
+
+
+                            SettingActionRow {
+
+                                title: "Checking for updates...";
+
+                                description: "All core modules and CDC patches up-to-date.";
+
+                                button-text: "Check Now";
+
+                                clicked => { root.check-updates(); }
+
+                            }
+
+                        }
+
+                    }
+
+
+
+                    // Section: DANGER ZONE (Red Outline 0px)
+
+                    Rectangle {
+
+                        background: #1F1414;
+
+                        border-width: 1px;
+
+                        border-color: #EF4444;
+
+
+
+                        VerticalLayout {
+
+                            alignment: start;
+
+                            padding-top: 14px;
+
+                            padding-bottom: 14px;
+
+                            spacing: 12px;
+
+
+
+                            HorizontalLayout {
+
+                                padding-left: 16px;
+
+                                Text {
+
+                                    text: "DANGER ZONE";
+
+                                    color: #EF4444;
+
+                                    font-family: Theme.font-family;
+
+                                    font-size: 11px;
+
+                                    font-weight: 700;
+
+                                }
+
+                            }
+
+
+
+                            SettingActionRow {
+
+                                title: "Reset Launcher to Factory Defaults";
+
+                                description: "Permanently wipes local configuration, custom profiles, and cached launcher assets. The launcher will automatically restart.";
+
+                                button-text: "Reset All to Defaults";
+
+                                is-danger: true;
+
+                                clicked => { root.reset-defaults(); }
+
+                            }
+
+                        }
+
+                    }
+
+                }
+
+
+
+                Rectangle { vertical-stretch: 1; }
+
+            }
+
+        }
+
+    }
+
+}
+

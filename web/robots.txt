@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://amne-dev.github.io/New-launcher/sitemap.xml
+Sitemap: https://amne-dev.github.io/NLC/sitemap.xml

@@ -1,0 +1,58 @@
+import { Theme } from "../theme.slint";
+
+export component PlayScreen {
+    in-out property <string> title: "MINECRAFT";
+    in-out property <string> subtitle: "JAVA EDITION";
+    in-out property <image> background-image;
+    in-out property <bool> has-background-image: false;
+
+    Rectangle {
+        clip: true;
+
+        // Full-bleed wallpaper background
+        if root.has-background-image: Image {
+            source: root.background-image;
+            width: parent.width;
+            height: parent.height;
+            image-fit: cover;
+        }
+
+        if !root.has-background-image: Image {
+            source: @image-url("../../../../wallpapers/Island.png");
+            width: parent.width;
+            height: parent.height;
+            image-fit: cover;
+        }
+
+        // Subtle gradient vignette for contrast
+        Rectangle {
+            background: #000000.with-alpha(0.25);
+        }
+
+        // Centered Giant MINECRAFT / JAVA EDITION typography
+        VerticalLayout {
+            alignment: center;
+            spacing: 6px;
+
+            // Shadow text
+            Text {
+                text: root.title;
+                color: #FFFFFF;
+                font-family: Theme.font-family;
+                font-size: 38px;
+                font-weight: 700;
+                horizontal-alignment: center;
+            }
+
+            Text {
+                text: root.subtitle;
+                color: #D2D6E0;
+                font-family: Theme.font-family;
+                font-size: 13px;
+                font-weight: 700;
+                horizontal-alignment: center;
+            }
+        }
+    }
+}
+

@@ -1,0 +1,1593 @@
+import { Theme } from "../theme.slint";
+import { PixelButton, SearchInput, PixelCheckbox, ExpandableCardIconButton, RamSlider } from "../components.slint";
+
+export struct InstallationData {
+    id: string,
+    name: string,
+    version: string,
+    loader: string,
+    icon: image,
+    icon-name: string,
+    last-played: string,
+    created: string,
+    is-snapshot: bool,
+    is-modded: bool,
+    java-path: string,
+    jvm-args: string,
+    resolution-w: int,
+    resolution-h: int,
+    game-dir: string,
+    ram-mb: int,
+}
+
+component ContextMenuItem {
+    in-out property <string> text;
+    in-out property <string> icon-glyph;
+    in-out property <bool> is-danger: false;
+    callback clicked();
+
+    Rectangle {
+        height: 28px;
+        background: touch.pressed ? (root.is-danger ? #4A1B1B : #1A1C22) :
+                    (touch.has-hover ? (root.is-danger ? #3A1B1B : #282C36) : transparent);
+
+        HorizontalLayout {
+            padding-left: 10px;
+            padding-right: 10px;
+            spacing: 8px;
+            alignment: start;
+
+            Text {
+                text: root.icon-glyph;
+                color: root.is-danger ? (touch.has-hover ? #FF6B6B : #EF4444) :
+                       (touch.has-hover ? #FFFFFF : #A0A5B5);
+                font-family: Theme.icon-font-family;
+                font-size: 11px;
+                vertical-alignment: center;
+            }
+
+            Text {
+                text: root.text;
+                color: root.is-danger ? (touch.has-hover ? #FF6B6B : #EF4444) :
+                       (touch.has-hover ? #FFFFFF : #D0D5E0);
+                font-family: Theme.font-family;
+                font-size: 10px;
+                font-weight: root.is-danger ? 700 : 400;
+                vertical-alignment: center;
+            }
+        }
+
+        touch := TouchArea {
+            clicked => { root.clicked(); }
+        }
+    }
+}
+
+component DropdownOption {
+    in-out property <string> text;
+    in-out property <bool> is-selected: false;
+    callback clicked();
+
+    Rectangle {
+        height: 26px;
+        background: touch.pressed ? #14171E :
+                    (touch.has-hover ? #2A2F3D : (root.is-selected ? #212530 : transparent));
+
+        HorizontalLayout {
+            padding-left: 10px;
+            padding-right: 10px;
+            alignment: start;
+
+            Text {
+                text: root.text;
+                color: root.is-selected ? Theme.accent : (touch.has-hover ? #FFFFFF : #C0C5D0);
+                font-family: Theme.font-family;
+                font-size: 10px;
+                vertical-alignment: center;
+            }
+        }
+
+        touch := TouchArea {
+            clicked => { root.clicked(); }
+        }
+    }
+}
+
+component IconSlot {
+    in-out property <image> icon;
+    in-out property <string> name;
+    in-out property <string> filter-query: "";
+    callback selected(image, string);
+
+    property <bool> is-match: root.filter-query == "" || root.name == root.filter-query;
+
+    width: 88px;
+    height: 52px;
+
+    Rectangle {
+        background: slot-touch.has-hover ? #2E333E : #1B1D24;
+        border-width: 1px;
+        border-color: slot-touch.has-hover ? Theme.accent : #282D37;
+        opacity: root.is-match ? 1.0 : 0.25;
+
+        HorizontalLayout {
+            padding-left: 6px;
+            padding-right: 6px;
+            spacing: 6px;
+            alignment: center;
+
+            Image {
+                source: root.icon;
+                width: 36px;
+                height: 36px;
+                image-fit: contain;
+                image-rendering: pixelated;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        slot-touch := TouchArea {
+            clicked => {
+                root.selected(root.icon, root.name);
+            }
+        }
+    }
+}
+
+export component InstallationCard {
+    in-out property <InstallationData> data;
+    in-out property <bool> is-active: false;
+    in-out property <bool> animations-enabled: true;
+    callback play-clicked();
+    callback folder-clicked();
+    callback edit-clicked();
+    callback duplicate-clicked();
+    callback delete-clicked();
+    callback select-card();
+
+    height: 154px;
+    horizontal-stretch: 1;
+
+    card_bg := Rectangle {
+        background: card_touch.has-hover ? #181B22 : Theme.card-bg;
+        border-width: root.is-active ? 2px : 1px;
+        border-color: root.is-active ? Theme.accent : (card_touch.has-hover ? #383E4E : Theme.border);
+
+        // Click to select anywhere on card background
+        card_touch := TouchArea {
+            clicked => { root.select-card(); }
+        }
+
+        // Active Outline Badge (Top-Left)
+        if root.is-active: Rectangle {
+            x: 0px;
+            y: 0px;
+            height: 16px;
+            background: Theme.accent;
+
+            HorizontalLayout {
+                padding-left: 6px;
+                padding-right: 6px;
+                alignment: center;
+                Text {
+                    text: "ACTIVE";
+                    color: #0B0C0E;
+                    font-family: Theme.font-family;
+                    font-size: 8px;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        // Content Area
+        VerticalLayout {
+            padding-left: 14px;
+            padding-right: 14px;
+            padding-top: root.is-active ? 20px : 14px;
+            padding-bottom: 12px;
+            spacing: 10px;
+            alignment: space-between;
+
+            // Top Section: Icon + Details + Action Tray
+            HorizontalLayout {
+                spacing: 12px;
+                alignment: space-between;
+
+                // Left: 44x44 Block / Modpack Texture Icon Frame + Name/Version
+                HorizontalLayout {
+                    spacing: 12px;
+                    alignment: start;
+                    horizontal-stretch: 1;
+
+                    // 44x44 Icon Frame
+                    Rectangle {
+                        width: 44px;
+                        height: 44px;
+                        background: #0E1014;
+                        border-width: 1px;
+                        border-color: #2D313A;
+
+                        Image {
+                            source: root.data.icon;
+                            width: 36px;
+                            height: 36px;
+                            image-fit: contain;
+                            image-rendering: pixelated;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    // Titles & Loader Pill
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 4px;
+                        horizontal-stretch: 1;
+
+                        Text {
+                            text: root.data.name;
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 13px;
+                            font-weight: 700;
+                            overflow: elide;
+                            vertical-alignment: center;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 6px;
+                            alignment: start;
+
+                            // Loader Badge Pill
+                            Rectangle {
+                                height: 16px;
+                                background: #1B202B;
+                                border-width: 1px;
+                                border-color: #2D364A;
+
+                                HorizontalLayout {
+                                    padding-left: 5px;
+                                    padding-right: 5px;
+                                    alignment: center;
+                                    Text {
+                                        text: root.data.loader != "" ? root.data.loader : "Vanilla";
+                                        color: #79A7DF;
+                                        font-family: Theme.font-family;
+                                        font-size: 8px;
+                                        font-weight: 700;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+
+                            Text {
+                                text: root.data.version;
+                                color: Theme.text-secondary;
+                                font-family: Theme.font-family;
+                                font-size: 10px;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+
+                // Right Action Tray: Expandable Icon Buttons (Play, Folder, Edit, More Menu)
+                HorizontalLayout {
+                    spacing: 4px;
+                    alignment: end;
+
+                    // 1. Play Button (Emerald Green ▶)
+                    ExpandableCardIconButton {
+                        icon: @image-url("../../../../icons/icon_play_16.png");
+                        text: "Play";
+                        base-bg: #143525;
+                        hover-bg: #1B4530;
+                        pressed-bg: #0E2419;
+                        base-border: #1E5A3C;
+                        hover-border: #2EC971;
+                        expanded-width: 66px;
+                        animations-enabled: root.animations-enabled;
+                        clicked => { root.play-clicked(); }
+                    }
+
+                    // 2. Folder Button
+                    ExpandableCardIconButton {
+                        icon: @image-url("../../../../icons/icon_folder_16.png");
+                        text: "Folder";
+                        expanded-width: 76px;
+                        animations-enabled: root.animations-enabled;
+                        clicked => { root.folder-clicked(); }
+                    }
+
+                    // 3. Edit Button
+                    ExpandableCardIconButton {
+                        icon: @image-url("../../../../icons/icon_edit_16.png");
+                        text: "Edit";
+                        expanded-width: 64px;
+                        animations-enabled: root.animations-enabled;
+                        clicked => { root.edit-clicked(); }
+                    }
+
+                    // 4. More Menu (⋮)
+                    Rectangle {
+                        width: 28px;
+                        height: 28px;
+                        background: (menu_popup.is-open || menu_touch.pressed) ? #1A1C20 : (menu_touch.has-hover ? #2A2D35 : Theme.button-dark);
+                        border-width: 1px;
+                        border-color: (menu_popup.is-open || menu_touch.has-hover) ? #404450 : Theme.border;
+
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 2px;
+                            x: (parent.width - 2px) / 2;
+                            Rectangle { width: 2px; height: 2px; background: menu_touch.has-hover ? #FFFFFF : #A0A5B5; }
+                            Rectangle { width: 2px; height: 2px; background: menu_touch.has-hover ? #FFFFFF : #A0A5B5; }
+                            Rectangle { width: 2px; height: 2px; background: menu_touch.has-hover ? #FFFFFF : #A0A5B5; }
+                        }
+
+                        menu_touch := TouchArea {
+                            clicked => {
+                                if (menu_popup.is-open) {
+                                    menu_popup.close();
+                                } else {
+                                    menu_popup.show();
+                                }
+                            }
+                        }
+
+                        menu_popup := PopupWindow {
+                            x: -140px;
+                            y: 30px;
+                            width: 170px;
+                            height: 74px;
+
+                            Rectangle {
+                                background: #191B20;
+                                border-width: 1px;
+                                border-color: #2D3038;
+
+                                VerticalLayout {
+                                    padding: 3px;
+                                    spacing: 1px;
+
+                                    ContextMenuItem {
+                                        icon-glyph: "⧉";
+                                        text: "Duplicate";
+                                        clicked => {
+                                            menu_popup.close();
+                                            root.duplicate-clicked();
+                                        }
+                                    }
+
+                                    Rectangle { height: 1px; background: #282D37; }
+
+                                    ContextMenuItem {
+                                        icon-glyph: "✕";
+                                        text: "Delete Installation";
+                                        is-danger: true;
+                                        clicked => {
+                                            menu_popup.close();
+                                            root.delete-clicked();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Bottom Metadata Row: Last Played & Snapshot / Modded Badges
+            HorizontalLayout {
+                alignment: space-between;
+
+                Text {
+                    text: "Last played: " + root.data.last-played;
+                    color: Theme.text-secondary;
+                    font-family: Theme.font-family;
+                    font-size: 9px;
+                    vertical-alignment: center;
+                }
+
+                HorizontalLayout {
+                    spacing: 6px;
+                    alignment: end;
+
+                    if root.data.is-snapshot: Rectangle {
+                        height: 16px;
+                        background: #251D14;
+                        border-width: 1px;
+                        border-color: #553B18;
+                        HorizontalLayout {
+                            padding-left: 5px;
+                            padding-right: 5px;
+                            alignment: center;
+                            Text {
+                                text: "SNAPSHOT";
+                                color: #E5A440;
+                                font-family: Theme.font-family;
+                                font-size: 8px;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    if root.data.is-modded: Rectangle {
+                        height: 16px;
+                        background: #14202B;
+                        border-width: 1px;
+                        border-color: #204060;
+                        HorizontalLayout {
+                            padding-left: 5px;
+                            padding-right: 5px;
+                            alignment: center;
+                            Text {
+                                text: "MODDED";
+                                color: #5BC0EB;
+                                font-family: Theme.font-family;
+                                font-size: 8px;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component InstallationsScreen {
+    // Model state
+    in-out property <[InstallationData]> installations: [];
+    in-out property <string> selected-installation-name: "";
+    in-out property <string> selected-installation-id: "";
+    in-out property <int> editor-ram-mb: 0;
+    in-out property <int> total-system-ram-mb: 8192;
+
+    // View Routing State
+    in-out property <string> view-mode: "browse"; // "browse" | "editor"
+    in-out property <bool> is-edit-mode: false;
+    in-out property <string> editing-id: "";
+
+    in-out property <bool> animations-enabled: true;
+    property <int> grid-cols: max(1, min(3, floor((root.width - 48px) / 300px)));
+
+    // Browse Filters
+    in-out property <bool> filter-releases: true;
+    in-out property <bool> filter-snapshots: false;
+    in-out property <bool> filter-modded: true;
+    in-out property <bool> show-releases <=> root.filter-releases;
+    in-out property <bool> show-snapshots <=> root.filter-snapshots;
+    in-out property <bool> show-modded <=> root.filter-modded;
+    in-out property <string> search-query: "";
+
+    // Editor Form State
+    in-out property <string> editor-name: "";
+    in-out property <string> editor-loader: "Vanilla";
+    in-out property <string> editor-version: "26.3";
+    in-out property <image> editor-icon: @image-url("../../../../icons/2x/crafting_table_front.png");
+    in-out property <string> editor-icon-name: "crafting_table_front.png";
+    in-out property <bool> editor-show-snapshots: false;
+    in-out property <bool> editor-more-options-expanded: false;
+    in-out property <string> editor-java-path: "";
+    in-out property <string> editor-jvm-args: "";
+    in-out property <string> editor-res-width: "854";
+    in-out property <string> editor-res-height: "480";
+    in-out property <string> editor-game-dir: "";
+    in-out property <string> version-fetch-status: "Select a loader to fetch versions";
+
+    in-out property <[string]> available-loaders: ["Vanilla", "Fabric", "Forge", "NeoForge", "Quilt"];
+    in-out property <[string]> available-versions: ["26.3", "26.2", "26.1", "1.21.4", "1.21.3", "1.21.1", "1.20.4", "1.20.1", "1.19.4", "1.18.2", "1.16.5", "1.12.2", "1.8.9"];
+
+    // Sub-Modal / Popover States
+    in-out property <bool> icon-picker-open: false;
+    in-out property <string> icon-search-query: "";
+
+    // Callbacks
+    callback launch(string);
+    callback open-folder(string);
+    callback new-installation();
+    callback edit-installation(string);
+    callback duplicate-installation(string);
+    callback delete-installation(string);
+    callback select-installation(string);
+    callback save-installation(InstallationData);
+    callback browse-java-path();
+    callback browse-game-dir();
+    callback loader-changed(string);
+    callback toggle-snapshots(bool);
+
+    // Helper functions
+    pure function is-card-visible(item: InstallationData) -> bool {
+        if item.is-modded && !root.filter-modded {
+            return false;
+        }
+        if item.is-snapshot && !root.filter-snapshots {
+            return false;
+        }
+        if !item.is-modded && !item.is-snapshot && !root.filter-releases {
+            return false;
+        }
+        if root.search-query != "" && root.search-query != item.name && root.search-query != item.loader && root.search-query != item.version {
+            return false;
+        }
+        return true;
+    }
+
+    public function open-editor-for-new() {
+        root.is-edit-mode = false;
+        root.editing-id = "";
+        root.editor-name = "";
+        root.editor-loader = "Vanilla";
+        root.editor-version = "26.3";
+        root.editor-icon = @image-url("../../../../icons/2x/crafting_table_front.png");
+        root.editor-icon-name = "crafting_table_front.png";
+        root.editor-show-snapshots = false;
+        root.editor-more-options-expanded = false;
+        root.editor-ram-mb = 0;
+        root.editor-java-path = "";
+        root.editor-jvm-args = "";
+        root.editor-res-width = "854";
+        root.editor-res-height = "480";
+        root.editor-game-dir = "";
+        root.version-fetch-status = "Select a loader to fetch versions";
+        root.view-mode = "editor";
+    }
+
+    public function open-editor-for-edit(item: InstallationData) {
+        root.is-edit-mode = true;
+        root.editing-id = item.id;
+        root.editor-name = item.name;
+        root.editor-loader = item.loader;
+        root.editor-version = item.version;
+        root.editor-icon = item.icon;
+        root.editor-icon-name = item.icon-name;
+        root.editor-show-snapshots = item.is-snapshot;
+        root.editor-more-options-expanded = item.java-path != "" || item.game-dir != "" || item.jvm-args != "";
+        root.editor-java-path = item.java-path;
+        root.editor-jvm-args = item.jvm-args;
+        root.editor-ram-mb = item.ram-mb;
+        root.editor-res-width = "854";
+        root.editor-res-height = "480";
+        root.editor-game-dir = item.game-dir;
+        root.version-fetch-status = "Found 48 versions";
+        root.view-mode = "editor";
+    }
+
+    public function commit-editor() {
+        let name_str = root.editor-name == "" ? (root.editor-loader + " " + root.editor-version) : root.editor-name;
+        let saved_item: InstallationData = {
+            id: root.is-edit-mode ? root.editing-id : "",
+            name: name_str,
+            version: root.editor-version,
+            loader: root.editor-loader,
+            icon: root.editor-icon,
+            icon-name: root.editor-icon-name,
+            last-played: "Just now",
+            created: "Today",
+            is-snapshot: root.editor-show-snapshots,
+            is-modded: root.editor-loader != "Vanilla",
+            java-path: root.editor-java-path,
+            jvm-args: root.editor-jvm-args,
+            resolution-w: 854,
+            resolution-h: 480,
+            game-dir: root.editor-game-dir,
+            ram-mb: root.editor-ram-mb,
+        };
+        root.save-installation(saved_item);
+        root.view-mode = "browse";
+    }
+
+    Rectangle {
+        background: Theme.main-bg;
+
+        // ==========================================
+        // VIEW 1: BROWSE VIEW (matching 02_installations.png)
+        // ==========================================
+        if root.view-mode == "browse": VerticalLayout {
+            padding-left: 24px;
+            padding-right: 24px;
+            padding-top: 20px;
+            padding-bottom: 20px;
+            spacing: 16px;
+
+            // --- Top Action & Filter Row ---
+            HorizontalLayout {
+                alignment: space-between;
+
+                // Left: Search + 3 Filter Checkboxes
+                HorizontalLayout {
+                    spacing: 20px;
+                    alignment: start;
+
+                    SearchInput {
+                        placeholder: "";
+                        preferred-input-width: 180px;
+                        text <=> root.search-query;
+                    }
+
+                    PixelCheckbox {
+                        label: "Releases";
+                        checked <=> root.filter-releases;
+                    }
+
+                    PixelCheckbox {
+                        label: "Snapshots";
+                        checked <=> root.filter-snapshots;
+                    }
+
+                    PixelCheckbox {
+                        label: "Modded";
+                        checked <=> root.filter-modded;
+                    }
+                }
+
+                // Right: New Installation Button (#00A8FF cyan primary)
+                PixelButton {
+                    text: "New installation";
+                    primary: true;
+                    custom-font-size: 11px;
+                    clicked => {
+                        root.open-editor-for-new();
+                        root.new-installation();
+                    }
+                }
+            }
+
+            // --- Dynamic Installations Cards Grid (Responsive 1, 2, or 3 columns) ---
+            Flickable {
+                interactive: true;
+                vertical-stretch: 1;
+                content-height: max(160px, (ceil(root.installations.length / root.grid-cols)) * 166px + 24px);
+
+                GridLayout {
+                    spacing: 12px;
+                    padding-bottom: 24px;
+
+                    if root.installations.length == 0: Rectangle {
+                        col: 0;
+                        row: 0;
+                        colspan: root.grid-cols;
+                        height: 120px;
+                        background: Theme.card-bg;
+                        border-width: 1px;
+                        border-color: Theme.border;
+
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 8px;
+                            Text {
+                                text: "Nothing to show here";
+                                color: Theme.text-primary;
+                                font-family: Theme.font-family;
+                                font-size: 13px;
+                                font-weight: 700;
+                                horizontal-alignment: center;
+                            }
+                            Text {
+                                text: "Create a new installation or install one to get started.";
+                                color: Theme.text-secondary;
+                                font-family: Theme.font-family;
+                                font-size: 11px;
+                                horizontal-alignment: center;
+                            }
+                        }
+                    }
+
+                    for item[idx] in root.installations: InstallationCard {
+                        visible: root.is-card-visible(item);
+                        row: idx / root.grid-cols;
+                        col: mod(idx, root.grid-cols);
+                        data: item;
+                        is-active: root.selected-installation-id == item.id;
+                        animations-enabled: root.animations-enabled;
+                        select-card => { root.selected-installation-id = item.id; root.selected-installation-name = item.name; root.select-installation(item.id); }
+                        play-clicked => { root.launch(item.id); }
+                        folder-clicked => { root.open-folder(item.id); }
+                        edit-clicked => {
+                            root.open-editor-for-edit(item);
+                            root.edit-installation(item.id);
+                        }
+                        duplicate-clicked => {
+                            root.duplicate-installation(item.id);
+                        }
+                        delete-clicked => {
+                            root.delete-installation(item.id);
+                        }
+                    }
+                }
+            }
+        }
+
+        // ========================================================
+        // VIEW 2: INSTALLATION EDITOR (08a & 08b screenshots)
+        // ========================================================
+        if root.view-mode == "editor": VerticalLayout {
+            padding-left: 24px;
+            padding-right: 24px;
+            padding-top: 20px;
+            padding-bottom: 20px;
+            spacing: 16px;
+
+            // --- Header: Back Button + Title ---
+            HorizontalLayout {
+                spacing: 16px;
+                alignment: start;
+
+                Rectangle {
+                    height: 28px;
+                    background: back-touch.pressed ? #1A1C20 : (back-touch.has-hover ? #323745 : #262933);
+                    border-width: 1px;
+                    border-color: back-touch.has-hover ? #404450 : Theme.border;
+
+                    HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 12px;
+                        alignment: center;
+
+                        Text {
+                            text: "← Back to Installations";
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 10px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    back-touch := TouchArea {
+                        clicked => { root.view-mode = "browse"; }
+                    }
+                }
+
+                Text {
+                    text: root.is-edit-mode ? "Edit Installation" : "New Installation";
+                    color: #FFFFFF;
+                    font-family: Theme.font-family;
+                    font-size: 16px;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                }
+            }
+
+            // --- Form Card Container ---
+            Rectangle {
+                background: Theme.card-bg;
+                border-width: 1px;
+                border-color: Theme.border;
+
+                VerticalLayout {
+                    padding: 24px;
+                    spacing: 16px;
+
+                    HorizontalLayout {
+                        spacing: 24px;
+                        alignment: start;
+
+                        // Left Column: Block Icon Box & "Change" Link
+                        VerticalLayout {
+                            width: 64px;
+                            spacing: 6px;
+                            alignment: start;
+
+                            Rectangle {
+                                width: 60px;
+                                height: 60px;
+                                background: #1B1D24;
+                                border-width: 1px;
+                                border-color: icon-touch.has-hover ? Theme.accent : #282D37;
+
+                                Image {
+                                    source: root.editor-icon;
+                                    width: 44px;
+                                    height: 44px;
+                                    image-fit: contain;
+                                    image-rendering: pixelated;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+
+                                icon-touch := TouchArea {
+                                    clicked => { root.icon-picker-open = true; }
+                                }
+                            }
+
+                            Text {
+                                text: "Change";
+                                color: change-touch.has-hover ? #38B6FF : #A0AAB0;
+                                font-family: Theme.font-family;
+                                font-size: 9px;
+                                horizontal-alignment: center;
+
+                                change-touch := TouchArea {
+                                    clicked => { root.icon-picker-open = true; }
+                                }
+                            }
+                        }
+
+                        // Right Column: Form Fields
+                        VerticalLayout {
+                            spacing: 14px;
+                            horizontal-stretch: 1;
+
+                            // NAME field
+                            VerticalLayout {
+                                spacing: 4px;
+
+                                Text {
+                                    text: "NAME";
+                                    color: #9BA1B0;
+                                    font-family: Theme.font-family;
+                                    font-size: 9px;
+                                    font-weight: 700;
+                                }
+
+                                Rectangle {
+                                    height: 32px;
+                                    background: #1B1D24;
+                                    border-width: 1px;
+                                    border-color: name-input.has-focus ? Theme.accent : #282D37;
+
+                                    HorizontalLayout {
+                                        padding-left: 10px;
+                                        padding-right: 10px;
+
+                                        name-input := TextInput {
+                                            text <=> root.editor-name;
+                                            color: #FFFFFF;
+                                            font-family: Theme.font-family;
+                                            font-size: 11px;
+                                            vertical-alignment: center;
+                                            single-line: true;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // CLIENT / LOADER field
+                            VerticalLayout {
+                                spacing: 4px;
+
+                                Text {
+                                    text: "CLIENT / LOADER";
+                                    color: #9BA1B0;
+                                    font-family: Theme.font-family;
+                                    font-size: 9px;
+                                    font-weight: 700;
+                                }
+
+                                Rectangle {
+                                    height: 32px;
+                                    background: #1B1D24;
+                                    border-width: 1px;
+                                    border-color: (loader_popup.is-open || loader-touch.has-hover) ? #404450 : #282D37;
+
+                                    loader_popup := PopupWindow {
+                                        x: 0px;
+                                        y: 34px;
+                                        width: parent.width;
+                                        height: 140px;
+
+                                        Rectangle {
+                                            background: #191B21;
+                                            border-width: 1px;
+                                            border-color: #282D37;
+
+                                            VerticalLayout {
+                                                padding: 4px;
+                                                spacing: 2px;
+
+                                                for opt in root.available-loaders: DropdownOption {
+                                                    text: opt;
+                                                    is-selected: root.editor-loader == opt;
+                                                    clicked => {
+                                                        root.editor-loader = opt;
+                                                        loader_popup.close();
+                                                        root.loader-changed(opt);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    HorizontalLayout {
+                                        padding-left: 10px;
+                                        padding-right: 10px;
+                                        alignment: space-between;
+
+                                        Text {
+                                            text: root.editor-loader;
+                                            color: #FFFFFF;
+                                            font-family: Theme.font-family;
+                                            font-size: 11px;
+                                            vertical-alignment: center;
+                                        }
+
+                                        Text {
+                                            text: "▼";
+                                            color: #9BA1B0;
+                                            font-family: Theme.font-family;
+                                            font-size: 8px;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+
+                                    loader-touch := TouchArea {
+                                        clicked => {
+                                            if (loader_popup.is-open) {
+                                                loader_popup.close();
+                                            } else {
+                                                loader_popup.show();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // VERSION field
+                            VerticalLayout {
+                                spacing: 4px;
+
+                                Text {
+                                    text: "VERSION";
+                                    color: #9BA1B0;
+                                    font-family: Theme.font-family;
+                                    font-size: 9px;
+                                    font-weight: 700;
+                                }
+
+                                Rectangle {
+                                    height: 32px;
+                                    background: #1B1D24;
+                                    border-width: 1px;
+                                    border-color: (version_popup.is-open || version-touch.has-hover) ? #404450 : #282D37;
+
+                                    version_popup := PopupWindow {
+                                        x: 0px;
+                                        y: 34px;
+                                        width: parent.width;
+                                        height: 196px;
+
+                                        Rectangle {
+                                            background: #191B21;
+                                            border-width: 1px;
+                                            border-color: #282D37;
+
+                                            Flickable {
+                                                interactive: true;
+                                                width: parent.width;
+                                                height: parent.height;
+                                                content-height: (root.available-versions.length * 30px) + 8px;
+
+                                                VerticalLayout {
+                                                    padding: 4px;
+                                                    spacing: 2px;
+
+                                                    for ver in root.available-versions: DropdownOption {
+                                                        text: ver;
+                                                        is-selected: root.editor-version == ver;
+                                                        clicked => {
+                                                            root.editor-version = ver;
+                                                            version_popup.close();
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    HorizontalLayout {
+                                        padding-left: 10px;
+                                        padding-right: 10px;
+                                        alignment: space-between;
+
+                                        Text {
+                                            text: root.editor-version;
+                                            color: #FFFFFF;
+                                            font-family: Theme.font-family;
+                                            font-size: 11px;
+                                            vertical-alignment: center;
+                                        }
+
+                                        Text {
+                                            text: "▼";
+                                            color: #9BA1B0;
+                                            font-family: Theme.font-family;
+                                            font-size: 8px;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+
+                                    version-touch := TouchArea {
+                                        clicked => {
+                                            if (version_popup.is-open) {
+                                                version_popup.close();
+                                            } else {
+                                                version_popup.show();
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    text: root.version-fetch-status;
+                                    color: #9BA1B0;
+                                    font-family: Theme.font-family;
+                                    font-size: 9px;
+                                }
+
+                                PixelCheckbox {
+                                    label: "Show Snapshots";
+                                    checked <=> root.editor-show-snapshots;
+                                    toggled(val) => { root.toggle-snapshots(val); }
+                                }
+                            }
+
+                            // MORE OPTIONS Accordion Section
+                            VerticalLayout {
+                                spacing: 8px;
+
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    alignment: start;
+
+                                    Text {
+                                        text: root.editor-more-options-expanded ? "▾" : "▸";
+                                        color: #FFFFFF;
+                                        font-family: Theme.font-family;
+                                        font-size: 9px;
+                                        vertical-alignment: center;
+                                    }
+
+                                    Text {
+                                        text: "MORE OPTIONS";
+                                        color: #FFFFFF;
+                                        font-family: Theme.font-family;
+                                        font-size: 9px;
+                                        font-weight: 700;
+                                        vertical-alignment: center;
+                                    }
+
+                                    TouchArea {
+                                        clicked => {
+                                            root.editor-more-options-expanded = !root.editor-more-options-expanded;
+                                        }
+                                    }
+                                }
+
+                                if root.editor-more-options-expanded: VerticalLayout {
+                                    spacing: 12px;
+                                    padding-top: 6px;
+
+                                    // JAVA EXECUTABLE
+                                    VerticalLayout {
+                                        spacing: 3px;
+
+                                        Text {
+                                            text: "JAVA EXECUTABLE";
+                                            color: #9BA1B0;
+                                            font-family: Theme.font-family;
+                                            font-size: 9px;
+                                            font-weight: 700;
+                                        }
+
+                                        HorizontalLayout {
+                                            spacing: 8px;
+
+                                            Rectangle {
+                                                height: 30px;
+                                                horizontal-stretch: 1;
+                                                background: #1B1D24;
+                                                border-width: 1px;
+                                                border-color: #282D37;
+
+                                                HorizontalLayout {
+                                                    padding-left: 8px;
+                                                    padding-right: 8px;
+
+                                                    TextInput {
+                                                        text <=> root.editor-java-path;
+                                                        color: #FFFFFF;
+                                                        font-family: Theme.font-family;
+                                                        font-size: 10px;
+                                                        single-line: true;
+                                                        vertical-alignment: center;
+                                                    }
+                                                }
+                                            }
+
+                                            PixelButton {
+                                                text: "Browse...";
+                                                custom-font-size: 10px;
+                                                clicked => { root.browse-java-path(); }
+                                            }
+                                        }
+
+                                        Text {
+                                            text: "Leave blank to use the bundled/runtime Java.";
+                                            color: #6B7280;
+                                            font-family: Theme.font-family;
+                                            font-size: 8px;
+                                        }
+                                    }
+
+                                    // RESOLUTION
+                                    VerticalLayout {
+                                        spacing: 3px;
+
+                                        Text {
+                                            text: "RESOLUTION";
+                                            color: #9BA1B0;
+                                            font-family: Theme.font-family;
+                                            font-size: 9px;
+                                            font-weight: 700;
+                                        }
+
+                                        HorizontalLayout {
+                                            spacing: 8px;
+                                            alignment: start;
+
+                                            Rectangle {
+                                                width: 70px;
+                                                height: 30px;
+                                                background: #1B1D24;
+                                                border-width: 1px;
+                                                border-color: #282D37;
+
+                                                HorizontalLayout {
+                                                    padding-left: 6px;
+                                                    padding-right: 6px;
+
+                                                    TextInput {
+                                                        text <=> root.editor-res-width;
+                                                        color: #FFFFFF;
+                                                        font-family: Theme.font-family;
+                                                        font-size: 10px;
+                                                        single-line: true;
+                                                        vertical-alignment: center;
+                                                    }
+                                                }
+                                            }
+
+                                            Text {
+                                                text: " x ";
+                                                color: #9BA1B0;
+                                                font-family: Theme.font-family;
+                                                font-size: 10px;
+                                                vertical-alignment: center;
+                                            }
+
+                                            Rectangle {
+                                                width: 70px;
+                                                height: 30px;
+                                                background: #1B1D24;
+                                                border-width: 1px;
+                                                border-color: #282D37;
+
+                                                HorizontalLayout {
+                                                    padding-left: 6px;
+                                                    padding-right: 6px;
+
+                                                    TextInput {
+                                                        text <=> root.editor-res-height;
+                                                        color: #FFFFFF;
+                                                        font-family: Theme.font-family;
+                                                        font-size: 10px;
+                                                        single-line: true;
+                                                        vertical-alignment: center;
+                                                    }
+                                                }
+                                            }
+
+                                            Rectangle {
+                                                width: 50px;
+                                                height: 30px;
+                                                background: auto-touch.has-hover ? #323745 : #262933;
+                                                border-width: 1px;
+                                                border-color: #282D37;
+
+                                                Text {
+                                                    text: "Auto";
+                                                    color: auto-touch.has-hover ? #FFFFFF : #9BA1B0;
+                                                    font-family: Theme.font-family;
+                                                    font-size: 10px;
+                                                    horizontal-alignment: center;
+                                                    vertical-alignment: center;
+                                                }
+
+                                                auto-touch := TouchArea {
+                                                    clicked => {
+                                                        root.editor-res-width = "854";
+                                                        root.editor-res-height = "480";
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // GAME DIRECTORY
+                                    VerticalLayout {
+                                        spacing: 3px;
+
+                                        Text {
+                                            text: "GAME DIRECTORY";
+                                            color: #9BA1B0;
+                                            font-family: Theme.font-family;
+                                            font-size: 9px;
+                                            font-weight: 700;
+                                        }
+
+                                        HorizontalLayout {
+                                            spacing: 8px;
+
+                                            Rectangle {
+                                                height: 30px;
+                                                horizontal-stretch: 1;
+                                                background: #1B1D24;
+                                                border-width: 1px;
+                                                border-color: #282D37;
+
+                                                HorizontalLayout {
+                                                    padding-left: 8px;
+                                                    padding-right: 8px;
+
+                                                    TextInput {
+                                                        text <=> root.editor-game-dir;
+                                                        color: #FFFFFF;
+                                                        font-family: Theme.font-family;
+                                                        font-size: 10px;
+                                                        single-line: true;
+                                                        vertical-alignment: center;
+                                                    }
+                                                }
+                                            }
+
+                                            PixelButton {
+                                                text: "Browse...";
+                                                custom-font-size: 10px;
+                                                clicked => { root.browse-game-dir(); }
+                                            }
+                                        }
+
+                                        Text {
+                                            text: "Leave blank to use default .minecraft (or isolated modpack folder).";
+                                            color: #6B7280;
+                                            font-family: Theme.font-family;
+                                            font-size: 8px;
+                                        }
+                                    }
+
+                                    // JVM ARGUMENTS
+                                    VerticalLayout {
+                                        spacing: 3px;
+
+                                        Text {
+                                            text: "JVM ARGUMENTS";
+                                            color: #9BA1B0;
+                                            font-family: Theme.font-family;
+                                            font-size: 9px;
+                                            font-weight: 700;
+                                        }
+
+                                        Rectangle {
+                                            height: 30px;
+                                            background: #1B1D24;
+                                            border-width: 1px;
+                                            border-color: #282D37;
+
+                                            HorizontalLayout {
+                                                padding-left: 8px;
+                                                padding-right: 8px;
+
+                                                TextInput {
+                                                    text <=> root.editor-jvm-args;
+                                                    color: #FFFFFF;
+                                                    font-family: Theme.font-family;
+                                                    font-size: 10px;
+                                                    single-line: true;
+                                                    vertical-alignment: center;
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // MEMORY ALLOCATION (RAM)
+                                    VerticalLayout {
+                                        spacing: 6px;
+
+                                        HorizontalLayout {
+                                            alignment: space-between;
+
+                                            Text {
+                                                text: "MEMORY ALLOCATION (RAM)";
+                                                color: #9BA1B0;
+                                                font-family: Theme.font-family;
+                                                font-size: 9px;
+                                                font-weight: 700;
+                                                vertical-alignment: center;
+                                            }
+
+                                            Text {
+                                                text: root.editor-ram-mb > 0
+                                                    ? (root.editor-ram-mb + " MB (" + (Math.round((root.editor-ram-mb / 1024.0) * 10) / 10) + " GB)")
+                                                    : "Default (Global Settings)";
+                                                color: root.editor-ram-mb > 0 ? Theme.accent : #888888;
+                                                font-family: Theme.font-family;
+                                                font-size: 10px;
+                                                font-weight: 700;
+                                                vertical-alignment: center;
+                                            }
+                                        }
+
+                                        RamSlider {
+                                            width: 100%;
+                                            min-value: 1024;
+                                            max-value: Math.max(1024, root.total-system-ram-mb);
+                                            step: 512;
+                                            value: root.editor-ram-mb > 0 ? root.editor-ram-mb : 4096;
+                                            changed(val) => {
+                                                root.editor-ram-mb = val;
+                                            }
+                                        }
+
+                                        HorizontalLayout {
+                                            spacing: 6px;
+
+                                            Rectangle {
+                                                height: 22px;
+                                                horizontal-stretch: 1;
+                                                background: root.editor-ram-mb == 0 ? Theme.accent : #1F222A;
+                                                border-width: 1px;
+                                                border-color: root.editor-ram-mb == 0 ? Theme.accent-hover : #2B303C;
+
+                                                Text {
+                                                    text: "Default (Global)";
+                                                    color: root.editor-ram-mb == 0 ? #FFFFFF : #C0C5D0;
+                                                    font-family: Theme.font-family;
+                                                    font-size: 9px;
+                                                    font-weight: 700;
+                                                    horizontal-alignment: center;
+                                                    vertical-alignment: center;
+                                                }
+
+                                                TouchArea {
+                                                    clicked => { root.editor-ram-mb = 0; }
+                                                }
+                                            }
+
+                                            for preset in [2048, 4096, 6144, 8192]: Rectangle {
+                                                visible: preset <= root.total-system-ram-mb;
+                                                height: 22px;
+                                                horizontal-stretch: 1;
+                                                background: root.editor-ram-mb == preset ? Theme.accent : #1F222A;
+                                                border-width: 1px;
+                                                border-color: root.editor-ram-mb == preset ? Theme.accent-hover : #2B303C;
+
+                                                Text {
+                                                    text: (preset / 1024) + " GB";
+                                                    color: root.editor-ram-mb == preset ? #FFFFFF : #C0C5D0;
+                                                    font-family: Theme.font-family;
+                                                    font-size: 9px;
+                                                    font-weight: 700;
+                                                    horizontal-alignment: center;
+                                                    vertical-alignment: center;
+                                                }
+
+                                                TouchArea {
+                                                    clicked => { root.editor-ram-mb = preset; }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Footer Buttons
+                            HorizontalLayout {
+                                alignment: end;
+                                spacing: 12px;
+                                padding-top: 10px;
+
+                                PixelButton {
+                                    text: "Cancel";
+                                    custom-font-size: 11px;
+                                    clicked => { root.view-mode = "browse"; }
+                                }
+
+                                PixelButton {
+                                    text: root.is-edit-mode ? "Save Installation" : "Create Installation";
+                                    primary: true;
+                                    custom-font-size: 11px;
+                                    clicked => { root.commit-editor(); }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Rectangle { vertical-stretch: 1; }
+        }
+
+        // ========================================================
+        // ICON PICKER PALETTE MODAL OVERLAY (5-Column Grid of 35 Blocks)
+        // ========================================================
+        if root.icon-picker-open: Rectangle {
+            x: 0px;
+            y: 0px;
+            width: parent.width;
+            height: parent.height;
+            background: #000000B8;
+
+            // Backdrop click to dismiss
+            TouchArea {
+                clicked => { root.icon-picker-open = false; }
+            }
+
+            // Modal Dialog Card
+            Rectangle {
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                width: 520px;
+                height: 520px;
+                background: Theme.card-bg;
+                border-width: 1px;
+                border-color: Theme.border;
+
+                VerticalLayout {
+                    spacing: 0px;
+
+                    // Header: Title + Close Button
+                    Rectangle {
+                        height: 44px;
+                        background: #1B1E26;
+
+                        HorizontalLayout {
+                            padding-left: 16px;
+                            padding-right: 12px;
+                            alignment: space-between;
+
+                            Text {
+                                text: "Select Icon";
+                                color: #FFFFFF;
+                                font-family: Theme.font-family;
+                                font-size: 14px;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+
+                            Rectangle {
+                                width: 28px;
+                                height: 28px;
+                                y: (parent.height - self.height) / 2;
+                                background: close-icon-touch.has-hover ? #E81123 : transparent;
+
+                                Text {
+                                    text: "X";
+                                    color: #FFFFFF;
+                                    font-family: Theme.font-family;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+
+                                close-icon-touch := TouchArea {
+                                    clicked => { root.icon-picker-open = false; }
+                                }
+                            }
+                        }
+                    }
+
+                    // 1px Separator
+                    Rectangle {
+                        height: 1px;
+                        background: #282D37;
+                    }
+
+                    // Search / Filter Input
+                    HorizontalLayout {
+                        padding-left: 16px;
+                        padding-right: 16px;
+                        padding-top: 10px;
+                        padding-bottom: 8px;
+
+                        SearchInput {
+                            placeholder: "Filter icons...";
+                            preferred-input-width: 488px;
+                            text <=> root.icon-search-query;
+                        }
+                    }
+
+                    // 5-Column Grid of 35 Popular Minecraft Block Textures
+                    Flickable {
+                        height: 430px;
+                        content-height: 440px;
+
+                        VerticalLayout {
+                            padding-left: 16px;
+                            padding-right: 16px;
+                            padding-top: 6px;
+                            padding-bottom: 16px;
+                            spacing: 8px;
+
+                            // Row 1
+                            HorizontalLayout {
+                                spacing: 8px;
+                                IconSlot { icon: @image-url("../../../../icons/2x/grass_block_side.png"); name: "grass_block_side.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/2x/crafting_table_front.png"); name: "crafting_table_front.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/furnace_front.png"); name: "furnace_front.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/2x/bookshelf.png"); name: "bookshelf.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/barrel_side.png"); name: "barrel_side.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                            }
+
+                            // Row 2
+                            HorizontalLayout {
+                                spacing: 8px;
+                                IconSlot { icon: @image-url("../../../../icons/tnt_side.png"); name: "tnt_side.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/obsidian.png"); name: "obsidian.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/anvil.png"); name: "anvil.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/2x/beacon.png"); name: "beacon.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/2x/glowstone.png"); name: "glowstone.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                            }
+
+                            // Row 3
+                            HorizontalLayout {
+                                spacing: 8px;
+                                IconSlot { icon: @image-url("../../../../icons/diamond_block.png"); name: "diamond_block.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/gold_block.png"); name: "gold_block.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/iron_block.png"); name: "iron_block.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/emerald_block.png"); name: "emerald_block.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/lapis_block.png"); name: "lapis_block.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                            }
+
+                            // Row 4
+                            HorizontalLayout {
+                                spacing: 8px;
+                                IconSlot { icon: @image-url("../../../../icons/diamond_ore.png"); name: "diamond_ore.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/gold_ore.png"); name: "gold_ore.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/iron_ore.png"); name: "iron_ore.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/coal_ore.png"); name: "coal_ore.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/redstone_ore.png"); name: "redstone_ore.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                            }
+
+                            // Row 5
+                            HorizontalLayout {
+                                spacing: 8px;
+                                IconSlot { icon: @image-url("../../../../icons/dirt.png"); name: "dirt.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/stone.png"); name: "stone.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/cobblestone.png"); name: "cobblestone.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/oak_planks.png"); name: "oak_planks.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/spruce_log.png"); name: "spruce_log.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                            }
+
+                            // Row 6
+                            HorizontalLayout {
+                                spacing: 8px;
+                                IconSlot { icon: @image-url("../../../../icons/bedrock.png"); name: "bedrock.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/sand.png"); name: "sand.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/gravel.png"); name: "gravel.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/clay.png"); name: "clay.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/snow.png"); name: "snow.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                            }
+
+                            // Row 7
+                            HorizontalLayout {
+                                spacing: 8px;
+                                IconSlot { icon: @image-url("../../../../icons/ice.png"); name: "ice.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/pumpkin_side.png"); name: "pumpkin_side.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/melon_side.png"); name: "melon_side.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/netherrack.png"); name: "netherrack.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/red_wool.png"); name: "red_wool.png"; filter-query: root.icon-search-query; selected(img, name) => { root.editor-icon = img; root.editor-icon-name = name; root.icon-picker-open = false; } }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

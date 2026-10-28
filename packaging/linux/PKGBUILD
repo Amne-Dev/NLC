@@ -1,0 +1,56 @@
+pkgname=new-launcher
+pkgver=3.0.6
+pkgrel=1
+pkgdesc='Minecraft Java launcher for managing installations, modpacks, mods, skins, and profiles'
+arch=('any')
+url='https://github.com/Amne-Dev/NLC'
+license=('BSD-3-Clause')
+depends=(
+  'fontconfig'
+  'python'
+  'python-minecraft-launcher-lib'
+  'python-pillow'
+  'python-pypresence'
+  'python-pystray'
+  'python-requests'
+  'tk'
+  'xdg-utils'
+)
+source=("https://github.com/Amne-Dev/NLC/archive/refs/tags/v${pkgver}.tar.gz")
+sha256sums=('6e3ed8fac25ed4bc9abcf74fc16831ed42b0c920f7e28e02da0b31ed0691bc7e')
+
+build() {
+  :
+}
+
+package() {
+  local appdir="${pkgdir}/usr/lib/${pkgname}"
+
+  cd "${srcdir}/New-launcher-${pkgver}"
+
+  install -d "${appdir}"
+  cp -a \
+    agent.py \
+    config.py \
+    icons \
+    logo.png \
+    main.py \
+    src \
+    wallpapers \
+    "${appdir}/"
+
+  install -Dm755 /dev/stdin "${pkgdir}/usr/bin/newlauncher" <<'EOF'
+#!/bin/sh
+exec /usr/bin/python /usr/lib/new-launcher/main.py "$@"
+EOF
+
+  install -Dm644 packaging/linux/NewLauncher.desktop \
+    "${pkgdir}/usr/share/applications/newlauncher.desktop"
+  sed -i \
+    -e 's/^Exec=NewLauncher$/Exec=newlauncher/' \
+    -e 's/^Icon=logo$/Icon=newlauncher/' \
+    "${pkgdir}/usr/share/applications/newlauncher.desktop"
+
+  install -Dm644 logo.png \
+    "${pkgdir}/usr/share/icons/hicolor/256x256/apps/newlauncher.png"
+}

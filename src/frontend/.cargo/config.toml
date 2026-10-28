@@ -1,0 +1,11 @@
+[build]
+target = "x86_64-pc-windows-gnullvm"
+rustflags = ["-C", "link-arg=-static"]
+
+[target.x86_64-pc-windows-gnullvm]
+linker = "C:\\Users\\Ev\\AppData\\Local\\Microsoft\\WinGet\\Packages\\MartinStorsjo.LLVM-MinGW.UCRT_Microsoft.Winget.Source_8wekyb3d8bbwe\\llvm-mingw-20260908-ucrt-x86_64\\bin\\x86_64-w64-mingw32-clang.exe"
+ar = "C:\\Users\\Ev\\AppData\\Local\\Microsoft\\WinGet\\Packages\\MartinStorsjo.LLVM-MinGW.UCRT_Microsoft.Winget.Source_8wekyb3d8bbwe\\llvm-mingw-20260908-ucrt-x86_64\\bin\\llvm-ar.exe"
+
+[env]
+PATH = { value = "C:\\Users\\Ev\\AppData\\Local\\Microsoft\\WinGet\\Packages\\MartinStorsjo.LLVM-MinGW.UCRT_Microsoft.Winget.Source_8wekyb3d8bbwe\\llvm-mingw-20260908-ucrt-x86_64\\bin;C:\\Users\\Ev\\.cargo\\bin", relative = false }
+

@@ -1,40 +1,44 @@
-# New Launcher
+# Ny-Luna Core (NLC)
 
 **A fast, focused Minecraft Java launcher for Windows and Linux.**
 
-New Launcher keeps the familiar parts of Minecraft launcher setup while making it easier to manage installations, modpacks, mods, skins, and profiles in one place.
+Ny-Luna keeps the familiar parts of Minecraft launcher setup while making it easier to manage installations, modpacks, mods, skins, and profiles in one place.
 
 <p align="center">
-    <a href="https://github.com/Amne-Dev/New-launcher/releases/latest"><img src="https://img.shields.io/github/v/release/Amne-Dev/New-launcher?label=Latest%20release&style=flat-square" alt="Latest release"></a>
-    <a href="https://github.com/Amne-Dev/New-launcher/releases"><img src="https://img.shields.io/github/downloads/Amne-Dev/New-launcher/total?label=Downloads&style=flat-square" alt="Total downloads"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/github/license/Amne-Dev/New-launcher?style=flat-square" alt="License"></a>
-    <a href="https://github.com/Amne-Dev/New-launcher/issues"><img src="https://img.shields.io/github/issues/Amne-Dev/New-launcher?style=flat-square" alt="Open issues"></a>
+    <img src="assets/branding/nyluna_banner.gif" alt="Ny-Luna Core" width="560">
 </p>
 
 <p align="center">
-    <a href="https://github.com/Amne-Dev/New-launcher/releases/latest">Download New Launcher</a>
+    <a href="https://github.com/Amne-Dev/NLC/releases/latest"><img src="https://img.shields.io/github/v/release/Amne-Dev/NLC?label=Latest%20release&style=flat-square" alt="Latest release"></a>
+    <a href="https://github.com/Amne-Dev/NLC/releases"><img src="https://img.shields.io/github/downloads/Amne-Dev/NLC/total?label=Downloads&style=flat-square" alt="Total downloads"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/Amne-Dev/NLC?style=flat-square" alt="License"></a>
+    <a href="https://github.com/Amne-Dev/NLC/issues"><img src="https://img.shields.io/github/issues/Amne-Dev/NLC?style=flat-square" alt="Open issues"></a>
+</p>
+
+<p align="center">
+    <a href="https://github.com/Amne-Dev/NLC/releases/latest">Download Ny-Luna</a>
     &nbsp;&middot;&nbsp;
-    <a href="WIKI.md">Read the user guide</a>
+    <a href="docs/WIKI.md">Read the user guide</a>
     &nbsp;&middot;&nbsp;
-    <a href="https://github.com/Amne-Dev/New-launcher/issues">Get help</a>
+    <a href="https://github.com/Amne-Dev/NLC/issues">Get help</a>
 </p>
 
 ## See It In Action
 
 <p align="center">
-    <img src="web/img/hero.png" alt="New Launcher play screen" width="820">
+    <img src="preview.png" alt="Ny-Luna play screen" width="820">
 </p>
 
 <p align="center">
-    <img src="web/img/locker.png" alt="New Launcher skin locker" width="400">
-    <img src="web/img/modpacks.png" alt="New Launcher modpacks screen" width="400">
+    <img src="web/img/locker.png" alt="Ny-Luna skin locker" width="400">
+    <img src="web/img/modpacks.png" alt="Ny-Luna modpacks screen" width="400">
 </p>
 
 <p align="center">
-    <img src="web/img/mods.png" alt="New Launcher mods screen" width="820">
+    <img src="web/img/mods.png" alt="Ny-Luna mods screen" width="820">
 </p>
 
-## Why New Launcher?
+## Why Ny-Luna?
 
 - **Start playing quickly.** Install and launch Minecraft Java Edition from a simple, familiar interface.
 - **Keep installations organized.** Create separate profiles for different Minecraft versions and loaders.
@@ -48,13 +52,13 @@ New Launcher keeps the familiar parts of Minecraft launcher setup while making i
 
 ### Windows
 
-1. Open the [latest release](https://github.com/Amne-Dev/New-launcher/releases/latest).
+1. Open the [latest release](https://github.com/Amne-Dev/NLC/releases/latest).
 2. Download `NLCSetup.exe`.
-3. Run the installer and open **New Launcher** from the Start Menu.
+3. Run the installer and open **Ny-Luna** from the Start Menu.
 
 ### Linux
 
-1. Open the [latest release](https://github.com/Amne-Dev/New-launcher/releases/latest).
+1. Open the [latest release](https://github.com/Amne-Dev/NLC/releases/latest).
 2. Download the Linux AppImage.
 3. Make it executable and launch it:
 
@@ -72,7 +76,7 @@ The AppImage is portable and does not require a system-wide installation.
 3. Choose a Minecraft version and loader, then select an icon if you want to personalize it.
 4. Return to **Play**, select the installation, and click **Play**.
 
-New Launcher can download the files it needs when you create an installation. A Java runtime may also be downloaded automatically when a loader requires it.
+Ny-Luna can download the files it needs when you create an installation. A Java runtime may also be downloaded automatically when a loader requires it.
 
 On Windows, launcher updates use a verified incremental patch when the release
 provides one. The patch updates the launcher executable, agent, and bundled resources without replacing launcher configuration or Minecraft data. If a
@@ -102,32 +106,55 @@ Open **Settings** to adjust Java memory, launcher behavior, and optional integra
 
 ## Documentation and Support
 
-- [User guide and troubleshooting](WIKI.md)
-- [Changelog](CHANGELOG.md)
+- [User guide and troubleshooting](docs/WIKI.md)
+- [Changelog](docs/CHANGELOG.md)
+- [Credits & Third-Party Notices](docs/CREDITS.md)
 - [Frequently asked questions](web/faq.html)
-- [Report a bug or request a feature](https://github.com/Amne-Dev/New-launcher/issues)
+- [Report a bug or request a feature](https://github.com/Amne-Dev/NLC/issues)
 - [Security policy](web/security.html)
 
 ## Build From Source
 
-The launcher is written in Python. To run it locally, install the dependencies and start the application:
+Ny-Luna Core v4.0.0 features a modern high-performance decoupled architecture:
+- **Frontend (`src/frontend`)**: Pure native Rust UI powered by Slint (60+ FPS, zero GDI tearing, instant reactive rendering).
+- **Backend Daemon (`src/backend`)**: Python background agent handling authentication, game process isolation, downloads, and skin serving.
+
+### Prerequisites
+
+- **Python 3.12+** with pip
+- **Rust 1.80+** (stable toolchain with Cargo)
+
+### Running Locally
+
+1. Install Python backend dependencies:
 
 ```bash
 python -m pip install -r requirements.txt
-python main.py
 ```
 
-To build the Linux AppImage from the repository root:
+2. Run the launcher (compiles and starts the Rust Slint frontend, which automatically spawns the background agent):
 
 ```bash
-chmod +x linux/build_appimage.sh
-./linux/build_appimage.sh
+cargo run --manifest-path src/frontend/Cargo.toml
 ```
 
-See [CREDITS.md](CREDITS.md) for the libraries used by the project and [WIKI.md](WIKI.md) for contributor notes.
+### Packaging Windows Installers
+
+To compile all release binaries, build FastCDC chunk recipes, and generate both Web and Offline installers:
+
+```bash
+python packaging/windows/build_installers.py --all
+```
+
+Outputs are generated in `dist/` and `dist/installers/`:
+- `dist/NyLuna.exe` — Native Rust frontend binary
+- `dist/agent.exe` — Python background agent daemon
+- `dist/installers/NLCSetup.exe` — Web installer & FastCDC network chunk streamer
+- `dist/installers/NLCSetup-Offline.exe` — Standalone offline installer
+- `dist/NyLuna.exe.cdc.json` — FastCDC differential recipe manifest
 
 ## License
 
-New Launcher is open source. See [LICENSE](LICENSE) for the full license text.
+Ny-Luna Core is open source. See [LICENSE](LICENSE) for the full license text.
 
-New Launcher is not affiliated with Mojang Studios or Microsoft. Minecraft is a trademark of Microsoft Corporation.
+Ny-Luna Core is not affiliated with Mojang Studios or Microsoft. Minecraft is a trademark of Microsoft Corporation.

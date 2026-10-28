@@ -1,0 +1,819 @@
+import { Theme } from "theme.slint";
+import { PixelCloseIcon } from "components.slint";
+
+export component AddAccountModal inherits Rectangle {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+
+    in-out property <bool> is-open: false;
+    in-out property <string> mode: "select"; // "select", "microsoft", "elyby", "offline"
+    in-out property <string> ms-user-code: "";
+    in-out property <string> ms-verification-uri: "https://microsoft.com/link";
+    in-out property <string> ms-status: "Contacting Microsoft...";
+    in-out property <string> elyby-username: "";
+    in-out property <string> elyby-password: "";
+    in-out property <string> offline-username: "";
+    in-out property <string> error-message: "";
+    in-out property <bool> is-busy: false;
+
+    callback close();
+    callback select-provider(string);
+    callback open-url(string);
+    callback copy-code(string);
+    callback login-elyby(string, string);
+    callback create-offline(string);
+
+    // Dark Semi-Transparent Backdrop
+    Rectangle {
+        width: parent.width;
+        height: parent.height;
+        background: #000000.with-alpha(0.65);
+        TouchArea {
+            clicked => { root.close(); }
+        }
+    }
+
+    // Modal Dialog Card (Sharp 0px, Adaptive Height, Centered)
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 520px;
+        height: (root.mode == "select" || root.mode == "offline") ? 320px : 420px;
+        background: Theme.card-bg;
+        border-width: 1px;
+        border-color: Theme.border;
+
+        animate height {
+            duration: Theme.smooth-animations ? 180ms : 0ms;
+            easing: ease-in-out;
+        }
+
+        // Block clicks on dialog card from bubbling to backdrop
+        TouchArea { }
+
+        VerticalLayout {
+            padding: 0px;
+            spacing: 0px;
+
+                // Title Bar Header
+                Rectangle {
+                    height: 44px;
+                    background: Theme.sidebar-bg;
+                    border-width: 1px;
+                    border-color: Theme.border-subtle;
+
+                    HorizontalLayout {
+                        padding-left: 18px;
+                        padding-right: 14px;
+                        alignment: space-between;
+
+                        Text {
+                            text: "Add Account";
+                            color: Theme.text-primary;
+                            font-family: Theme.font-family;
+                            font-size: 13px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+
+                        // Close "✕" Button
+                        Rectangle {
+                            width: 28px;
+                            height: 28px;
+                            y: (parent.height - self.height) / 2;
+                            background: close-touch.has-hover ? #E74C3C33 : transparent;
+
+                            PixelCloseIcon {
+                                x: (parent.width - self.width) / 2;
+                                y: (parent.height - self.height) / 2;
+                                icon-color: close-touch.has-hover ? #FF6B6B : Theme.text-secondary;
+                            }
+
+                            close-touch := TouchArea {
+                                clicked => {
+                                    root.close();
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Modal Body Content
+                Rectangle {
+                    horizontal-stretch: 1;
+                    vertical-stretch: 1;
+
+                    // 1. PROVIDER SELECTION VIEW (BENTO GRID VARIANT B)
+                    if root.mode == "select": VerticalLayout {
+                        width: 100%;
+                        height: 100%;
+                        padding-left: 24px;
+                        padding-right: 24px;
+                        padding-top: 18px;
+                        padding-bottom: 20px;
+                        spacing: 16px;
+
+                        // Header
+                        VerticalLayout {
+                            spacing: 4px;
+                            Text {
+                                text: "Choose Your Account Type";
+                                color: Theme.text-primary;
+                                font-family: Theme.font-family;
+                                font-size: 16px;
+                                font-weight: 700;
+                                horizontal-alignment: center;
+                            }
+
+                            Text {
+                                text: "All account types support offline skin injection.";
+                                color: Theme.text-secondary;
+                                font-family: Theme.font-family;
+                                font-size: 11px;
+                                horizontal-alignment: center;
+                            }
+                        }
+
+                        // 3-Column Bento Grid
+                        HorizontalLayout {
+                            width: 100%;
+                            spacing: 12px;
+                            height: 184px;
+
+                            // Microsoft Account Card
+                            Rectangle {
+                                horizontal-stretch: 1;
+                                min-width: 135px;
+                                background: ms-card-touch.has-hover ? Theme.sidebar-hover : Theme.sidebar-bg;
+                                border-width: 1px;
+                                border-color: ms-card-touch.has-hover ? Theme.accent : Theme.border-subtle;
+
+                                ms-card-touch := TouchArea {
+                                    clicked => {
+                                        root.error-message = "";
+                                        root.select-provider("microsoft");
+                                    }
+                                }
+
+                                VerticalLayout {
+                                    padding-top: 16px;
+                                    padding-bottom: 16px;
+                                    padding-left: 14px;
+                                    padding-right: 14px;
+                                    alignment: space-between;
+
+                                    VerticalLayout {
+                                        spacing: 10px;
+                                        alignment: start;
+
+                                        Rectangle {
+                                            width: 42px;
+                                            height: 42px;
+                                            background: Theme.card-bg;
+                                            border-width: 1px;
+                                            border-color: ms-card-touch.has-hover ? Theme.border-focus : Theme.border-subtle;
+
+                                            Image {
+                                                source: @image-url("../../../icons/icon_microsoft_monochrome.png");
+                                                width: 24px;
+                                                height: 24px;
+                                                image-fit: contain;
+                                                image-rendering: pixelated;
+                                                horizontal-alignment: center;
+                                                vertical-alignment: center;
+                                            }
+                                        }
+
+                                        VerticalLayout {
+                                            spacing: 3px;
+                                            Text {
+                                                text: "Microsoft";
+                                                color: Theme.text-primary;
+                                                font-family: Theme.font-family;
+                                                font-size: 13px;
+                                                font-weight: 700;
+                                            }
+                                            Text {
+                                                text: "Official";
+                                                color: Theme.text-secondary;
+                                                font-family: Theme.font-family;
+                                                font-size: 10px;
+                                            }
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        height: 32px;
+                                        background: ms-card-touch.has-hover ? Theme.accent-hover : Theme.accent;
+                                        border-width: 1px;
+                                        border-color: Theme.accent;
+
+                                        Text {
+                                            text: "Connect";
+                                            color: Theme.accent-text;
+                                            font-family: Theme.font-family;
+                                            font-size: 11px;
+                                            font-weight: 700;
+                                            horizontal-alignment: center;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Ely.by Account Card
+                            Rectangle {
+                                horizontal-stretch: 1;
+                                min-width: 135px;
+                                background: ely-card-touch.has-hover ? Theme.sidebar-hover : Theme.sidebar-bg;
+                                border-width: 1px;
+                                border-color: ely-card-touch.has-hover ? Theme.accent : Theme.border-subtle;
+
+                                ely-card-touch := TouchArea {
+                                    clicked => {
+                                        root.error-message = "";
+                                        root.mode = "elyby";
+                                    }
+                                }
+
+                                VerticalLayout {
+                                    padding-top: 16px;
+                                    padding-bottom: 16px;
+                                    padding-left: 14px;
+                                    padding-right: 14px;
+                                    alignment: space-between;
+
+                                    VerticalLayout {
+                                        spacing: 10px;
+                                        alignment: start;
+
+                                        Rectangle {
+                                            width: 42px;
+                                            height: 42px;
+                                            background: Theme.card-bg;
+                                            border-width: 1px;
+                                            border-color: ely-card-touch.has-hover ? Theme.border-focus : Theme.border-subtle;
+
+                                            Image {
+                                                source: @image-url("../../../icons/icon_elyby_monochrome.png");
+                                                width: 24px;
+                                                height: 24px;
+                                                image-fit: contain;
+                                                image-rendering: pixelated;
+                                                horizontal-alignment: center;
+                                                vertical-alignment: center;
+                                            }
+                                        }
+
+                                        VerticalLayout {
+                                            spacing: 3px;
+                                            Text {
+                                                text: "Ely.by";
+                                                color: Theme.text-primary;
+                                                font-family: Theme.font-family;
+                                                font-size: 13px;
+                                                font-weight: 700;
+                                            }
+                                            Text {
+                                                text: "Skin System";
+                                                color: Theme.text-secondary;
+                                                font-family: Theme.font-family;
+                                                font-size: 10px;
+                                            }
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        height: 32px;
+                                        background: ely-card-touch.has-hover ? Theme.button-dark-hover : Theme.button-dark;
+                                        border-width: 1px;
+                                        border-color: ely-card-touch.has-hover ? Theme.border-hover : Theme.border;
+
+                                        Text {
+                                            text: "Login";
+                                            color: Theme.text-primary;
+                                            font-family: Theme.font-family;
+                                            font-size: 11px;
+                                            font-weight: 700;
+                                            horizontal-alignment: center;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Offline Account Card
+                            Rectangle {
+                                horizontal-stretch: 1;
+                                min-width: 135px;
+                                background: off-card-touch.has-hover ? Theme.sidebar-hover : Theme.sidebar-bg;
+                                border-width: 1px;
+                                border-color: off-card-touch.has-hover ? Theme.accent : Theme.border-subtle;
+
+                                off-card-touch := TouchArea {
+                                    clicked => {
+                                        root.error-message = "";
+                                        root.mode = "offline";
+                                    }
+                                }
+
+                                VerticalLayout {
+                                    padding-top: 16px;
+                                    padding-bottom: 16px;
+                                    padding-left: 14px;
+                                    padding-right: 14px;
+                                    alignment: space-between;
+
+                                    VerticalLayout {
+                                        spacing: 10px;
+                                        alignment: start;
+
+                                        Rectangle {
+                                            width: 42px;
+                                            height: 42px;
+                                            background: Theme.card-bg;
+                                            border-width: 1px;
+                                            border-color: off-card-touch.has-hover ? Theme.border-focus : Theme.border-subtle;
+
+                                            Image {
+                                                source: @image-url("../../../icons/icon_offline_monochrome.png");
+                                                width: 24px;
+                                                height: 24px;
+                                                image-fit: contain;
+                                                image-rendering: pixelated;
+                                                horizontal-alignment: center;
+                                                vertical-alignment: center;
+                                            }
+                                        }
+
+                                        VerticalLayout {
+                                            spacing: 3px;
+                                            Text {
+                                                text: "Offline";
+                                                color: Theme.text-primary;
+                                                font-family: Theme.font-family;
+                                                font-size: 13px;
+                                                font-weight: 700;
+                                            }
+                                            Text {
+                                                text: "Username only";
+                                                color: Theme.text-secondary;
+                                                font-family: Theme.font-family;
+                                                font-size: 10px;
+                                            }
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        height: 32px;
+                                        background: off-card-touch.has-hover ? Theme.button-dark-hover : Theme.button-dark;
+                                        border-width: 1px;
+                                        border-color: off-card-touch.has-hover ? Theme.border-hover : Theme.border;
+
+                                        Text {
+                                            text: "Create";
+                                            color: Theme.text-primary;
+                                            font-family: Theme.font-family;
+                                            font-size: 11px;
+                                            font-weight: 700;
+                                            horizontal-alignment: center;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // 2. MICROSOFT DEVICE FLOW VIEW
+                    if root.mode == "microsoft": VerticalLayout {
+                        width: 100%;
+                        height: 100%;
+                        padding-left: 28px;
+                        padding-right: 28px;
+                        padding-top: 16px;
+                        padding-bottom: 20px;
+                        spacing: 10px;
+                        alignment: start;
+
+                        // Back navigation row
+                        HorizontalLayout {
+                            alignment: start;
+                            Rectangle {
+                                width: 70px;
+                                height: 26px;
+                                background: back-ms-touch.has-hover ? #2A2F3C : Theme.button-dark;
+                                border-width: 1px;
+                                border-color: Theme.border;
+
+                                HorizontalLayout {
+                                    alignment: center;
+                                    Text {
+                                        text: "← Back";
+                                        color: Theme.text-secondary;
+                                        font-family: Theme.font-family;
+                                        font-size: 10px;
+                                        vertical-alignment: center;
+                                    }
+                                }
+
+                                back-ms-touch := TouchArea {
+                                    clicked => { root.mode = "select"; }
+                                }
+                            }
+                        }
+
+                        HorizontalLayout {
+                            alignment: center;
+                            VerticalLayout {
+                                width: 360px;
+                                spacing: 12px;
+                                alignment: center;
+
+                                Text {
+                                    text: "Microsoft Login";
+                                    color: Theme.text-primary;
+                                    font-family: Theme.font-family;
+                                    font-size: 14px;
+                                    font-weight: 700;
+                                    horizontal-alignment: center;
+                                }
+
+                                Text {
+                                    text: root.ms-status;
+                                    color: Theme.text-secondary;
+                                    font-family: Theme.font-family;
+                                    font-size: 11px;
+                                    horizontal-alignment: center;
+                                }
+
+                                // Big User Code Display Box
+                                Rectangle {
+                                    height: 52px;
+                                    width: 360px;
+                                    background: #14161B;
+                                    border-width: 1px;
+                                    border-color: Theme.accent;
+
+                                    HorizontalLayout {
+                                        alignment: center;
+                                        Text {
+                                            text: root.ms-user-code != "" ? root.ms-user-code : "GENERATING CODE...";
+                                            color: Theme.accent;
+                                            font-family: Theme.font-family;
+                                            font-size: 22px;
+                                            font-weight: 700;
+                                            letter-spacing: 2px;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+
+                                // Action Buttons Row
+                                HorizontalLayout {
+                                    alignment: center;
+                                    spacing: 12px;
+
+                                    Rectangle {
+                                        width: 140px;
+                                        height: 36px;
+                                        background: copy-touch.has-hover ? #2A2F3C : Theme.button-dark;
+                                        border-width: 1px;
+                                        border-color: Theme.border;
+
+                                        HorizontalLayout {
+                                            alignment: center;
+                                            Text {
+                                                text: "Copy Code";
+                                                color: Theme.text-primary;
+                                                font-family: Theme.font-family;
+                                                font-size: 11px;
+                                                font-weight: 700;
+                                                vertical-alignment: center;
+                                            }
+                                        }
+
+                                        copy-touch := TouchArea {
+                                            clicked => {
+                                                root.copy-code(root.ms-user-code);
+                                            }
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        width: 190px;
+                                        height: 36px;
+                                        background: link-touch.has-hover ? Theme.accent-hover : Theme.accent;
+                                        border-width: 1px;
+                                        border-color: Theme.accent;
+
+                                        HorizontalLayout {
+                                            alignment: center;
+                                            Text {
+                                                text: "Open Auth Link ↗";
+                                                color: Theme.text-dark;
+                                                font-family: Theme.font-family;
+                                                font-size: 11px;
+                                                font-weight: 700;
+                                                vertical-alignment: center;
+                                            }
+                                        }
+
+                                        link-touch := TouchArea {
+                                            clicked => {
+                                                root.open-url(root.ms-verification-uri != "" ? root.ms-verification-uri : "https://microsoft.com/link");
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // 3. ELY.BY LOGIN VIEW
+                    if root.mode == "elyby": VerticalLayout {
+                        width: 100%;
+                        height: 100%;
+                        padding-left: 28px;
+                        padding-right: 28px;
+                        padding-top: 16px;
+                        padding-bottom: 20px;
+                        spacing: 8px;
+                        alignment: start;
+
+                        // Back navigation row
+                        HorizontalLayout {
+                            alignment: start;
+                            Rectangle {
+                                width: 70px;
+                                height: 26px;
+                                background: back-ely-touch.has-hover ? #2A2F3C : Theme.button-dark;
+                                border-width: 1px;
+                                border-color: Theme.border;
+
+                                HorizontalLayout {
+                                    alignment: center;
+                                    Text {
+                                        text: "← Back";
+                                        color: Theme.text-secondary;
+                                        font-family: Theme.font-family;
+                                        font-size: 10px;
+                                        vertical-alignment: center;
+                                    }
+                                }
+
+                                back-ely-touch := TouchArea {
+                                    clicked => { root.mode = "select"; }
+                                }
+                            }
+                        }
+
+                        Text {
+                            text: "Ely.by Login";
+                            color: Theme.text-primary;
+                            font-family: Theme.font-family;
+                            font-size: 14px;
+                            font-weight: 700;
+                        }
+
+                        // Username Label & Input
+                        Text {
+                            text: "Username / Email";
+                            color: Theme.text-secondary;
+                            font-family: Theme.font-family;
+                            font-size: 10px;
+                        }
+
+                        Rectangle {
+                            height: 34px;
+                            background: Theme.input-bg;
+                            border-width: 1px;
+                            border-color: ely-u-inp.has-focus ? Theme.border-focus : Theme.border;
+
+                            HorizontalLayout {
+                                padding-left: 10px;
+                                padding-right: 10px;
+                                ely-u-inp := TextInput {
+                                    text <=> root.elyby-username;
+                                    color: #FFFFFF;
+                                    font-family: Theme.font-family;
+                                    font-size: 11px;
+                                    vertical-alignment: center;
+                                    single-line: true;
+                                }
+                            }
+                        }
+
+                        // Password Label & Input
+                        Text {
+                            text: "Password";
+                            color: Theme.text-secondary;
+                            font-family: Theme.font-family;
+                            font-size: 10px;
+                        }
+
+                        Rectangle {
+                            height: 34px;
+                            background: Theme.input-bg;
+                            border-width: 1px;
+                            border-color: ely-p-inp.has-focus ? Theme.border-focus : Theme.border;
+
+                            HorizontalLayout {
+                                padding-left: 10px;
+                                padding-right: 10px;
+                                ely-p-inp := TextInput {
+                                    text <=> root.elyby-password;
+                                    color: #FFFFFF;
+                                    font-family: Theme.font-family;
+                                    font-size: 11px;
+                                    vertical-alignment: center;
+                                    single-line: true;
+                                    input-type: password;
+                                    accepted => {
+                                        if (root.elyby-username != "" && root.elyby-password != "") {
+                                            root.login-elyby(root.elyby-username, root.elyby-password);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Error Banner
+                        if root.error-message != "": Text {
+                            text: root.error-message;
+                            color: #E74C3C;
+                            font-family: Theme.font-family;
+                            font-size: 10px;
+                            wrap: word-wrap;
+                        }
+
+                        Rectangle { height: 6px; }
+
+                        // Login Action Button
+                        Rectangle {
+                            height: 38px;
+                            background: ely-login-touch.has-hover ? #2980B9 : #3498DB;
+                            border-width: 1px;
+                            border-color: #2980B9;
+
+                            HorizontalLayout {
+                                alignment: center;
+                                Text {
+                                    text: root.is-busy ? "Authenticating..." : "Login to Ely.by";
+                                    color: #FFFFFF;
+                                    font-family: Theme.font-family;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            ely-login-touch := TouchArea {
+                                clicked => {
+                                    if (root.elyby-username != "" && root.elyby-password != "") {
+                                        root.login-elyby(root.elyby-username, root.elyby-password);
+                                    } else {
+                                        root.error-message = "Please enter username and password";
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // 4. OFFLINE ACCOUNT VIEW
+                    if root.mode == "offline": VerticalLayout {
+                        width: 100%;
+                        height: 100%;
+                        padding-left: 28px;
+                        padding-right: 28px;
+                        padding-top: 16px;
+                        padding-bottom: 20px;
+                        spacing: 10px;
+                        alignment: start;
+
+                        // Back navigation row
+                        HorizontalLayout {
+                            alignment: start;
+                            Rectangle {
+                                width: 70px;
+                                height: 26px;
+                                background: back-off-touch.has-hover ? #2A2F3C : Theme.button-dark;
+                                border-width: 1px;
+                                border-color: Theme.border;
+
+                                HorizontalLayout {
+                                    alignment: center;
+                                    Text {
+                                        text: "← Back";
+                                        color: Theme.text-secondary;
+                                        font-family: Theme.font-family;
+                                        font-size: 10px;
+                                        vertical-alignment: center;
+                                    }
+                                }
+
+                                back-off-touch := TouchArea {
+                                    clicked => { root.mode = "select"; }
+                                }
+                            }
+                        }
+
+                        Text {
+                            text: "Offline Account";
+                            color: Theme.text-primary;
+                            font-family: Theme.font-family;
+                            font-size: 14px;
+                            font-weight: 700;
+                        }
+
+                        HorizontalLayout {
+                            alignment: space-between;
+                            Text {
+                                text: "Username";
+                                color: Theme.text-secondary;
+                                font-family: Theme.font-family;
+                                font-size: 10px;
+                            }
+                            Text {
+                                text: "3–16 characters (letters, numbers, _)";
+                                color: Theme.text-muted;
+                                font-family: Theme.font-family;
+                                font-size: 9px;
+                            }
+                        }
+
+                        Rectangle {
+                            height: 34px;
+                            background: Theme.input-bg;
+                            border-width: 1px;
+                            border-color: off-u-inp.has-focus ? Theme.border-focus : Theme.border;
+
+                            HorizontalLayout {
+                                padding-left: 10px;
+                                padding-right: 10px;
+                                off-u-inp := TextInput {
+                                    text <=> root.offline-username;
+                                    color: #FFFFFF;
+                                    font-family: Theme.font-family;
+                                    font-size: 11px;
+                                    vertical-alignment: center;
+                                    single-line: true;
+                                    edited => {
+                                        root.error-message = "";
+                                    }
+                                    accepted => {
+                                        if (root.offline-username == "") {
+                                            root.error-message = "Username cannot be empty";
+                                        } else {
+                                            root.create-offline(root.offline-username);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if root.error-message != "": Text {
+                            text: root.error-message;
+                            color: #E74C3C;
+                            font-family: Theme.font-family;
+                            font-size: 10px;
+                        }
+
+                        Rectangle { height: 10px; }
+
+                        // Add Profile Action Button
+                        Rectangle {
+                            height: 38px;
+                            background: off-add-touch.has-hover ? Theme.accent-hover : Theme.accent;
+                            border-width: 1px;
+                            border-color: Theme.accent;
+
+                            HorizontalLayout {
+                                alignment: center;
+                                Text {
+                                    text: "Add Offline Profile";
+                                    color: #FFFFFF;
+                                    font-family: Theme.font-family;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            off-add-touch := TouchArea {
+                                clicked => {
+                                    if (root.offline-username != "") {
+                                        root.create-offline(root.offline-username);
+                                    } else {
+                                        root.error-message = "Username cannot be empty";
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+

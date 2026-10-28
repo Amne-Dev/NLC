@@ -1,0 +1,602 @@
+import { Theme } from "../theme.slint";
+
+export component ModpackTutorialModal inherits Rectangle {
+    in-out property <bool> is-open: false;
+    in-out property <int> step: 1; // 1 to 3
+    callback close();
+    callback create-now();
+    callback search-clicked();
+    callback action-clicked();
+
+    // Dark semi-transparent scrim backdrop
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        background: #000000.with-alpha(0.65);
+
+        TouchArea {
+            // Dismiss on background backdrop click
+            clicked => { root.close(); }
+        }
+    }
+
+    // =========================================================================
+    // STEP 1: Highlight "+ Create Custom Modpack" Button
+    // =========================================================================
+    if root.step == 1: Rectangle {
+        width: 100%;
+        height: 100%;
+
+        // Spotlight Cutout & Glowing Frame around Create Button
+        spotlight1 := Rectangle {
+            x: parent.width - 24px - 195px;
+            y: 16px;
+            width: 195px;
+            height: 38px;
+            background: #00E5FF.with-alpha(0.12);
+            border-width: 2px;
+            border-color: Theme.accent;
+
+            // Corner brackets
+            Rectangle { x: 0px; y: 0px; width: 6px; height: 6px; background: #FFFFFF; }
+            Rectangle { x: parent.width - 6px; y: 0px; width: 6px; height: 6px; background: #FFFFFF; }
+            Rectangle { x: 0px; y: parent.height - 6px; width: 6px; height: 6px; background: #FFFFFF; }
+            Rectangle { x: parent.width - 6px; y: parent.height - 6px; width: 6px; height: 6px; background: #FFFFFF; }
+
+            // Click highlighted button to complete step / open creation
+            TouchArea {
+                clicked => {
+                    root.create-now();
+                }
+            }
+        }
+
+        // Callout Bubble pointing to Create Button
+        Rectangle {
+            x: Math.max(20px, parent.width - 400px);
+            y: 64px;
+            width: 376px;
+            height: 204px;
+            background: #111317;
+            border-width: 1px;
+            border-color: Theme.accent;
+
+            // Absorb clicks on the callout bubble so they do not fall through to the scrim dismiss area
+            TouchArea { }
+
+            // Top active accent bar
+            Rectangle {
+                x: 0px;
+                y: 0px;
+                width: 100%;
+                height: 3px;
+                background: Theme.accent;
+            }
+
+            VerticalLayout {
+                padding: 18px;
+                spacing: 12px;
+
+                HorizontalLayout {
+                    alignment: space-between;
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Rectangle {
+                            height: 18px;
+                            background: Theme.sidebar-bg;
+                            border-width: 1px;
+                            border-color: Theme.accent;
+                            HorizontalLayout {
+                                padding-left: 6px;
+                                padding-right: 6px;
+                                Text {
+                                    text: "01 / 03";
+                                    color: Theme.accent;
+                                    font-family: Theme.font-family;
+                                    font-size: 8px;
+                                    font-weight: 700;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+                        Text {
+                            text: "CREATE CUSTOM MODPACK";
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 11px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    Rectangle {
+                        width: 20px;
+                        height: 20px;
+                        background: transparent;
+                        Text {
+                            text: "✕";
+                            color: Theme.text-muted;
+                            font-size: 11px;
+                            font-weight: 700;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                        TouchArea { clicked => { root.close(); } }
+                    }
+                }
+
+                Text {
+                    text: "Spin up an isolated Minecraft profile. Choose your mod loader (Fabric, NeoForge, Quilt, Forge, Vanilla) and target Minecraft release (26.3, 1.21.x) with completely separate mods, configs, and worlds.";
+                    color: Theme.text-secondary;
+                    font-family: Theme.font-family;
+                    font-size: 10px;
+                    wrap: word-wrap;
+                }
+
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: space-between;
+
+                    Rectangle {
+                        width: 80px;
+                        height: 28px;
+                        background: transparent;
+                        HorizontalLayout {
+                            alignment: center;
+                            Text {
+                                text: "Skip Tour";
+                                color: skip1_t.has-hover ? #FFFFFF : Theme.text-muted;
+                                font-family: Theme.font-family;
+                                font-size: 10px;
+                                vertical-alignment: center;
+                            }
+                        }
+                        skip1_t := TouchArea { clicked => { root.close(); } }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+
+                        Rectangle {
+                            width: 130px;
+                            height: 28px;
+                            background: action1_t.has-hover ? #22384C : #182230;
+                            border-width: 1px;
+                            border-color: Theme.accent;
+                            HorizontalLayout {
+                                alignment: center;
+                                Text {
+                                    text: "Click to Create ↗";
+                                    color: Theme.accent;
+                                    font-family: Theme.font-family;
+                                    font-size: 10px;
+                                    font-weight: 700;
+                                    vertical-alignment: center;
+                                }
+                            }
+                            action1_t := TouchArea { clicked => { root.create-now(); } }
+                        }
+
+                        Rectangle {
+                            width: 90px;
+                            height: 28px;
+                            background: next1_t.has-hover ? Theme.accent-hover : Theme.accent;
+                            border-width: 1px;
+                            border-color: Theme.accent;
+                            HorizontalLayout {
+                                alignment: center;
+                                Text {
+                                    text: "Next Step →";
+                                    color: Theme.accent-text;
+                                    font-family: Theme.font-family;
+                                    font-size: 10px;
+                                    font-weight: 700;
+                                    vertical-alignment: center;
+                                }
+                            }
+                            next1_t := TouchArea { clicked => { root.step = 2; } }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // =========================================================================
+    // STEP 2: Highlight Modrinth Search & Filter Bar
+    // =========================================================================
+    if root.step == 2: Rectangle {
+        width: 100%;
+        height: 100%;
+
+        // Spotlight Cutout & Glowing Frame around Search & Filter Bar
+        spotlight2 := Rectangle {
+            x: 20px;
+            y: 64px;
+            width: Math.min(parent.width - 40px, 640px);
+            height: 38px;
+            background: #00E5FF.with-alpha(0.12);
+            border-width: 2px;
+            border-color: Theme.accent;
+
+            // Corner brackets
+            Rectangle { x: 0px; y: 0px; width: 6px; height: 6px; background: #FFFFFF; }
+            Rectangle { x: parent.width - 6px; y: 0px; width: 6px; height: 6px; background: #FFFFFF; }
+            Rectangle { x: 0px; y: parent.height - 6px; width: 6px; height: 6px; background: #FFFFFF; }
+            Rectangle { x: parent.width - 6px; y: parent.height - 6px; width: 6px; height: 6px; background: #FFFFFF; }
+
+            TouchArea {
+                clicked => {
+                    root.search-clicked();
+                    root.step = 3;
+                }
+            }
+        }
+
+        // Callout Bubble pointing to Search Bar
+        Rectangle {
+            x: 24px;
+            y: 110px;
+            width: 400px;
+            height: 196px;
+            background: #111317;
+            border-width: 1px;
+            border-color: Theme.accent;
+
+            // Absorb clicks on the callout bubble so they do not fall through to the scrim dismiss area
+            TouchArea { }
+
+            Rectangle {
+                x: 0px;
+                y: 0px;
+                width: 100%;
+                height: 3px;
+                background: Theme.accent;
+            }
+
+            VerticalLayout {
+                padding: 18px;
+                spacing: 12px;
+
+                HorizontalLayout {
+                    alignment: space-between;
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Rectangle {
+                            height: 18px;
+                            background: Theme.sidebar-bg;
+                            border-width: 1px;
+                            border-color: Theme.accent;
+                            HorizontalLayout {
+                                padding-left: 6px;
+                                padding-right: 6px;
+                                Text {
+                                    text: "02 / 03";
+                                    color: Theme.accent;
+                                    font-family: Theme.font-family;
+                                    font-size: 8px;
+                                    font-weight: 700;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+                        Text {
+                            text: "MODRINTH SEARCH & FILTERS";
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 11px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    Rectangle {
+                        width: 20px;
+                        height: 20px;
+                        background: transparent;
+                        Text {
+                            text: "✕";
+                            color: Theme.text-muted;
+                            font-size: 11px;
+                            font-weight: 700;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                        TouchArea { clicked => { root.close(); } }
+                    }
+                }
+
+                Text {
+                    text: "Explore over 100,000 community modpacks and addons from Modrinth. Filter effortlessly by Mod Loader chips (Fabric, NeoForge, Quilt). FastCDC ensures ultra-fast differential downloads.";
+                    color: Theme.text-secondary;
+                    font-family: Theme.font-family;
+                    font-size: 10px;
+                    wrap: word-wrap;
+                }
+
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: space-between;
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Rectangle {
+                            width: 70px;
+                            height: 28px;
+                            background: back2_t.has-hover ? #2A2F3C : Theme.button-dark;
+                            border-width: 1px;
+                            border-color: Theme.border;
+                            HorizontalLayout {
+                                alignment: center;
+                                Text {
+                                    text: "← Back";
+                                    color: Theme.text-secondary;
+                                    font-family: Theme.font-family;
+                                    font-size: 10px;
+                                    vertical-alignment: center;
+                                }
+                            }
+                            back2_t := TouchArea { clicked => { root.step = 1; } }
+                        }
+
+                        Rectangle {
+                            width: 70px;
+                            height: 28px;
+                            background: transparent;
+                            HorizontalLayout {
+                                alignment: center;
+                                Text {
+                                    text: "Skip Tour";
+                                    color: skip2_t.has-hover ? #FFFFFF : Theme.text-muted;
+                                    font-family: Theme.font-family;
+                                    font-size: 10px;
+                                    vertical-alignment: center;
+                                }
+                            }
+                            skip2_t := TouchArea { clicked => { root.close(); } }
+                        }
+                    }
+
+                    Rectangle {
+                        width: 90px;
+                        height: 28px;
+                        background: next2_t.has-hover ? Theme.accent-hover : Theme.accent;
+                        border-width: 1px;
+                        border-color: Theme.accent;
+                        HorizontalLayout {
+                            alignment: center;
+                            Text {
+                                text: "Next Step →";
+                                color: Theme.accent-text;
+                                font-family: Theme.font-family;
+                                font-size: 10px;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+                        }
+                        next2_t := TouchArea { clicked => { root.step = 3; } }
+                    }
+                }
+            }
+        }
+    }
+
+    // =========================================================================
+    // STEP 3: Highlight Modpack Card Actions (Play, Configure Mods, Open Folder)
+    // =========================================================================
+    if root.step == 3: Rectangle {
+        width: 100%;
+        height: 100%;
+
+        // Spotlight Frame around First Modpack Card Action Cluster
+        spotlight3 := Rectangle {
+            x: 24px;
+            y: 114px;
+            width: Math.min(parent.width - 48px, 640px);
+            height: 156px;
+            background: #00E5FF.with-alpha(0.10);
+            border-width: 2px;
+            border-color: Theme.accent;
+
+            // Highlighted Action Tray outline inside card
+            Rectangle {
+                x: parent.width - 290px;
+                y: 12px;
+                width: 278px;
+                height: 34px;
+                background: #00E5FF.with-alpha(0.20);
+                border-width: 1px;
+                border-color: #00E5FF;
+
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: 6px;
+                    Text {
+                        text: "[ PLAY ]";
+                        color: #2ECC71;
+                        font-family: Theme.font-family;
+                        font-size: 9px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+                    Text {
+                        text: "[ MODS ]";
+                        color: #00E5FF;
+                        font-family: Theme.font-family;
+                        font-size: 9px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+                    Text {
+                        text: "[ FOLDER ]";
+                        color: #FFFFFF;
+                        font-family: Theme.font-family;
+                        font-size: 9px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            // Corner brackets
+            Rectangle { x: 0px; y: 0px; width: 6px; height: 6px; background: #FFFFFF; }
+            Rectangle { x: parent.width - 6px; y: 0px; width: 6px; height: 6px; background: #FFFFFF; }
+            Rectangle { x: 0px; y: parent.height - 6px; width: 6px; height: 6px; background: #FFFFFF; }
+            Rectangle { x: parent.width - 6px; y: parent.height - 6px; width: 6px; height: 6px; background: #FFFFFF; }
+
+            TouchArea {
+                clicked => {
+                    root.action-clicked();
+                    root.close();
+                }
+            }
+        }
+
+        // Callout Bubble pointing to Card Actions
+        Rectangle {
+            x: 24px;
+            y: 280px;
+            width: 420px;
+            height: 200px;
+            background: #111317;
+            border-width: 1px;
+            border-color: Theme.accent;
+
+            // Absorb clicks on the callout bubble so they do not fall through to the scrim dismiss area
+            TouchArea { }
+
+            Rectangle {
+                x: 0px;
+                y: 0px;
+                width: 100%;
+                height: 3px;
+                background: Theme.accent;
+            }
+
+            VerticalLayout {
+                padding: 18px;
+                spacing: 12px;
+
+                HorizontalLayout {
+                    alignment: space-between;
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Rectangle {
+                            height: 18px;
+                            background: Theme.sidebar-bg;
+                            border-width: 1px;
+                            border-color: Theme.accent;
+                            HorizontalLayout {
+                                padding-left: 6px;
+                                padding-right: 6px;
+                                Text {
+                                    text: "03 / 03";
+                                    color: Theme.accent;
+                                    font-family: Theme.font-family;
+                                    font-size: 8px;
+                                    font-weight: 700;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+                        Text {
+                            text: "CARD ACTIONS: PLAY, MODS & FOLDER";
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 11px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    Rectangle {
+                        width: 20px;
+                        height: 20px;
+                        background: transparent;
+                        Text {
+                            text: "✕";
+                            color: Theme.text-muted;
+                            font-size: 11px;
+                            font-weight: 700;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                        TouchArea { clicked => { root.close(); } }
+                    }
+                }
+
+                Text {
+                    text: "1-Click Launch with [Play], configure granular mod toggles and Modrinth updates with [Configure Mods], or browse instance files directly on disk via [Open Folder].";
+                    color: Theme.text-secondary;
+                    font-family: Theme.font-family;
+                    font-size: 10px;
+                    wrap: word-wrap;
+                }
+
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: space-between;
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Rectangle {
+                            width: 70px;
+                            height: 28px;
+                            background: back3_t.has-hover ? #2A2F3C : Theme.button-dark;
+                            border-width: 1px;
+                            border-color: Theme.border;
+                            HorizontalLayout {
+                                alignment: center;
+                                Text {
+                                    text: "← Back";
+                                    color: Theme.text-secondary;
+                                    font-family: Theme.font-family;
+                                    font-size: 10px;
+                                    vertical-alignment: center;
+                                }
+                            }
+                            back3_t := TouchArea { clicked => { root.step = 2; } }
+                        }
+
+                        Rectangle {
+                            width: 70px;
+                            height: 28px;
+                            background: transparent;
+                            HorizontalLayout {
+                                alignment: center;
+                                Text {
+                                    text: "Skip Tour";
+                                    color: skip3_t.has-hover ? #FFFFFF : Theme.text-muted;
+                                    font-family: Theme.font-family;
+                                    font-size: 10px;
+                                    vertical-alignment: center;
+                                }
+                            }
+                            skip3_t := TouchArea { clicked => { root.close(); } }
+                        }
+                    }
+
+                    Rectangle {
+                        width: 120px;
+                        height: 28px;
+                        background: finish_t.has-hover ? Theme.accent-hover : Theme.accent;
+                        border-width: 1px;
+                        border-color: Theme.accent;
+                        HorizontalLayout {
+                            alignment: center;
+                            Text {
+                                text: "Complete Tour ✓";
+                                color: Theme.accent-text;
+                                font-family: Theme.font-family;
+                                font-size: 10px;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+                        }
+                        finish_t := TouchArea { clicked => { root.close(); } }
+                    }
+                }
+            }
+        }
+    }
+}

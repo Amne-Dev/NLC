@@ -1,0 +1,528 @@
+import { Theme } from "theme.slint";
+
+export component PixelCloseIcon inherits Path {
+    in-out property <color> icon-color: Theme.text-secondary;
+    in-out property <length> icon-size: 10px;
+    width: root.icon-size;
+    height: root.icon-size;
+    viewbox-x: 0;
+    viewbox-y: 0;
+    viewbox-width: 10;
+    viewbox-height: 10;
+    stroke: root.icon-color;
+    stroke-width: 1.5px;
+    fill: transparent;
+
+    MoveTo { x: 1.5; y: 1.5; }
+    LineTo { x: 8.5; y: 8.5; }
+    MoveTo { x: 8.5; y: 1.5; }
+    LineTo { x: 1.5; y: 8.5; }
+}
+
+export component TitleBar {
+    in-out property <string> title: "Ny-Luna";
+    callback minimize();
+    callback maximize();
+    callback close();
+    callback move-window(length, length);
+
+    height: Theme.titlebar-height;
+
+    Rectangle {
+        background: Theme.titlebar-bg;
+
+        // Bottom border line
+        Rectangle {
+            y: parent.height - 1px;
+            height: 1px;
+            background: Theme.border-subtle;
+        }
+
+        // Window drag region (placed behind buttons so button touch areas take priority)
+        drag-touch := TouchArea {
+            property <length> start-x;
+            property <length> start-y;
+
+            pointer-event(event) => {
+                if (event.kind == PointerEventKind.down) {
+                    self.start-x = self.mouse-x;
+                    self.start-y = self.mouse-y;
+                }
+            }
+            moved => {
+                if (self.pressed) {
+                    root.move-window(self.mouse-x - self.start-x, self.mouse-y - self.start-y);
+                }
+            }
+        }
+
+        HorizontalLayout {
+            padding-left: 12px;
+            padding-right: 0px;
+            alignment: space-between;
+
+            // App Title
+            HorizontalLayout {
+                alignment: start;
+
+                Text {
+                    text: root.title;
+                    color: Theme.text-primary;
+                    font-family: Theme.font-family;
+                    font-size: 11px;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                }
+            }
+
+            // Window Controls (Win32 Chrome)
+            HorizontalLayout {
+                spacing: 0px;
+
+                // Minimize
+                Rectangle {
+                    width: 44px;
+                    height: root.height;
+                    background: min-touch.has-hover ? #2A2D35 : transparent;
+
+                    Rectangle {
+                        width: 10px;
+                        height: 1px;
+                        background: Theme.text-secondary;
+                        horizontal-stretch: 0;
+                        vertical-stretch: 0;
+                    }
+
+                    min-touch := TouchArea {
+                        clicked => { root.minimize(); }
+                    }
+                }
+
+                // Maximize
+                Rectangle {
+                    width: 44px;
+                    height: root.height;
+                    background: max-touch.has-hover ? #2A2D35 : transparent;
+
+                    Rectangle {
+                        width: 10px;
+                        height: 10px;
+                        border-width: 1px;
+                        border-color: Theme.text-secondary;
+                        background: transparent;
+                        horizontal-stretch: 0;
+                        vertical-stretch: 0;
+                    }
+
+                    max-touch := TouchArea {
+                        clicked => { root.maximize(); }
+                    }
+                }
+
+                // Close
+                Rectangle {
+                    width: 48px;
+                    height: root.height;
+                    background: close-touch.has-hover ? #E81123 : transparent;
+
+                    PixelCloseIcon {
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        icon-color: close-touch.has-hover ? #FFFFFF : Theme.text-secondary;
+                    }
+
+                    close-touch := TouchArea {
+                        clicked => { root.close(); }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component PixelButton {
+    in-out property <string> text: "Button";
+    in-out property <image> icon;
+    in-out property <bool> has-icon: false;
+    in-out property <bool> primary: false;
+    in-out property <bool> danger: false;
+    in-out property <bool> enabled: true;
+    in-out property <length> custom-font-size: 11px;
+    in-out property <length> custom-height: 28px;
+    callback clicked();
+
+    height: root.custom-height;
+    vertical-stretch: 0;
+    horizontal-stretch: 0;
+    opacity: root.enabled ? 1.0 : 0.5;
+
+    Rectangle {
+        border-width: 1px;
+        border-color: !root.enabled ? #2A2E38 :
+                      root.danger ? (touch.has-hover ? #FF6B6B : Theme.danger) :
+                      root.primary ? (touch.has-hover ? Theme.accent-hover : Theme.accent) :
+                      (touch.has-hover ? Theme.border-hover : Theme.border);
+        background: !root.enabled ? #16181E :
+                    root.danger ? (touch.pressed ? Theme.danger-hover : (touch.has-hover ? Theme.danger : #3A1B1B)) :
+                    root.primary ? (touch.pressed ? Theme.accent-pressed : (touch.has-hover ? Theme.accent-hover : Theme.accent)) :
+                    (touch.pressed ? #1A1C20 : (touch.has-hover ? Theme.button-dark-hover : Theme.button-dark));
+
+        HorizontalLayout {
+            padding-left: 14px;
+            padding-right: 14px;
+            padding-top: 5px;
+            padding-bottom: 5px;
+            spacing: 8px;
+            alignment: center;
+
+            if root.has-icon: Image {
+                source: root.icon;
+                width: 16px;
+                height: 16px;
+                image-fit: contain;
+                vertical-alignment: center;
+            }
+
+            Text {
+                text: root.text;
+                color: !root.enabled ? Theme.text-muted :
+                       root.danger ? (touch.has-hover ? #FFFFFF : #FFAAAA) :
+                       root.primary ? #FFFFFF :
+                       (touch.has-hover ? #FFFFFF : Theme.text-secondary);
+                font-family: Theme.font-family;
+                font-size: root.custom-font-size;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        touch := TouchArea {
+            enabled: root.enabled;
+            clicked => { if root.enabled { root.clicked(); } }
+        }
+    }
+}
+
+export component PixelCheckbox {
+    in-out property <string> label: "Checkbox";
+    in-out property <bool> checked: false;
+    callback toggled(bool);
+
+    height: 24px;
+    horizontal-stretch: 0;
+
+    HorizontalLayout {
+        spacing: 8px;
+        alignment: start;
+
+        // Sharp 14x14 box
+        Rectangle {
+            width: 14px;
+            height: 14px;
+            y: (parent.height - self.height) / 2;
+            background: root.checked ? Theme.accent-subtle : Theme.input-bg;
+            border-width: 1px;
+            border-color: root.checked ? Theme.accent : Theme.border;
+
+            if root.checked: Text {
+                text: "✓";
+                font-family: Theme.icon-font-family;
+                color: Theme.accent;
+                font-size: 9px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            TouchArea {
+                clicked => {
+                    root.checked = !root.checked;
+                    root.toggled(root.checked);
+                }
+            }
+        }
+
+        Text {
+            text: root.label;
+            color: root.checked ? #FFFFFF : Theme.text-secondary;
+            font-family: Theme.font-family;
+            font-size: 10px;
+            vertical-alignment: center;
+        }
+    }
+}
+
+export component SearchInput {
+    in-out property <string> text: "";
+    in-out property <string> placeholder: "Search...";
+    in-out property <length> preferred-input-width: 200px;
+    callback edited(string);
+    callback accepted(string);
+
+    height: 28px;
+    min-width: root.preferred-input-width;
+    horizontal-stretch: 1;
+
+    Rectangle {
+        background: Theme.input-bg;
+        border-width: 1px;
+        border-color: input-scope.has-focus ? Theme.border-focus : Theme.border;
+
+        HorizontalLayout {
+            padding-left: 8px;
+            padding-right: 8px;
+            spacing: 6px;
+
+            Rectangle {
+                width: 10px;
+                height: 10px;
+                y: (parent.height - self.height) / 2;
+                horizontal-stretch: 0;
+                vertical-stretch: 0;
+
+                Rectangle {
+                    x: 0px;
+                    y: 0px;
+                    width: 7px;
+                    height: 7px;
+                    border-width: 1px;
+                    border-color: Theme.text-muted;
+                    background: transparent;
+                }
+                Rectangle {
+                    x: 6px;
+                    y: 6px;
+                    width: 4px;
+                    height: 1px;
+                    background: Theme.text-muted;
+                }
+            }
+
+            Rectangle {
+                horizontal-stretch: 1;
+                clip: true;
+
+                if root.text == "": Text {
+                    x: 0px;
+                    y: (parent.height - self.height) / 2;
+                    text: root.placeholder;
+                    color: Theme.text-muted;
+                    font-family: Theme.font-family;
+                    font-size: 10px;
+                    vertical-alignment: center;
+                }
+
+                input-scope := TextInput {
+                    width: 100%;
+                    height: 100%;
+                    text <=> root.text;
+                    color: #FFFFFF;
+                    font-family: Theme.font-family;
+                    font-size: 10px;
+                    vertical-alignment: center;
+                    single-line: true;
+                    edited => { root.edited(self.text); }
+                    accepted => { root.accepted(self.text); }
+                }
+            }
+        }
+
+        TouchArea {
+            clicked => {
+                input-scope.focus();
+            }
+        }
+    }
+}
+
+export component PixelSwitch {
+    in-out property <bool> checked: true;
+    in-out property <bool> animations-enabled: true;
+    in-out property <length> custom-width: 40px;
+    in-out property <length> custom-height: 20px;
+    callback toggled(bool);
+
+    width: root.custom-width;
+    height: root.custom-height;
+
+    Rectangle {
+        background: root.checked ? (touch.has-hover ? Theme.accent-hover : Theme.accent) : (touch.has-hover ? #252A36 : #181B22);
+        border-width: 1px;
+        border-color: root.checked ? (touch.has-hover ? #FFFFFF : Theme.accent-hover) : (touch.has-hover ? #4E566A : #2F3647);
+
+        // Sliding block thumb
+        Rectangle {
+            x: root.checked ? (parent.width - self.width - 2px) : 2px;
+            y: 2px;
+            width: root.custom-height - 4px;
+            height: root.custom-height - 4px;
+            background: root.checked ? #FFFFFF : #8E94A2;
+
+            animate x { duration: root.animations-enabled ? 100ms : 0ms; easing: ease-out; }
+        }
+
+        touch := TouchArea {
+            mouse-cursor: pointer;
+            clicked => {
+                root.checked = !root.checked;
+                root.toggled(root.checked);
+            }
+        }
+    }
+}
+
+export component ActiveToggle {
+    in-out property <bool> active: true;
+    in-out property <bool> animations-enabled: true;
+    in-out property <length> custom-width: 40px;
+    in-out property <length> custom-height: 20px;
+    callback toggled(bool);
+
+    width: root.custom-width;
+    height: root.custom-height;
+
+    PixelSwitch {
+        width: 100%;
+        height: 100%;
+        checked: root.active;
+        animations-enabled: root.animations-enabled;
+        custom-width: root.custom-width;
+        custom-height: root.custom-height;
+        toggled(val) => {
+            root.active = val;
+            root.toggled(val);
+        }
+    }
+}
+
+export component ExpandableCardIconButton inherits Rectangle {
+    in-out property <image> icon;
+    in-out property <string> text;
+    in-out property <color> base-bg: Theme.button-dark;
+    in-out property <color> hover-bg: #2A303F;
+    in-out property <color> pressed-bg: #14171E;
+    in-out property <color> base-border: Theme.border;
+    in-out property <color> hover-border: #40485C;
+    in-out property <length> icon-size: 14px;
+    in-out property <length> collapsed-width: 28px;
+    in-out property <length> expanded-width: 76px;
+    in-out property <length> button-height: 28px;
+    in-out property <bool> animations-enabled: true;
+    callback clicked();
+
+    touch := TouchArea {
+        clicked => { root.clicked(); }
+    }
+
+    width: touch.has-hover ? root.expanded-width : root.collapsed-width;
+    height: root.button-height;
+    clip: true;
+    background: touch.pressed ? root.pressed-bg : (touch.has-hover ? root.hover-bg : root.base-bg);
+    border-width: 1px;
+    border-color: touch.has-hover ? root.hover-border : root.base-border;
+
+    animate width {
+        duration: root.animations-enabled ? 140ms : 0ms;
+        easing: ease-out;
+    }
+
+    HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 6px;
+        alignment: start;
+
+        Rectangle {
+            width: 14px;
+            Image {
+                y: (parent.height - self.height) / 2;
+                width: root.icon-size;
+                height: root.icon-size;
+                source: root.icon;
+                image-fit: contain;
+                image-rendering: pixelated;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        if touch.has-hover || root.width > root.collapsed-width + 6px: Text {
+            text: root.text;
+            color: #FFFFFF;
+            font-family: Theme.font-family;
+            font-size: 9px;
+            font-weight: 700;
+            vertical-alignment: center;
+            overflow: clip;
+        }
+    }
+}
+
+export component RamSlider {
+    in-out property <int> value: 4096;
+    in property <int> min-value: 1024;
+    in property <int> max-value: 8192;
+    in property <int> step: 512;
+    callback changed(int);
+
+    height: 24px;
+
+    // Track
+    Rectangle {
+        y: (parent.height - self.height) / 2;
+        height: 6px;
+        background: #111216;
+        border-width: 1px;
+        border-color: Theme.border;
+
+        // Fill bar
+        Rectangle {
+            x: 0px;
+            y: 0px;
+            height: parent.height;
+            width: Math.max(0px, Math.min(parent.width, (root.value - root.min-value) * parent.width / Math.max(1, root.max-value - root.min-value)));
+            background: Theme.accent;
+        }
+    }
+
+    // Draggable handle
+    Rectangle {
+        x: Math.max(0px, Math.min(parent.width - self.width, (root.value - root.min-value) * (parent.width - self.width) / Math.max(1, root.max-value - root.min-value)));
+        y: (parent.height - self.height) / 2;
+        width: 12px;
+        height: 18px;
+        background: #FFFFFF;
+        border-width: 1px;
+        border-color: Theme.accent;
+    }
+
+    TouchArea {
+        width: 100%;
+        height: 100%;
+
+        clicked => {
+            root.update-from-pos(self.mouse-x);
+        }
+        moved => {
+            if (self.pressed) {
+                root.update-from-pos(self.mouse-x);
+            }
+        }
+    }
+
+    public function update-from-pos(mx: length) {
+        if (root.width <= 0px) {
+            return;
+        }
+        let total-w = root.width / 1px;
+        let pos-x = mx / 1px;
+        let ratio = Math.max(0.0, Math.min(1.0, pos-x / total-w));
+        let range = Math.max(1, root.max-value - root.min-value);
+        let steps = Math.round((ratio * range) / root.step);
+        let raw = root.min-value + (steps * root.step);
+        let clamped = Math.max(root.min-value, Math.min(root.max-value, raw));
+        if (clamped != root.value) {
+            root.value = clamped;
+            root.changed(clamped);
+        }
+    }
+}

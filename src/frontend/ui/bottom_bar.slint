@@ -1,0 +1,481 @@
+import { Theme } from "theme.slint";
+import { InstallationData } from "screens/installations.slint";
+
+component LightningIcon inherits Path {
+    in property <color> icon-color: #FFD700;
+    width: 10px;
+    height: 14px;
+    viewbox-x: 0;
+    viewbox-y: 0;
+    viewbox-width: 10;
+    viewbox-height: 14;
+    fill: root.icon-color;
+
+    MoveTo { x: 6.0; y: 0.0; }
+    LineTo { x: 1.0; y: 7.5; }
+    LineTo { x: 5.0; y: 7.5; }
+    LineTo { x: 3.5; y: 14.0; }
+    LineTo { x: 9.0; y: 5.5; }
+    LineTo { x: 5.5; y: 5.5; }
+    LineTo { x: 6.0; y: 0.0; }
+    Close {}
+}
+
+export component BottomBar {
+    in-out property <string> instance-name: "Latest Release";
+    in-out property <string> version-id: "latest-release";
+    in-out property <string> version-display: "Vanilla 26.3";
+    in-out property <string> installation-id: "";
+    in-out property <string> loader: "Vanilla";
+    in-out property <image> instance-icon: @image-url("../../../icons/2x/grass_block_side.png");
+    in-out property <string> profile-name: "Steve";
+    in-out property <bool> is-launching: false;
+    in-out property <float> launch-progress: 0.0;
+    in-out property <string> launch-log-text: "";
+    in-out property <bool> show-launch-logs: true;
+    in-out property <[InstallationData]> installations;
+
+    callback play-clicked();
+    callback play-options-clicked();
+    callback force-update-and-play();
+    callback instance-picker-clicked();
+    callback instance-selected(string, string, string, string);
+    callback cancel-launch();
+
+    height: Theme.bottom-bar-height;
+
+
+
+    Rectangle {
+        background: Theme.bottom-bar-bg;
+
+        // Top border line
+        Rectangle {
+            y: 0px;
+            height: 1px;
+            background: Theme.border-subtle;
+        }
+
+        // Active Launch Progress Bar (thin 2px line tracking launch-progress)
+        if root.is-launching: Rectangle {
+            x: 0px;
+            y: 0px;
+            height: 2px;
+            width: parent.width * max(0.0, min(1.0, root.launch-progress > 1.0 ? (root.launch-progress / 100.0) : root.launch-progress));
+            background: Theme.accent;
+
+            animate width {
+                duration: Theme.smooth-animations ? 150ms : 0ms;
+                easing: ease-out;
+            }
+        }
+
+        // Content Container with Absolute Mathematical Centering (Guarantees zero jitter)
+        Rectangle {
+            width: 100%;
+            height: 100%;
+
+            // --- Left: Instance Selection Capsule (Sharp 0px) ---
+            inst_capsule := Rectangle {
+                x: 20px;
+                width: 230px;
+                height: 52px;
+                y: (parent.height - self.height) / 2;
+                background: (inst_popup.is-open || inst-touch.has-hover) ? #1B1E24 : transparent;
+
+                // --- R3: Interactive Dynamic Instance Selection Popup Menu (anchored directly above capsule) ---
+                inst_popup := PopupWindow {
+                    x: 0px;
+                    y: - (min(root.installations.length, 5) * 52px + 16px);
+                    width: 250px;
+                    height: min(root.installations.length, 5) * 52px + 16px;
+
+                    Rectangle {
+                        background: #191B20;
+                        border-width: 1px;
+                        border-color: #2D3038;
+
+                        Flickable {
+                            interactive: true;
+                            content-height: (root.installations.length * 52px) + 8px;
+
+                            VerticalLayout {
+                                padding: 6px;
+                                spacing: 4px;
+
+                                for inst in root.installations: Rectangle {
+                                    height: 48px;
+                                    background: itouch.has-hover ? #252933 :
+                                                ((root.installation-id != "" ? root.installation-id == inst.id : root.instance-name == inst.name) ? #20242D : transparent);
+                                    border-width: 1px;
+                                    border-color: (root.installation-id != "" ? root.installation-id == inst.id : root.instance-name == inst.name) ? Theme.accent :
+                                                  (itouch.has-hover ? #323846 : transparent);
+
+                                    HorizontalLayout {
+                                        padding-left: 8px;
+                                        padding-right: 8px;
+                                        spacing: 10px;
+                                        alignment: start;
+
+                                        Rectangle {
+                                            width: 32px;
+                                            height: 32px;
+                                            y: (parent.height - self.height) / 2;
+                                            background: #111215;
+                                            border-width: 1px;
+                                            border-color: #2D3038;
+
+                                            Image {
+                                                source: inst.icon;
+                                                width: 26px;
+                                                height: 26px;
+                                                image-fit: contain;
+                                                image-rendering: pixelated;
+                                                horizontal-alignment: center;
+                                                vertical-alignment: center;
+                                            }
+                                        }
+
+                                        VerticalLayout {
+                                            alignment: center;
+                                            spacing: 2px;
+                                            horizontal-stretch: 1;
+
+                                            Text {
+                                                text: inst.name;
+                                                color: #FFFFFF;
+                                                font-family: Theme.font-family;
+                                                font-size: 11px;
+                                                font-weight: 700;
+                                                overflow: elide;
+                                            }
+
+                                            Text {
+                                                text: inst.loader != "" && inst.loader != "Vanilla"
+                                                    ? (inst.loader + " " + inst.version)
+                                                    : (inst.version == "latest-release" ? "Vanilla 26.3" : ("Vanilla " + inst.version));
+                                                color: Theme.text-secondary;
+                                                font-family: Theme.font-family;
+                                                font-size: 9px;
+                                                overflow: elide;
+                                            }
+                                        }
+                                    }
+
+                                    itouch := TouchArea {
+                                        clicked => {
+                                            root.instance-name = inst.name;
+                                            root.version-id = inst.version;
+                                            root.installation-id = inst.id;
+                                            root.loader = inst.loader;
+                                            root.instance-icon = inst.icon;
+                                            root.version-display = inst.loader != "" && inst.loader != "Vanilla"
+                                                ? (inst.loader + " " + inst.version)
+                                                : (inst.version == "latest-release" ? "Vanilla 26.3" : ("Vanilla " + inst.version));
+                                            root.instance-selected(inst.name, inst.version, inst.id, inst.loader);
+                                            inst_popup.close();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    padding-left: 8px;
+                    padding-right: 8px;
+                    spacing: 12px;
+                    alignment: start;
+
+                    // 36x36 Texture (Dynamic based on selected instance icon)
+                    Rectangle {
+                        width: 36px;
+                        height: 36px;
+                        y: (parent.height - self.height) / 2;
+                        background: #111215;
+                        border-width: 1px;
+                        border-color: #2D3038;
+
+                        Image {
+                            source: root.instance-icon;
+                            width: 32px;
+                            height: 32px;
+                            image-fit: contain;
+                            image-rendering: pixelated;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    // Titles
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 2px;
+                        horizontal-stretch: 1;
+
+                        Text {
+                            text: root.instance-name;
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 11px;
+                            font-weight: 700;
+                            overflow: elide;
+                            vertical-alignment: center;
+                        }
+
+                        Text {
+                            text: root.version-display != "" ? root.version-display : root.version-id;
+                            color: Theme.text-secondary;
+                            font-family: Theme.font-family;
+                            font-size: 9px;
+                            overflow: elide;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    // Chevron
+                    Text {
+                        text: "▼";
+                        color: Theme.text-muted;
+                        font-family: Theme.font-family;
+                        font-size: 8px;
+                        vertical-alignment: center;
+                    }
+                }
+
+                inst-touch := TouchArea {
+                    clicked => {
+                        if (opt_popup.is-open) {
+                            opt_popup.close();
+                        }
+                        if (inst_popup.is-open) {
+                            inst_popup.close();
+                        } else {
+                            inst_popup.show();
+                            root.instance-picker-clicked();
+                        }
+                    }
+                }
+            }
+
+            // --- Center: Composite PLAY / LAUNCHING Button Cluster (Sharp 0px, Absolute Mathematical Centering) ---
+            play_btn := Rectangle {
+                x: (parent.width - self.width) / 2;
+                width: 210px;
+                height: 48px;
+                y: (parent.height - self.height) / 2;
+                background: root.is-launching ? #1C2028 : Theme.accent;
+                border-width: 1px;
+                border-color: root.is-launching ? #2D3340 : Theme.accent-hover;
+                clip: true;
+
+                // --- Play Options Flyout Popup Menu (anchored directly above play button) ---
+                opt_popup := PopupWindow {
+                    x: 0px;
+                    y: -44px;
+                    width: 210px;
+                    height: 38px;
+
+                    Rectangle {
+                        background: opt_item_touch.has-hover ? #252933 : #191B20;
+                        border-width: 1px;
+                        border-color: opt_item_touch.has-hover ? #323846 : #2D3038;
+
+                        HorizontalLayout {
+                            padding-left: 12px;
+                            padding-right: 12px;
+                            alignment: center;
+
+                            HorizontalLayout {
+                                spacing: 8px;
+                                alignment: center;
+
+                                LightningIcon {
+                                    y: (parent.height - self.height) / 2;
+                                    icon-color: opt_item_touch.has-hover ? #FFE066 : #FFD700;
+                                }
+
+                                Text {
+                                    text: "Force Update & Play";
+                                    color: opt_item_touch.has-hover ? Theme.accent : #FFFFFF;
+                                    font-family: Theme.font-family;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+
+                        opt_item_touch := TouchArea {
+                            clicked => {
+                                opt_popup.close();
+                                root.force-update-and-play();
+                            }
+                        }
+                    }
+                }
+
+                // IDLE STATE: PLAY Button + Options Chevron
+                if !root.is-launching: HorizontalLayout {
+                    spacing: 0px;
+
+                    // Main PLAY Section
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        background: play-touch.pressed ? Theme.accent-pressed :
+                                    (play-touch.has-hover ? Theme.accent-hover : transparent);
+
+                        Text {
+                            text: "PLAY";
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 15px;
+                            font-weight: 700;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            width: 100%;
+                            height: 100%;
+                        }
+
+                        play-touch := TouchArea {
+                            clicked => {
+                                if (opt_popup.is-open) {
+                                    opt_popup.close();
+                                }
+                                root.play-clicked();
+                            }
+                        }
+                    }
+
+                    // 1px Dark Separator
+                    Rectangle {
+                        width: 1px;
+                        background: Theme.accent-pressed;
+                    }
+
+                    // Chevron Options Section (compact width: 32px)
+                    Rectangle {
+                        width: 32px;
+                        background: opt-touch.pressed ? Theme.accent-pressed :
+                                    ((opt-touch.has-hover || opt_popup.is-open) ? Theme.accent-hover : transparent);
+
+                        Text {
+                            text: "▼";
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 10px;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            width: 100%;
+                            height: 100%;
+                        }
+
+                        opt-touch := TouchArea {
+                            clicked => {
+                                if (inst_popup.is-open) {
+                                    inst_popup.close();
+                                }
+                                if (opt_popup.is-open) {
+                                    opt_popup.close();
+                                } else {
+                                    opt_popup.show();
+                                    root.play-options-clicked();
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // LAUNCHING STATE: [✕ Cancel | LAUNCHING...]
+                if root.is-launching: HorizontalLayout {
+                    spacing: 0px;
+
+                    // 1. Red Abort / Cancel Button
+                    Rectangle {
+                        width: 44px;
+                        background: cancel-touch.pressed ? #A93226 : (cancel-touch.has-hover ? #C0392B : #E74C3C);
+
+                        Text {
+                            text: "X";
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 13px;
+                            font-weight: 700;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            width: 100%;
+                            height: 100%;
+                        }
+
+                        cancel-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.cancel-launch();
+                            }
+                        }
+                    }
+
+                    // 1px Divider between Abort and Status
+                    Rectangle {
+                        width: 1px;
+                        background: #78281F;
+                    }
+
+                    // 2. Center "LAUNCHING..." Status Bar
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        background: #1C2028;
+
+                        Text {
+                            text: "LAUNCHING...";
+                            color: #F1C40F;
+                            font-family: Theme.font-family;
+                            font-size: 11px;
+                            font-weight: 700;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            width: 100%;
+                            height: 100%;
+                        }
+                    }
+                }
+            }
+
+            // --- Right: Dynamic Launch Logs / Profile (Clamped & Stationary) ---
+            Rectangle {
+                x: (parent.width + play_btn.width) / 2 + 16px;
+                y: 0px;
+                width: max(160px, (parent.width - play_btn.width) / 2 - 40px);
+                height: parent.height;
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 2px;
+                    width: 100%;
+                    height: 100%;
+
+                    if root.is-launching && root.show-launch-logs: Text {
+                        text: root.launch-log-text != "" ? root.launch-log-text : "Launching game session...";
+                        color: Theme.accent;
+                        font-family: Theme.font-family;
+                        font-size: 10px;
+                        font-weight: 700;
+                        horizontal-alignment: right;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+
+                    if !root.is-launching: Text {
+                        text: root.profile-name;
+                        color: Theme.text-muted;
+                        font-family: Theme.font-family;
+                        font-size: 10px;
+                        horizontal-alignment: right;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+}

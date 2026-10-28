@@ -1,0 +1,439 @@
+import { Theme } from "../theme.slint";
+import { PixelButton, SearchInput } from "../components.slint";
+
+export struct ScreenshotCardData {
+    id: string,
+    name: string,
+    date: string,
+    path: string,
+    preview: image,
+}
+
+component ScreenshotCard inherits Rectangle {
+    in-out property <ScreenshotCardData> data;
+    in-out property <bool> animations-enabled: true;
+    callback view();
+    callback delete();
+
+    // 16:9 widescreen aspect ratio matching game screenshot geometry
+    height: self.width * 9 / 16;
+    background: #15171D;
+    border-width: 1px;
+    border-color: root.is-hovered ? #3D4556 : #282C38;
+    clip: true;
+
+    // Full-Bleed Edge-to-Edge Screenshot Image
+    Image {
+        width: 100%;
+        height: 100%;
+        source: root.data.preview;
+        image-fit: cover;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    // Subtle bottom gradient vignette for contrast
+    Rectangle {
+        y: parent.height - 48px;
+        width: 100%;
+        height: 48px;
+        background: @linear-gradient(180deg, #00000000 0%, #0A0C10E6 100%);
+    }
+
+    // Primary Card Touch Area for Lightbox Expansion
+    card-touch := TouchArea {
+        width: 100%;
+        height: 100%;
+        mouse-cursor: pointer;
+        clicked => { root.view(); }
+    }
+
+    // Hover detection & control positioning (Locker design pattern)
+    property <bool> is-hovered: card-touch.has-hover || del-touch.has-hover;
+    property <length> controls-y: root.is-hovered ? 8px : -34px;
+    property <length> footer-y: root.is-hovered ? (root.height - 30px) : root.height + 4px;
+
+    // Top-Left: Date & Time Badge (Slides down on hover)
+    Rectangle {
+        x: 8px;
+        y: root.controls-y;
+        height: 22px;
+        background: #141720E6;
+        border-width: 1px;
+        border-color: #2F3646;
+
+        animate y { duration: root.animations-enabled ? 120ms : 0ms; easing: ease-out; }
+
+        HorizontalLayout {
+            padding-left: 8px;
+            padding-right: 8px;
+            alignment: center;
+            Text {
+                text: root.data.date;
+                color: #A0AABF;
+                font-family: Theme.font-family;
+                font-size: 8px;
+                font-weight: 700;
+                vertical-alignment: center;
+            }
+        }
+    }
+
+    // Top-Right: Delete Button ("X", Slides down on hover)
+    Rectangle {
+        x: parent.width - self.width - 8px;
+        y: root.controls-y;
+        width: 22px;
+        height: 22px;
+        background: del-touch.has-hover ? #C0392B : #E74C3C;
+        border-width: 1px;
+        border-color: del-touch.has-hover ? #962D22 : #E74C3C;
+
+        animate y { duration: root.animations-enabled ? 120ms : 0ms; easing: ease-out; }
+
+        Text {
+            text: "X";
+            color: #FFFFFF;
+            font-family: Theme.font-family;
+            font-size: 10px;
+            font-weight: 700;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+
+        del-touch := TouchArea {
+            mouse-cursor: pointer;
+            clicked => {
+                root.delete();
+            }
+        }
+    }
+
+    // Bottom: Slide-up Filename Caption Bar (Slides up on hover)
+    Rectangle {
+        x: 8px;
+        y: root.footer-y;
+        width: parent.width - 16px;
+        height: 22px;
+        background: #10131AE6;
+        border-width: 1px;
+        border-color: #2F3646;
+
+        animate y { duration: root.animations-enabled ? 120ms : 0ms; easing: ease-out; }
+
+        HorizontalLayout {
+            padding-left: 8px;
+            padding-right: 8px;
+            alignment: space-between;
+
+            Text {
+                text: root.data.name;
+                color: #FFFFFF;
+                font-family: Theme.font-family;
+                font-size: 9px;
+                font-weight: 700;
+                overflow: elide;
+                vertical-alignment: center;
+            }
+
+            Text {
+                text: "EXPAND";
+                color: Theme.accent;
+                font-family: Theme.font-family;
+                font-size: 8px;
+                font-weight: 700;
+                vertical-alignment: center;
+            }
+        }
+    }
+}
+
+export component ScreenshotsScreen {
+    in-out property <int> screenshot-count: root.screenshots.length;
+    in-out property <[ScreenshotCardData]> screenshots: [];
+    in-out property <bool> lightbox-open: false;
+    in-out property <image> lightbox-image;
+    in-out property <string> lightbox-title: "";
+    in-out property <float> zoom-level: 1.0;
+    in-out property <bool> animations-enabled: true;
+
+    callback open-folder();
+    callback refresh();
+    callback view-screenshot(string);
+    callback delete-screenshot(string);
+
+    Rectangle {
+        background: Theme.main-bg;
+
+        VerticalLayout {
+            padding-left: 24px;
+            padding-right: 24px;
+            padding-top: 20px;
+            padding-bottom: 20px;
+            spacing: 16px;
+
+            // --- Top Header ---
+            HorizontalLayout {
+                alignment: space-between;
+
+                VerticalLayout {
+                    spacing: 2px;
+                    Text {
+                        text: "SCREENSHOTS";
+                        color: Theme.accent;
+                        font-family: Theme.font-family;
+                        font-size: 9px;
+                        font-weight: 700;
+                    }
+                    Text {
+                        text: "Gallery";
+                        color: #FFFFFF;
+                        font-family: Theme.font-family;
+                        font-size: 16px;
+                        font-weight: 700;
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: 10px;
+                    alignment: end;
+
+                    Rectangle {
+                        height: 24px;
+                        background: #15171D;
+                        border-width: 1px;
+                        border-color: #282C38;
+
+                        HorizontalLayout {
+                            padding-left: 10px;
+                            padding-right: 10px;
+                            alignment: center;
+                            Text {
+                                text: root.screenshot-count + " captures";
+                                color: Theme.text-secondary;
+                                font-family: Theme.font-family;
+                                font-size: 9px;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    PixelButton {
+                        text: "Open Folder";
+                        custom-font-size: 10px;
+                        clicked => { root.open-folder(); }
+                    }
+
+                    PixelButton {
+                        text: "Refresh";
+                        primary: true;
+                        custom-font-size: 10px;
+                        clicked => { root.refresh(); }
+                    }
+                }
+            }
+
+            // --- Search Bar ---
+            SearchInput {
+                placeholder: "Search screenshots by name or date...";
+                preferred-input-width: 320px;
+            }
+
+            // --- Multi-Column Aspect-Ratio Gallery Grid (Locker Style) ---
+            if root.screenshots.length > 0: Flickable {
+                vertical-stretch: 1;
+                interactive: true;
+
+                VerticalLayout {
+                    alignment: start;
+                    padding-bottom: 20px;
+
+                    GridLayout {
+                        spacing: 12px;
+
+                        for sc[idx] in root.screenshots: ScreenshotCard {
+                            data: sc;
+                            animations-enabled: root.animations-enabled;
+                            row: idx / 3;
+                            col: mod(idx, 3);
+                            view => {
+                                root.lightbox-image = sc.preview;
+                                root.lightbox-title = sc.name;
+                                root.zoom-level = 1.0;
+                                root.lightbox-open = true;
+                                root.view-screenshot(sc.id);
+                            }
+                            delete => { root.delete-screenshot(sc.id); }
+                        }
+                    }
+                }
+            }
+
+            // --- Clean Empty State (when 0 screenshots) ---
+            if root.screenshots.length == 0: Rectangle {
+                vertical-stretch: 1;
+                background: Theme.card-bg;
+                border-width: 1px;
+                border-color: Theme.border;
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 10px;
+
+                    Rectangle {
+                        width: 44px;
+                        height: 44px;
+                        background: #141720;
+                        border-width: 1px;
+                        border-color: #282C38;
+
+                        Text {
+                            text: "[ ]";
+                            color: Theme.accent;
+                            font-family: Theme.font-family;
+                            font-size: 16px;
+                            font-weight: 700;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    Text {
+                        text: "No Screenshots Yet";
+                        color: Theme.text-primary;
+                        font-family: Theme.font-family;
+                        font-size: 14px;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                    }
+                    Text {
+                        text: "Capture in-game memories anytime by pressing F2 while playing Minecraft.";
+                        color: Theme.text-secondary;
+                        font-family: Theme.font-family;
+                        font-size: 10px;
+                        horizontal-alignment: center;
+                    }
+                    HorizontalLayout {
+                        alignment: center;
+                        PixelButton {
+                            text: "Open Screenshots Directory";
+                            custom-font-size: 10px;
+                            clicked => { root.open-folder(); }
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- Lightbox High-Res Zoom Modal ---
+        if root.lightbox-open: Rectangle {
+            background: #080A0EF2;
+
+            VerticalLayout {
+                padding: 24px;
+                spacing: 12px;
+
+                HorizontalLayout {
+                    alignment: space-between;
+
+                    HorizontalLayout {
+                        spacing: 14px;
+                        alignment: start;
+
+                        Text {
+                            text: root.lightbox-title;
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 13px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+
+                        // Zoom Level Badge
+                        Rectangle {
+                            height: 22px;
+                            background: #141720;
+                            border-width: 1px;
+                            border-color: Theme.accent;
+
+                            HorizontalLayout {
+                                padding-left: 8px;
+                                padding-right: 8px;
+                                alignment: center;
+                                Text {
+                                    text: Math.round(root.zoom-level * 100) + "%";
+                                    color: Theme.accent;
+                                    font-family: Theme.font-family;
+                                    font-size: 9px;
+                                    font-weight: 700;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        alignment: end;
+
+                        PixelButton {
+                            text: "- Zoom Out";
+                            custom-font-size: 10px;
+                            clicked => {
+                                root.zoom-level = Math.max(0.5, root.zoom-level - 0.25);
+                            }
+                        }
+
+                        PixelButton {
+                            text: "Fit (100%)";
+                            custom-font-size: 10px;
+                            clicked => {
+                                root.zoom-level = 1.0;
+                            }
+                        }
+
+                        PixelButton {
+                            text: "+ Zoom In";
+                            custom-font-size: 10px;
+                            clicked => {
+                                root.zoom-level = Math.min(3.0, root.zoom-level + 0.25);
+                            }
+                        }
+
+                        PixelButton {
+                            text: "X Close";
+                            danger: true;
+                            custom-font-size: 10px;
+                            clicked => {
+                                root.lightbox-open = false;
+                                root.zoom-level = 1.0;
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    vertical-stretch: 1;
+                    background: #0E1014;
+                    border-width: 1px;
+                    border-color: #2D3039;
+                    clip: true;
+
+                    Flickable {
+                        interactive: root.zoom-level > 1.0;
+                        width: parent.width;
+                        height: parent.height;
+
+                        Image {
+                            source: root.lightbox-image;
+                            width: parent.width * root.zoom-level;
+                            height: parent.height * root.zoom-level;
+                            image-fit: contain;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

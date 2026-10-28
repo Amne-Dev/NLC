@@ -1,0 +1,1475 @@
+import { Theme } from "../theme.slint";
+import { PixelButton, SearchInput } from "../components.slint";
+import { InstallationChoice, ModpackData } from "modpacks.slint";
+import { LoadingSpinner } from "../loading_spinner.slint";
+
+export struct ModrinthProjectData {
+    id: string,
+    slug: string,
+    title: string,
+    description: string,
+    author: string,
+    downloads: string,
+    follows: string,
+    project-type: string,
+    loaders: string,
+    versions: string,
+    icon-url: string,
+    install-status: string,
+    has-icon: bool,
+    icon: image,
+}
+
+export struct ModrinthGalleryItem {
+    url: string,
+    title: string,
+    description: string,
+    has-image: bool,
+    image: image,
+}
+
+export struct ModrinthVersionData {
+    id: string,
+    name: string,
+    version-number: string,
+    game-versions: string,
+    loaders: string,
+    filename: string,
+    file-size: string,
+    download-url: string,
+    sha1: string,
+    install-status: string,
+}
+
+// -----------------------------------------------------------------------------
+// Component: ModrinthCombobox (Sharp 0px Dropdown Combobox)
+// -----------------------------------------------------------------------------
+component ModrinthCombobox {
+    in-out property <string> selected-value: "";
+    in-out property <[string]> options: [];
+    in-out property <length> custom-height: 28px;
+    in-out property <length> custom-width: 110px;
+    callback selected(string);
+
+    height: root.custom-height;
+    width: root.custom-width;
+
+    box := Rectangle {
+        background: Theme.input-bg;
+        border-width: 1px;
+        border-color: (popup.is-open || touch.has-hover) ? Theme.border-focus : Theme.border;
+
+        HorizontalLayout {
+            padding-left: 8px;
+            padding-right: 8px;
+            alignment: space-between;
+
+            Text {
+                text: root.selected-value;
+                color: #FFFFFF;
+                font-family: Theme.font-family;
+                font-size: 10px;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+
+            Text {
+                text: "▼";
+                font-family: Theme.icon-font-family;
+                font-size: 7px;
+                color: Theme.text-secondary;
+                vertical-alignment: center;
+            }
+        }
+
+        touch := TouchArea {
+            clicked => {
+                if (popup.is-open) {
+                    popup.close();
+                } else {
+                    popup.show();
+                }
+            }
+        }
+
+        popup := PopupWindow {
+            x: 0px;
+            y: root.custom-height + 2px;
+            width: Math.max(box.width, 130px);
+            height: root.options.length > 7 ? 190px : (root.options.length * 27px + 6px);
+
+            Rectangle {
+                background: #191B20;
+                border-width: 1px;
+                border-color: #383D4C;
+
+                Flickable {
+                    content-height: root.options.length * 27px;
+
+                    VerticalLayout {
+                        padding: 3px;
+                        spacing: 1px;
+
+                        for opt[idx] in root.options: Rectangle {
+                            height: 26px;
+                            background: item-touch.pressed ? #121417 :
+                                        (item-touch.has-hover ? #252A36 : (root.selected-value == opt ? #20242E : transparent));
+
+                            HorizontalLayout {
+                                padding-left: 8px;
+                                padding-right: 8px;
+                                alignment: start;
+
+                                Text {
+                                    text: opt;
+                                    color: root.selected-value == opt ? Theme.accent : #E0E2EB;
+                                    font-family: Theme.font-family;
+                                    font-size: 10px;
+                                    font-weight: root.selected-value == opt ? 700 : 400;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            item-touch := TouchArea {
+                                clicked => {
+                                    root.selected-value = opt;
+                                    root.selected(opt);
+                                    popup.close();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Component: ModrinthCardSkeleton (Responsive Pixel-Aligned Skeleton Card)
+// -----------------------------------------------------------------------------
+component ModrinthCardSkeleton {
+    height: 94px;
+    horizontal-stretch: 1;
+
+    Rectangle {
+        background: Theme.card-bg;
+        border-width: 1px;
+        border-color: Theme.border;
+
+        HorizontalLayout {
+            padding: 10px;
+            spacing: 12px;
+
+            // Thumbnail skeleton
+            Rectangle {
+                width: 68px;
+                height: 68px;
+                y: (parent.height - self.height) / 2;
+                background: #1A1D26;
+                border-width: 1px;
+                border-color: #262935;
+            }
+
+            // Project Info Details
+            VerticalLayout {
+                horizontal-stretch: 1;
+                spacing: 8px;
+                alignment: center;
+
+                // Title + Subtitle bars
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: start;
+
+                    Rectangle {
+                        width: 160px;
+                        height: 14px;
+                        background: #232733;
+                    }
+                    Rectangle {
+                        width: 90px;
+                        height: 12px;
+                        background: #1A1D26;
+                    }
+                }
+
+                // Description skeleton lines (responsive max-width)
+                Rectangle {
+                    horizontal-stretch: 1;
+                    max-width: 440px;
+                    height: 10px;
+                    background: #1A1D26;
+                }
+                Rectangle {
+                    horizontal-stretch: 1;
+                    max-width: 290px;
+                    height: 10px;
+                    background: #161820;
+                }
+
+                // Metadata Badges Row skeleton
+                HorizontalLayout {
+                    spacing: 12px;
+                    alignment: start;
+
+                    Rectangle {
+                        width: 60px;
+                        height: 10px;
+                        background: #1A1D26;
+                    }
+                    Rectangle {
+                        width: 50px;
+                        height: 10px;
+                        background: #1A1D26;
+                    }
+                    Rectangle {
+                        width: 80px;
+                        height: 10px;
+                        background: #1A1D26;
+                    }
+                }
+            }
+
+            // Right action button skeleton
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 108px;
+                    height: 28px;
+                    background: #1E222D;
+                    border-width: 1px;
+                    border-color: #2C303F;
+                }
+            }
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Component: ModrinthCard (0px Sharp Project Card)
+// -----------------------------------------------------------------------------
+component ModrinthCard {
+    in-out property <ModrinthProjectData> data;
+    in-out property <string> destination: "Global (.minecraft)";
+    in-out property <string> current-mode: "mod";
+    in-out property <string> selected-loader: "All";
+    property <bool> show-loader-badge: (root.current-mode == "modpack" || root.data.project-type == "modpack")
+        && (root.selected-loader == "All" || root.selected-loader == "all" || root.selected-loader == "")
+        && root.data.loaders != "";
+    in-out property <bool> share-resource-packs: true;
+    in-out property <bool> share-shader-packs: true;
+    property <bool> requires-destination: root.data.project-type == "mod"
+        || (root.data.project-type == "resourcepack" && !root.share-resource-packs)
+        || (root.data.project-type == "shader" && !root.share-shader-packs);
+    property <bool> can-install: !root.requires-destination || (root.destination != "Global (.minecraft)" && root.destination != "Global" && root.destination != "");
+    callback open-details();
+    callback install();
+
+    height: 94px;
+    horizontal-stretch: 1;
+
+    Rectangle {
+        background: card-touch.has-hover ? Theme.card-hover : Theme.card-bg;
+        border-width: 1px;
+        border-color: card-touch.has-hover ? #383D4D : Theme.border;
+
+        card-touch := TouchArea {
+            clicked => { root.open-details(); }
+        }
+
+        HorizontalLayout {
+            padding: 10px;
+            spacing: 12px;
+
+            // Thumbnail / Icon
+            Rectangle {
+                width: 68px;
+                height: 68px;
+                y: (parent.height - self.height) / 2;
+                background: #16181E;
+                border-width: 1px;
+                border-color: #2D3038;
+
+                if root.data.has-icon: Image {
+                    source: root.data.icon;
+                    width: 52px;
+                    height: 52px;
+                    image-fit: contain;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+                if !root.data.has-icon && root.data.project-type == "mod": Image {
+                    source: @image-url("../../../../icons/2x/comparator_on.png");
+                    width: 36px;
+                    height: 36px;
+                    image-fit: contain;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+                if !root.data.has-icon && root.data.project-type == "resourcepack": Image {
+                    source: @image-url("../../../../icons/2x/painting.png");
+                    width: 36px;
+                    height: 36px;
+                    image-fit: contain;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+                if !root.data.has-icon && root.data.project-type == "modpack": Image {
+                    source: @image-url("../../../../icons/2x/shulker_box.png");
+                    width: 36px;
+                    height: 36px;
+                    image-fit: contain;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+                if !root.data.has-icon && root.data.project-type == "shader": Image {
+                    source: @image-url("../../../../icons/2x/glowstone.png");
+                    width: 36px;
+                    height: 36px;
+                    image-fit: contain;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+
+            // Project Info Details (Left-aligned)
+            VerticalLayout {
+                horizontal-stretch: 1;
+                spacing: 4px;
+                alignment: start;
+
+                // Title + Author + Type Tag
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: start;
+
+                    Text {
+                        text: root.data.title;
+                        color: #FFFFFF;
+                        font-family: Theme.font-family;
+                        font-size: 13px;
+                        font-weight: 700;
+                        horizontal-alignment: left;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+
+                    if root.data.author != "": Text {
+                        text: "by " + root.data.author;
+                        color: Theme.text-secondary;
+                        font-family: Theme.font-family;
+                        font-size: 10px;
+                        horizontal-alignment: left;
+                        vertical-alignment: center;
+                    }
+
+                    // Modloader Badge (ONLY on modpacks when loader filter is 'All')
+                    if root.show-loader-badge: Rectangle {
+                        height: 16px;
+                        background: #15222E;
+                        border-width: 1px;
+                        border-color: Theme.accent;
+
+                        HorizontalLayout {
+                            padding-left: 6px;
+                            padding-right: 6px;
+                            alignment: center;
+                            Text {
+                                text: root.data.loaders;
+                                color: Theme.accent;
+                                font-family: Theme.font-family;
+                                font-size: 8px;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+
+                // Summary Description (Left-aligned)
+                Text {
+                    text: root.data.description;
+                    color: Theme.text-secondary;
+                    font-family: Theme.font-family;
+                    font-size: 10px;
+                    horizontal-alignment: left;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+
+                // Metadata Badges Row
+                HorizontalLayout {
+                    spacing: 12px;
+                    alignment: start;
+
+                    HorizontalLayout {
+                        spacing: 4px;
+                        Text {
+                            text: "⬇";
+                            font-family: Theme.icon-font-family;
+                            font-size: 9px;
+                            color: Theme.text-muted;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: root.data.downloads;
+                            color: Theme.text-muted;
+                            font-family: Theme.font-family;
+                            font-size: 9px;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 4px;
+                        Text {
+                            text: "★";
+                            font-family: Theme.icon-font-family;
+                            font-size: 9px;
+                            color: Theme.text-muted;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: root.data.follows;
+                            color: Theme.text-muted;
+                            font-family: Theme.font-family;
+                            font-size: 9px;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    if root.data.loaders != "": HorizontalLayout {
+                        spacing: 4px;
+                        Text {
+                            text: "[" + root.data.loaders + "]";
+                            color: #7A8294;
+                            font-family: Theme.font-family;
+                            font-size: 9px;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    if root.data.versions != "": HorizontalLayout {
+                        spacing: 4px;
+                        Text {
+                            text: root.data.versions;
+                            color: #7A8294;
+                            font-family: Theme.font-family;
+                            font-size: 9px;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+
+            // Actions Area
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: end;
+                y: (parent.height - self.height) / 2;
+                height: 28px;
+                horizontal-stretch: 0;
+
+                // View Details Button
+                PixelButton {
+                    text: "Details";
+                    clicked => { root.open-details(); }
+                }
+
+                // Install Button
+                if root.data.install-status == "installing": Rectangle {
+                    height: 28px;
+                    background: #3A2E12;
+                    border-width: 1px;
+                    border-color: Theme.warning;
+
+                    HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 12px;
+                        alignment: center;
+                        Text {
+                            text: "Installing...";
+                            color: Theme.warning;
+                            font-family: Theme.font-family;
+                            font-size: 11px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                if root.data.install-status == "installed": Rectangle {
+                    height: 28px;
+                    background: #153322;
+                    border-width: 1px;
+                    border-color: Theme.success;
+
+                    HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 12px;
+                        alignment: center;
+                        Text {
+                            text: "INSTALLED";
+                            color: Theme.success;
+                            font-family: Theme.font-family;
+                            font-size: 11px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                if root.data.install-status != "installing" && root.data.install-status != "installed": PixelButton {
+                    text: !root.can-install ? "Select Destination" :
+                          (root.data.project-type == "modpack" ? "Install Pack" : "Install");
+                    primary: root.can-install;
+                    clicked => { root.install(); }
+                }
+            }
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Component: ModrinthScreen (Browse View + Full Project Details View)
+// -----------------------------------------------------------------------------
+export component ModrinthScreen {
+    in-out property <string> current-mode: "mod"; // "mod", "resourcepack", "modpack", "shader"
+    in-out property <bool> share-resource-packs: true;
+    in-out property <bool> share-shader-packs: true;
+    in-out property <string> view-mode: "browse"; // "browse", "details"
+    in-out property <string> search-query: "";
+    in-out property <string> selected-destination: "Global (.minecraft)";
+    in-out property <string> selected-version: "All";
+    in-out property <string> selected-loader: "All";
+    in-out property <string> selected-sort: "Relevance";
+    in-out property <bool> is-loading: false;
+    in-out property <image> loading-spinner-frame;
+    in-out property <bool> has-more: true;
+    in-out property <string> status-text: "";
+
+    in-out property <[ModrinthProjectData]> projects: [];
+    in-out property <[InstallationChoice]> installations: [];
+    in-out property <[ModpackData]> modpacks: [];
+    in-out property <[string]> destination-options: ["Global (.minecraft)"];
+    in-out property <[string]> available-versions: ["All", "26.3", "26.2", "26.1", "1.21.4", "1.21.3", "1.21.1", "1.20.4", "1.20.1", "1.19.4", "1.18.2", "1.16.5", "1.12.2", "1.8.9"];
+    in-out property <[string]> available-loaders: ["All", "fabric", "forge", "neoforge", "quilt"];
+    in-out property <[string]> sort-options: ["Relevance", "Downloads", "Follows", "Newest", "Updated"];
+
+    // Project Details Data
+    in-out property <string> details-project-id: "";
+    in-out property <string> details-title: "";
+    in-out property <string> details-author: "";
+    in-out property <string> details-description: "";
+    in-out property <string> details-body: "";
+    in-out property <string> details-downloads: "";
+    in-out property <string> details-follows: "";
+    in-out property <string> details-project-type: "mod";
+    in-out property <string> details-loaders: "";
+    in-out property <string> details-game-versions: "";
+    in-out property <[ModrinthVersionData]> details-versions: [];
+    in-out property <[ModrinthGalleryItem]> details-gallery: [];
+    in-out property <string> details-active-tab: "overview";
+    in-out property <bool> details-versions-loaded: false;
+    in-out property <string> details-install-status: "idle";
+    in-out property <bool> details-has-icon: false;
+    in-out property <image> details-icon;
+
+    // Callbacks to Rust backend
+    callback search(string, string, string, string, string); // query, mode, loader, version, sort
+    callback open-details(string); // project_id
+    callback close-details();
+    callback install-artifact(string, string, string, string); // project_id, project_type, target_id, version_id
+    callback select-mode(string); // "mod", "resourcepack", "modpack", "shader"
+    callback load-more();
+    callback load-details-versions(string); // project_id (on-demand version loader)
+
+    init => {
+        if (root.projects.length == 0 && !root.is-loading) {
+            root.search(root.search-query, root.current-mode != "" ? root.current-mode : "mod", root.selected-loader, root.selected-version, root.selected-sort);
+        }
+    }
+
+    Rectangle {
+        background: Theme.main-bg;
+
+        // =====================================================================
+        // VIEW: BROWSE DISCOVERY LIST
+        // =====================================================================
+        if root.view-mode == "browse": VerticalLayout {
+            padding-left: 24px;
+            padding-right: 24px;
+            padding-top: 16px;
+            padding-bottom: 16px;
+            spacing: 14px;
+
+            // Dynamic infinite scroll timer: triggers when user reaches bottom of results
+            Timer {
+                interval: 200ms;
+                running: root.has-more && !root.is-loading && root.projects.length > 0;
+                triggered => {
+                    if (-flick.content-y + flick.height >= flick.content-height - 180px) {
+                        root.load-more();
+                    }
+                }
+            }
+
+
+            // --- Search & Filters Bar (2-tier adaptive layout for responsive unmaximized windows) ---
+            VerticalLayout {
+                spacing: 8px;
+
+                // Row 1: Destination Selector (if mod) + Inline Search Bar
+                HorizontalLayout {
+                    spacing: 12px;
+
+                    // 1. Destination Selector (only required when installing mods)
+                    if root.current-mode == "mod" || (root.current-mode == "resourcepack" && !root.share-resource-packs) || (root.current-mode == "shader" && !root.share-shader-packs): HorizontalLayout {
+                        horizontal-stretch: 0;
+                        spacing: 8px;
+                        alignment: start;
+                        Text {
+                            text: "Destination:";
+                            color: Theme.text-secondary;
+                            font-family: Theme.font-family;
+                            font-size: 10px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+                        ModrinthCombobox { 
+                            selected-value <=> root.selected-destination;
+                            options <=> root.destination-options;
+                            custom-width: 140px;
+                            selected(dest) => {
+                                root.selected-destination = dest;
+                            }
+                        }
+                    }
+
+                    // 2. Inline Search Input (taking remaining width)
+                    SearchInput {
+                        text <=> root.search-query;
+                        placeholder: root.current-mode == "resourcepack" ? "Search resource packs..." : 
+                                     root.current-mode == "modpack" ? "Search modpacks..." : 
+                                     root.current-mode == "shader" ? "Search shaders..." : "Search mods...";
+                        horizontal-stretch: 1;
+                        edited(q) => {
+                            root.search-query = q;
+                            root.search(q, root.current-mode, root.selected-loader, root.selected-version, root.selected-sort);
+                        }
+                        accepted(q) => {
+                            root.search-query = q;
+                            root.search(q, root.current-mode, root.selected-loader, root.selected-version, root.selected-sort);
+                        }
+                    }
+                }
+
+                // Row 2: Loader Filter + Version Filter + Sort Filter + Status Text
+                HorizontalLayout {
+                    spacing: 12px;
+                    alignment: start;
+
+                    // 3. Loader Filter (fabric, forge, etc.)
+                    if root.current-mode != "resourcepack" && root.current-mode != "shader": ModrinthCombobox {
+                        selected-value <=> root.selected-loader;
+                        options <=> root.available-loaders;
+                        custom-width: 90px;
+                        selected(l) => {
+                            root.selected-loader = l;
+                            root.search(root.search-query, root.current-mode, l, root.selected-version, root.selected-sort);
+                        }
+                    }
+
+                    // 4. Version Filter (All, 1.21.1, etc.)
+                    ModrinthCombobox {
+                        selected-value <=> root.selected-version;
+                        options <=> root.available-versions;
+                        custom-width: 80px;
+                        selected(v) => {
+                            root.selected-version = v;
+                            root.search(root.search-query, root.current-mode, root.selected-loader, v, root.selected-sort);
+                        }
+                    }
+
+                    // 5. Sort Filter (Relevance, Downloads, etc.)
+                    ModrinthCombobox {
+                        selected-value <=> root.selected-sort;
+                        options <=> root.sort-options;
+                        custom-width: 100px;
+                        selected(s) => {
+                            root.selected-sort = s;
+                            root.search(root.search-query, root.current-mode, root.selected-loader, root.selected-version, s);
+                        }
+                    }
+
+                    // 6. Status Text / Progress (Only non-searching alerts/toasts)
+                    if root.status-text != "" && !root.is-loading: Text {
+                        text: root.status-text;
+                        color: Theme.accent;
+                        font-family: Theme.font-family;
+                        font-size: 10px;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                }
+            }
+
+            // --- Projects List Canvas ---
+            flick := Flickable {
+                interactive: true;
+                vertical-stretch: 1;
+
+                VerticalLayout {
+                    spacing: 8px;
+
+                    for proj in root.projects: ModrinthCard {
+                        data: proj;
+                        destination: root.selected-destination;
+                        current-mode: root.current-mode;
+                        selected-loader: root.selected-loader;
+                        open-details => {
+                            root.details-has-icon = proj.has-icon;
+                            root.details-icon = proj.icon;
+                            root.open-details(proj.id);
+                        }
+                        install => {
+                            root.install-artifact(proj.id, proj.project-type, root.selected-destination, "");
+                        }
+                    }
+
+                    if root.projects.length > 0 && root.has-more: Rectangle {
+                        height: 38px;
+                        background: transparent;
+
+                        HorizontalLayout {
+                            alignment: center;
+                            if root.is-loading: Text {
+                                text: "Loading more projects...";
+                                color: Theme.accent;
+                                font-family: Theme.font-family;
+                                font-size: 11px;
+                                vertical-alignment: center;
+                            }
+                            if !root.is-loading: Text {
+                                text: "Scroll to load more (" + root.projects.length + " loaded)";
+                                color: Theme.text-muted;
+                                font-family: Theme.font-family;
+                                font-size: 10px;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    if root.projects.length > 0 && !root.has-more: Rectangle {
+                        height: 36px;
+                        background: transparent;
+
+                        HorizontalLayout {
+                            alignment: center;
+                            Text {
+                                text: "All " + root.projects.length + " projects loaded";
+                                color: Theme.text-muted;
+                                font-family: Theme.font-family;
+                                font-size: 10px;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    if root.projects.length == 0: VerticalLayout {
+                        spacing: 8px;
+
+                        if root.is-loading: Rectangle {
+                            height: 170px;
+                            background: Theme.card-bg;
+                            border-width: 1px;
+                            border-color: Theme.border;
+
+                            LoadingSpinner {
+                                frame: root.loading-spinner-frame;
+                                message: "Loading " + (root.current-mode == "modpack" ? "Modpacks" : root.current-mode == "resourcepack" ? "Resource Packs" : root.current-mode == "shader" ? "Shaders" : "Mods") + "...";
+                                sub-message: "Fetching latest releases from Modrinth network";
+                                spinner-size: 64px;
+                            }
+                        }
+
+                        if root.is-loading: ModrinthCardSkeleton {}
+                        if root.is-loading: ModrinthCardSkeleton {}
+                        if root.is-loading: ModrinthCardSkeleton {}
+                        if root.is-loading: ModrinthCardSkeleton {}
+
+                        if !root.is-loading: Rectangle {
+                            height: 120px;
+                            background: Theme.card-bg;
+                            border-width: 1px;
+                            border-color: Theme.border;
+
+                            VerticalLayout {
+                                alignment: center;
+                                spacing: 8px;
+                                Text {
+                                    text: "Nothing to show here";
+                                    color: Theme.text-primary;
+                                    font-family: Theme.font-family;
+                                    font-size: 13px;
+                                    font-weight: 700;
+                                    horizontal-alignment: center;
+                                }
+                                Text {
+                                    text: "No projects found matching the criteria.";
+                                    color: Theme.text-secondary;
+                                    font-family: Theme.font-family;
+                                    font-size: 11px;
+                                    horizontal-alignment: center;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // =====================================================================
+        // VIEW: FULL PROJECT DETAILS & VERSIONS
+        // =====================================================================
+        if root.view-mode == "details": VerticalLayout {
+            padding-left: 24px;
+            padding-right: 24px;
+            padding-top: 16px;
+            padding-bottom: 16px;
+            spacing: 14px;
+
+            // --- Top Header Bar ---
+            HorizontalLayout {
+                spacing: 12px;
+                alignment: space-between;
+
+                HorizontalLayout {
+                    spacing: 12px;
+                    alignment: start;
+
+                    PixelButton {
+                        text: "← Back to Browse";
+                        clicked => {
+                            root.view-mode = "browse";
+                            root.close-details();
+                        }
+                    }
+
+                    // Large Project Icon
+                    Rectangle {
+                        width: 48px;
+                        height: 48px;
+                        y: (parent.height - self.height) / 2;
+                        background: #16181E;
+                        border-width: 1px;
+                        border-color: #2D3038;
+
+                        if root.details-has-icon: Image {
+                            source: root.details-icon;
+                            width: 38px;
+                            height: 38px;
+                            image-fit: contain;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                        if !root.details-has-icon && root.details-project-type == "mod": Image {
+                            source: @image-url("../../../../icons/2x/comparator_on.png");
+                            width: 28px;
+                            height: 28px;
+                            image-fit: contain;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                        if !root.details-has-icon && root.details-project-type == "resourcepack": Image {
+                            source: @image-url("../../../../icons/2x/painting.png");
+                            width: 28px;
+                            height: 28px;
+                            image-fit: contain;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                        if !root.details-has-icon && root.details-project-type == "modpack": Image {
+                            source: @image-url("../../../../icons/2x/shulker_box.png");
+                            width: 28px;
+                            height: 28px;
+                            image-fit: contain;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                        if !root.details-has-icon && root.details-project-type == "shader": Image {
+                            source: @image-url("../../../../icons/2x/glowstone.png");
+                            width: 28px;
+                            height: 28px;
+                            image-fit: contain;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    VerticalLayout {
+                        spacing: 2px;
+                        alignment: center;
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text {
+                                text: root.details-title;
+                                color: #FFFFFF;
+                                font-family: Theme.font-family;
+                                font-size: 15px;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+                            if root.details-author != "": Text {
+                                text: "by " + root.details-author;
+                                color: Theme.text-secondary;
+                                font-family: Theme.font-family;
+                                font-size: 11px;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 12px;
+                            Text {
+                                text: "Downloads: " + root.details-downloads;
+                                color: Theme.text-muted;
+                                font-family: Theme.font-family;
+                                font-size: 9px;
+                                vertical-alignment: center;
+                            }
+                            Text {
+                                text: "Followers: " + root.details-follows;
+                                color: Theme.text-muted;
+                                font-family: Theme.font-family;
+                                font-size: 9px;
+                                vertical-alignment: center;
+                            }
+                            if root.details-loaders != "": Text {
+                                text: "Loaders: " + root.details-loaders;
+                                color: Theme.text-muted;
+                                font-family: Theme.font-family;
+                                font-size: 9px;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+
+                // Primary Install Action
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: end;
+
+                    if root.details-install-status == "installing": Rectangle {
+                        height: 32px;
+                        background: #3A2E12;
+                        border-width: 1px;
+                        border-color: Theme.warning;
+
+                        HorizontalLayout {
+                            padding-left: 16px;
+                            padding-right: 16px;
+                            alignment: center;
+                            Text {
+                                text: "Installing...";
+                                color: Theme.warning;
+                                font-family: Theme.font-family;
+                                font-size: 11px;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    if root.details-install-status == "installed": Rectangle {
+                        height: 32px;
+                        background: #153322;
+                        border-width: 1px;
+                        border-color: Theme.success;
+
+                        HorizontalLayout {
+                            padding-left: 16px;
+                            padding-right: 16px;
+                            alignment: center;
+                            Text {
+                                text: "INSTALLED";
+                                color: Theme.success;
+                                font-family: Theme.font-family;
+                                font-size: 11px;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    if root.details-install-status != "installing" && root.details-install-status != "installed": PixelButton {
+                        text: ((root.details-project-type == "mod" || (root.details-project-type == "resourcepack" && !root.share-resource-packs) || (root.details-project-type == "shader" && !root.share-shader-packs)) && (root.selected-destination == "Global (.minecraft)" || root.selected-destination == "Global" || root.selected-destination == "")) ? "Select Destination" :
+                              (root.details-project-type == "modpack" ? "Install Latest Pack" : "Install Latest");
+                        primary: (!(root.details-project-type == "mod" || (root.details-project-type == "resourcepack" && !root.share-resource-packs) || (root.details-project-type == "shader" && !root.share-shader-packs))) || (root.selected-destination != "Global (.minecraft)" && root.selected-destination != "Global" && root.selected-destination != "");
+                        custom-font-size: 12px;
+                        clicked => {
+                            root.install-artifact(root.details-project-id, root.details-project-type, root.selected-destination, "");
+                        }
+                    }
+                }
+            }
+
+            // --- Sub-tabs Switcher (Sharp 0px) ---
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: start;
+
+                PixelButton {
+                    text: "📄 Overview";
+                    primary: root.details-active-tab == "overview";
+                    custom-font-size: 11px;
+                    clicked => { root.details-active-tab = "overview"; }
+                }
+
+                PixelButton {
+                    text: root.details-gallery.length > 0 ? ("📸 Screenshots (" + root.details-gallery.length + ")") : "📸 Screenshots";
+                    primary: root.details-active-tab == "gallery";
+                    custom-font-size: 11px;
+                    clicked => { root.details-active-tab = "gallery"; }
+                }
+
+                PixelButton {
+                    text: root.details-versions.length > 0 ? ("📦 Versions (" + root.details-versions.length + ")") : "📦 Versions";
+                    primary: root.details-active-tab == "versions";
+                    custom-font-size: 11px;
+                    clicked => {
+                        root.details-active-tab = "versions";
+                        if (!root.details-versions-loaded && root.details-versions.length == 0) {
+                            root.load-details-versions(root.details-project-id);
+                        }
+                    }
+                }
+            }
+
+            // =================================================================
+            // DETAILS TAB 1: OVERVIEW
+            // =================================================================
+            if root.details-active-tab == "overview": HorizontalLayout {
+                vertical-stretch: 1;
+                spacing: 14px;
+
+                // Description & Body Card
+                Rectangle {
+                    horizontal-stretch: 1;
+                    background: Theme.card-bg;
+                    border-width: 1px;
+                    border-color: Theme.border;
+
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 12px;
+
+                        Text {
+                            text: "PROJECT OVERVIEW";
+                            color: Theme.accent;
+                            font-family: Theme.font-family;
+                            font-size: 11px;
+                            font-weight: 700;
+                        }
+
+                        Flickable {
+                            vertical-stretch: 1;
+
+                            VerticalLayout {
+                                spacing: 12px;
+                                Text {
+                                    text: root.details-description;
+                                    color: #FFFFFF;
+                                    font-family: Theme.font-family;
+                                    font-size: 11px;
+                                    wrap: word-wrap;
+                                }
+
+                                if root.details-body != "": Text {
+                                    text: root.details-body;
+                                    color: Theme.text-secondary;
+                                    font-family: Theme.font-family;
+                                    font-size: 10px;
+                                    wrap: word-wrap;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Quick Gallery Preview (if screenshots exist)
+                if root.details-gallery.length > 0: Rectangle {
+                    width: 280px;
+                    background: Theme.card-bg;
+                    border-width: 1px;
+                    border-color: Theme.border;
+
+                    VerticalLayout {
+                        padding: 14px;
+                        spacing: 10px;
+
+                        HorizontalLayout {
+                            alignment: space-between;
+                            Text {
+                                text: "GALLERY PREVIEW (" + root.details-gallery.length + ")";
+                                color: Theme.accent;
+                                font-family: Theme.font-family;
+                                font-size: 10px;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+                            PixelButton {
+                                text: "View All";
+                                custom-font-size: 9px;
+                                clicked => { root.details-active-tab = "gallery"; }
+                            }
+                        }
+
+                        Flickable {
+                            vertical-stretch: 1;
+
+                            VerticalLayout {
+                                spacing: 8px;
+                                for gal[idx] in root.details-gallery: Rectangle {
+                                    height: 120px;
+                                    background: #14161C;
+                                    border-width: 1px;
+                                    border-color: #262934;
+
+                                    VerticalLayout {
+                                        padding: 6px;
+                                        spacing: 4px;
+
+                                        if gal.has-image: Image {
+                                            source: gal.image;
+                                            height: 85px;
+                                            image-fit: contain;
+                                        }
+                                        if !gal.has-image: Rectangle {
+                                            height: 85px;
+                                            background: #191B22;
+                                            Text {
+                                                text: "📸 Screenshot " + (idx + 1);
+                                                color: Theme.text-secondary;
+                                                font-family: Theme.font-family;
+                                                font-size: 10px;
+                                                horizontal-alignment: center;
+                                                vertical-alignment: center;
+                                            }
+                                        }
+
+                                        Text {
+                                            text: gal.title != "" ? gal.title : ("Screenshot " + (idx + 1));
+                                            color: #FFFFFF;
+                                            font-family: Theme.font-family;
+                                            font-size: 9px;
+                                            overflow: elide;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // =================================================================
+            // DETAILS TAB 2: FULL SCREENSHOTS GALLERY
+            // =================================================================
+            if root.details-active-tab == "gallery": Rectangle {
+                vertical-stretch: 1;
+                background: Theme.card-bg;
+                border-width: 1px;
+                border-color: Theme.border;
+
+                VerticalLayout {
+                    padding: 16px;
+                    spacing: 12px;
+
+                    HorizontalLayout {
+                        alignment: space-between;
+                        Text {
+                            text: "SCREENSHOTS & MEDIA GALLERY (" + root.details-gallery.length + ")";
+                            color: Theme.accent;
+                            font-family: Theme.font-family;
+                            font-size: 12px;
+                            font-weight: 700;
+                        }
+                    }
+
+                    if root.details-gallery.length == 0: Rectangle {
+                        height: 140px;
+                        background: #16181F;
+                        border-width: 1px;
+                        border-color: #282C38;
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 8px;
+                            Text {
+                                text: "No screenshots available for this project.";
+                                color: Theme.text-secondary;
+                                font-family: Theme.font-family;
+                                font-size: 11px;
+                                horizontal-alignment: center;
+                            }
+                        }
+                    }
+
+                    if root.details-gallery.length > 0: Flickable {
+                        interactive: true;
+                        vertical-stretch: 1;
+
+                        VerticalLayout {
+                            spacing: 12px;
+
+                            for gal[idx] in root.details-gallery: Rectangle {
+                                min-height: 180px;
+                                background: #14161C;
+                                border-width: 1px;
+                                border-color: #282C38;
+
+                                HorizontalLayout {
+                                    padding: 12px;
+                                    spacing: 16px;
+
+                                    // Image Thumbnail
+                                    Rectangle {
+                                        width: 260px;
+                                        height: 160px;
+                                        background: #101217;
+                                        border-width: 1px;
+                                        border-color: #20242E;
+
+                                        if gal.has-image: Image {
+                                            source: gal.image;
+                                            width: 100%;
+                                            height: 100%;
+                                            image-fit: contain;
+                                        }
+                                        if !gal.has-image: Text {
+                                            text: "📸 Screenshot " + (idx + 1);
+                                            color: Theme.text-muted;
+                                            font-family: Theme.font-family;
+                                            font-size: 11px;
+                                            horizontal-alignment: center;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+
+                                    // Caption & Info
+                                    VerticalLayout {
+                                        alignment: center;
+                                        spacing: 6px;
+                                        horizontal-stretch: 1;
+
+                                        Text {
+                                            text: gal.title != "" ? gal.title : ("Screenshot #" + (idx + 1));
+                                            color: #FFFFFF;
+                                            font-family: Theme.font-family;
+                                            font-size: 13px;
+                                            font-weight: 700;
+                                        }
+
+                                        if gal.description != "": Text {
+                                            text: gal.description;
+                                            color: Theme.text-secondary;
+                                            font-family: Theme.font-family;
+                                            font-size: 11px;
+                                            wrap: word-wrap;
+                                        }
+
+                                        Text {
+                                            text: gal.url;
+                                            color: Theme.text-muted;
+                                            font-family: Theme.font-family;
+                                            font-size: 9px;
+                                            overflow: elide;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // =================================================================
+            // DETAILS TAB 3: AVAILABLE VERSIONS & FILES (ON-DEMAND)
+            // =================================================================
+            if root.details-active-tab == "versions": Rectangle {
+                vertical-stretch: 1;
+                background: Theme.card-bg;
+                border-width: 1px;
+                border-color: Theme.border;
+
+                VerticalLayout {
+                    padding: 16px;
+                    spacing: 12px;
+
+                    HorizontalLayout {
+                        alignment: space-between;
+                        Text {
+                            text: "AVAILABLE VERSIONS & FILES";
+                            color: Theme.accent;
+                            font-family: Theme.font-family;
+                            font-size: 12px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+
+                        if root.details-versions.length > 0: PixelButton {
+                            text: "↻ Refresh Versions";
+                            custom-font-size: 10px;
+                            clicked => {
+                                root.load-details-versions(root.details-project-id);
+                            }
+                        }
+                    }
+
+                    // On-Demand Placeholder (when versions not fetched yet)
+                    if root.details-versions.length == 0: Rectangle {
+                        height: 180px;
+                        background: #14161C;
+                        border-width: 1px;
+                        border-color: #282C38;
+
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 12px;
+
+                            Text {
+                                text: "Versions are loaded on-demand";
+                                color: #FFFFFF;
+                                font-family: Theme.font-family;
+                                font-size: 13px;
+                                font-weight: 700;
+                                horizontal-alignment: center;
+                            }
+
+                            Text {
+                                text: "Click below to query Modrinth for all compatible version files and loaders.";
+                                color: Theme.text-secondary;
+                                font-family: Theme.font-family;
+                                font-size: 10px;
+                                horizontal-alignment: center;
+                            }
+
+                            HorizontalLayout {
+                                alignment: center;
+                                PixelButton {
+                                    text: "📦 Load Available Versions";
+                                    primary: true;
+                                    custom-font-size: 11px;
+                                    clicked => {
+                                        root.load-details-versions(root.details-project-id);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Versions List Table
+                    if root.details-versions.length > 0: Flickable {
+                        interactive: true;
+                        vertical-stretch: 1;
+
+                        VerticalLayout {
+                            spacing: 6px;
+
+                            for ver in root.details-versions: Rectangle {
+                                height: 58px;
+                                background: #1B1D24;
+                                border-width: 1px;
+                                border-color: #2D323E;
+
+                                HorizontalLayout {
+                                    padding: 8px;
+                                    spacing: 10px;
+                                    alignment: space-between;
+
+                                    VerticalLayout {
+                                        spacing: 2px;
+                                        alignment: center;
+
+                                        Text {
+                                            text: ver.name != "" ? ver.name : ver.version-number;
+                                            color: #FFFFFF;
+                                            font-family: Theme.font-family;
+                                            font-size: 11px;
+                                            font-weight: 700;
+                                            overflow: elide;
+                                        }
+
+                                        HorizontalLayout {
+                                            spacing: 8px;
+                                            Text {
+                                                text: ver.filename;
+                                                color: Theme.text-muted;
+                                                font-family: Theme.font-family;
+                                                font-size: 9px;
+                                                overflow: elide;
+                                            }
+                                            Text {
+                                                text: "• " + ver.file-size;
+                                                color: Theme.text-muted;
+                                                font-family: Theme.font-family;
+                                                font-size: 9px;
+                                            }
+                                            if ver.game-versions != "": Text {
+                                                text: "• MC " + ver.game-versions;
+                                                color: #00A8FF;
+                                                font-family: Theme.font-family;
+                                                font-size: 9px;
+                                            }
+                                            if ver.loaders != "": Text {
+                                                text: "• " + ver.loaders;
+                                                color: Theme.accent;
+                                                font-family: Theme.font-family;
+                                                font-size: 9px;
+                                            }
+                                        }
+                                    }
+
+                                    HorizontalLayout {
+                                        alignment: end;
+
+                                        if ver.install-status == "installed": Rectangle {
+                                            height: 24px;
+                                            background: #153322;
+                                            border-width: 1px;
+                                            border-color: Theme.success;
+                                            HorizontalLayout {
+                                                padding-left: 8px;
+                                                padding-right: 8px;
+                                                alignment: center;
+                                                Text {
+                                                    text: "✓";
+                                                    color: Theme.success;
+                                                    font-family: Theme.icon-font-family;
+                                                    font-size: 9px;
+                                                    vertical-alignment: center;
+                                                }
+                                            }
+                                        }
+
+                                        if ver.install-status != "installed": PixelButton {
+                                            text: ((root.details-project-type == "mod" || (root.details-project-type == "resourcepack" && !root.share-resource-packs) || (root.details-project-type == "shader" && !root.share-shader-packs)) && (root.selected-destination == "Global (.minecraft)" || root.selected-destination == "Global" || root.selected-destination == "")) ? "Select Destination" : "Install";
+                                            primary: (!(root.details-project-type == "mod" || (root.details-project-type == "resourcepack" && !root.share-resource-packs) || (root.details-project-type == "shader" && !root.share-shader-packs))) || (root.selected-destination != "Global (.minecraft)" && root.selected-destination != "Global" && root.selected-destination != "");
+                                            custom-font-size: 9px;
+                                            clicked => {
+                                                root.install-artifact(root.details-project-id, root.details-project-type, root.selected-destination, ver.id);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

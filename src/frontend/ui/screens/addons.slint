@@ -1,0 +1,1603 @@
+import { Theme } from "../theme.slint";
+import { PixelButton, SearchInput } from "../components.slint";
+import { LoadingSpinner } from "../loading_spinner.slint";
+
+export struct AddonItemData {
+    id: string,
+    name: string,
+    version: string,
+    author: string,
+    description: string,
+    source: string, // "local", "community", "builtin"
+    installed: bool,
+    has-icon: bool,
+    icon: image,
+    downloads: string,
+    folder-path: string,
+    action-id: string,
+    action-label: string,
+    badge-text: string,
+    badge-color: color,
+    details-text: string,
+}
+
+export struct SavedServerData {
+    id: string,
+    name: string,
+    address: string,
+    port: int,
+    online: bool,
+    latency-ms: int,
+    players-online: int,
+    players-max: int,
+    version: string,
+    pinging: bool,
+}
+
+export struct InstallationPlaytimeData {
+    id: string,
+    name: string,
+    version: string,
+    loader: string,
+    icon: image,
+    playtime-formatted: string,
+    playtime-minutes: int,
+    launches: int,
+    last-played: string,
+}
+
+component AddonCard inherits Rectangle {
+    in-out property <AddonItemData> data;
+    in-out property <bool> animations-enabled: true;
+    callback primary-action();
+    callback open-folder();
+
+    height: 176px;
+    background: #15171D;
+    border-width: 1px;
+    border-color: card-touch.has-hover ? #3D4556 : #282C38;
+    clip: true;
+
+    // Hover detection backdrop
+    card-touch := TouchArea {
+        width: 100%;
+        height: 100%;
+    }
+
+    property <bool> is-hovered: card-touch.has-hover || btn-touch.has-hover;
+    property <length> controls-y: root.is-hovered ? 8px : -34px;
+
+    // Card Body Layout
+    VerticalLayout {
+        padding: 12px;
+        spacing: 8px;
+
+        // Top Metadata Row: Icon + Title, Author, Version
+        HorizontalLayout {
+            spacing: 10px;
+            height: 38px;
+
+            // Thumbnail Icon Container (38x38px, sharp 0px border)
+            Rectangle {
+                width: 38px;
+                height: 38px;
+                background: #101216;
+                border-width: 1px;
+                border-color: #262A35;
+
+                if root.data.has-icon: Image {
+                    width: 100%;
+                    height: 100%;
+                    source: root.data.icon;
+                    image-fit: contain;
+                    image-rendering: pixelated;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+
+                if !root.data.has-icon: Image {
+                    width: 20px;
+                    height: 20px;
+                    source: @image-url("../../../../icons/icon_puzzle_16.png");
+                    image-fit: contain;
+                    image-rendering: pixelated;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+
+            // Title, Author, Version
+            VerticalLayout {
+                horizontal-stretch: 1;
+                spacing: 2px;
+                alignment: center;
+
+                Text {
+                    text: root.data.name;
+                    color: #FFFFFF;
+                    font-family: Theme.font-family;
+                    font-size: 11px;
+                    font-weight: 700;
+                    overflow: elide;
+                }
+
+                HorizontalLayout {
+                    spacing: 6px;
+                    Text {
+                        text: "By " + (root.data.author == "Launcher Built-in" || root.data.author == "Launcher Built-In" ? "Amne-Dev" : root.data.author);
+                        color: Theme.text-secondary;
+                        font-family: Theme.font-family;
+                        font-size: 9px;
+                        overflow: elide;
+                    }
+                }
+            }
+        }
+
+        // Middle Row: Source Badge & Status
+        HorizontalLayout {
+            alignment: start;
+            spacing: 8px;
+            height: 18px;
+
+            // Source Pill Badge (Sharp 0px)
+            Rectangle {
+                horizontal-stretch: 0;
+                height: 18px;
+                background: root.data.source == "local" ? #1C212B : (root.data.source == "community" ? #13251A : #2A1E2D);
+                border-width: 1px;
+                border-color: root.data.source == "local" ? #2F3646 : (root.data.source == "community" ? #1E462B : #482C50);
+                HorizontalLayout {
+                    padding-left: 6px;
+                    padding-right: 6px;
+                    Text {
+                        text: root.data.source == "local" ? "LOCAL" : (root.data.source == "community" ? "COMMUNITY" : "BUILT-IN");
+                        color: root.data.source == "local" ? #5CD1FF : (root.data.source == "community" ? #2ECC71 : #E056FD);
+                        font-family: Theme.font-family;
+                        font-size: 8px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            if root.data.badge-text != "": Rectangle {
+                horizontal-stretch: 0;
+                height: 18px;
+                background: root.data.badge-color.with-alpha(0.15);
+                border-width: 1px;
+                border-color: root.data.badge-color.with-alpha(0.40);
+                HorizontalLayout {
+                    padding-left: 6px;
+                    padding-right: 6px;
+                    Text {
+                        text: root.data.badge-text;
+                        color: root.data.badge-color;
+                        font-family: Theme.font-family;
+                        font-size: 8px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+
+        // Description Body
+        Text {
+            vertical-stretch: 1;
+            text: root.data.description;
+            color: Theme.text-secondary;
+            font-family: Theme.font-family;
+            font-size: 9px;
+            overflow: elide;
+            wrap: word-wrap;
+        }
+
+        if root.data.details-text != "": Text {
+            text: root.data.details-text;
+            color: Theme.accent;
+            font-family: Theme.font-family;
+            font-size: 8px;
+            font-weight: 600;
+            overflow: elide;
+        }
+
+        // Footer Action Row
+        HorizontalLayout {
+            height: 26px;
+            alignment: space-between;
+
+            // Primary Action Button (Run / Install / Configure)
+            Rectangle {
+                width: 90px;
+                height: 26px;
+                background: root.data.installed
+                    ? (btn-touch.has-hover ? Theme.accent-hover : Theme.accent)
+                    : (btn-touch.has-hover ? #2ECC71 : #27AE60);
+                border-width: 1px;
+                border-color: btn-touch.has-hover ? #5CD1FF : transparent;
+
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: 4px;
+                    Text {
+                        text: root.data.action-label != "" ? root.data.action-label : (root.data.installed ? "Run" : "Install");
+                        color: #FFFFFF;
+                        font-family: Theme.font-family;
+                        font-size: 9px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+                }
+
+                btn-touch := TouchArea {
+                    clicked => { root.primary-action(); }
+                }
+            }
+
+            if root.data.installed: Text {
+                text: "✓ Active";
+                color: Theme.accent;
+                font-family: Theme.font-family;
+                font-size: 9px;
+                font-weight: 700;
+                vertical-alignment: center;
+            }
+        }
+    }
+
+    // Top-Right Slide-in Action Buttons (Hover Micro-Interaction)
+    HorizontalLayout {
+        x: parent.width - self.width - 8px;
+        y: root.controls-y;
+        spacing: 4px;
+        height: 22px;
+
+        animate y { duration: root.animations-enabled ? 120ms : 0ms; easing: ease-out; }
+
+        if root.data.folder-path != "": Rectangle {
+            width: 22px;
+            height: 22px;
+            background: folder-touch.has-hover ? #282D3B : #1C202A;
+            border-width: 1px;
+            border-color: folder-touch.has-hover ? Theme.border-hover : #2F3646;
+
+            Image {
+                width: 12px;
+                height: 12px;
+                source: @image-url("../../../../icons/icon_folder_16.png");
+                image-fit: contain;
+                image-rendering: pixelated;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            folder-touch := TouchArea {
+                clicked => { root.open-folder(); }
+            }
+        }
+    }
+}
+
+component PlaytimeStatsCard inherits Rectangle {
+    in-out property <string> total-playtime: "0m";
+    in-out property <int> total-launches: 0;
+    in-out property <bool> animations-enabled: true;
+    in-out property <string> top-inst-1-name: "";
+    in-out property <string> top-inst-1-time: "";
+    in-out property <image> top-inst-1-icon;
+    in-out property <bool> has-top-inst-1: false;
+    in-out property <string> top-inst-2-name: "";
+    in-out property <string> top-inst-2-time: "";
+    in-out property <image> top-inst-2-icon;
+    in-out property <bool> has-top-inst-2: false;
+    callback open-details();
+    callback reset-stats();
+
+    height: 176px;
+    background: #15171D;
+    border-width: 1px;
+    border-color: card-touch.has-hover ? #3D4556 : #282C38;
+    clip: true;
+
+    card-touch := TouchArea {}
+
+    HorizontalLayout {
+        padding: 16px;
+        spacing: 20px;
+
+        // Left Section: Info, description, controls (balanced 305px: no title clipping, generous space to metrics)
+        VerticalLayout {
+            width: 305px;
+            spacing: 10px;
+
+            // Top Row: Icon + Title + Version + Source Badge
+            HorizontalLayout {
+                spacing: 10px;
+                height: 38px;
+
+                Rectangle {
+                    width: 38px;
+                    height: 38px;
+                    background: #101216;
+                    border-width: 1px;
+                    border-color: #262A35;
+
+                    Image {
+                        width: 24px;
+                        height: 24px;
+                        source: @image-url("../../../../icons/2x/beacon.png");
+                        image-fit: contain;
+                        image-rendering: pixelated;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                VerticalLayout {
+                    spacing: 3px;
+                    alignment: center;
+
+                    Text {
+                        text: "Playtime & Activity Tracker";
+                        color: #FFFFFF;
+                        font-family: Theme.font-family;
+                        font-size: 12px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+
+                    HorizontalLayout {
+                        alignment: start;
+                        spacing: 6px;
+
+                        // Built-in Badge neatly docked under title
+                        Rectangle {
+                            horizontal-stretch: 0;
+                            height: 16px;
+                            background: #2A1E2D;
+                            border-width: 1px;
+                            border-color: #482C50;
+                            HorizontalLayout {
+                                padding-left: 5px;
+                                padding-right: 5px;
+                                Text {
+                                    text: "BUILT-IN TOOL";
+                                    color: #E056FD;
+                                    font-family: Theme.font-family;
+                                    font-size: 8px;
+                                    font-weight: 700;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+
+                        Text {
+                            text: "By Amne-Dev";
+                            color: Theme.text-secondary;
+                            font-family: Theme.font-family;
+                            font-size: 9px;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+                    }
+                }
+            }
+
+            // Description
+            Text {
+                vertical-stretch: 1;
+                text: "Continuously tracks active session playtime, launch history, and per-instance stats across all Minecraft profiles.";
+                color: Theme.text-secondary;
+                font-family: Theme.font-family;
+                font-size: 10px;
+                wrap: word-wrap;
+            }
+
+            // Action Buttons
+            HorizontalLayout {
+                alignment: start;
+                spacing: 8px;
+                height: 28px;
+
+                PixelButton {
+                    width: 125px;
+                    text: "View Details";
+                    icon: @image-url("../../../../icons/icon_list_16.png");
+                    has-icon: true;
+                    custom-height: 28px;
+                    custom-font-size: 10px;
+                    clicked => { root.open-details(); }
+                }
+
+                PixelButton {
+                    width: 100px;
+                    text: "Reset Stats";
+                    custom-height: 28px;
+                    custom-font-size: 10px;
+                    clicked => { root.reset-stats(); }
+                }
+            }
+        }
+
+        // Divider
+        Rectangle {
+            width: 1px;
+            background: #222632;
+        }
+
+        // Right Section: Metrics & Top Played Installations Display
+        Rectangle {
+            horizontal-stretch: 1;
+            background: #0E1015;
+            border-width: 1px;
+            border-color: #212530;
+
+            HorizontalLayout {
+                padding: 12px;
+                spacing: 14px;
+
+                // Left Sub-column: Total Playtime & Launches
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    spacing: 8px;
+                    alignment: center;
+
+                    // Total Playtime Display
+                    VerticalLayout {
+                        spacing: 2px;
+                        Text {
+                            text: "TOTAL PLAYTIME";
+                            color: Theme.text-muted;
+                            font-family: Theme.font-family;
+                            font-size: 8px;
+                            font-weight: 700;
+                            letter-spacing: 1px;
+                        }
+                        Text {
+                            text: root.total-playtime;
+                            color: Theme.accent;
+                            font-family: Theme.font-family;
+                            font-size: 22px;
+                            font-weight: 800;
+                        }
+                    }
+
+                    // Total Launches Display
+                    VerticalLayout {
+                        spacing: 1px;
+                        Text {
+                            text: "TOTAL LAUNCHES";
+                            color: Theme.text-muted;
+                            font-family: Theme.font-family;
+                            font-size: 8px;
+                            font-weight: 700;
+                            letter-spacing: 1px;
+                        }
+                        Text {
+                            text: root.total-launches + " Launches";
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 11px;
+                            font-weight: 700;
+                        }
+                    }
+                }
+
+                // Vertical Divider between metrics and top installations
+                Rectangle {
+                    width: 1px;
+                    background: #1C212B;
+                }
+
+                // Right Sub-column: Top 2 Most Played Installations
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    min-width: 170px;
+                    spacing: 6px;
+                    alignment: center;
+
+                    Text {
+                        text: "MOST PLAYED";
+                        color: Theme.text-muted;
+                        font-family: Theme.font-family;
+                        font-size: 8px;
+                        font-weight: 700;
+                        letter-spacing: 1px;
+                    }
+
+                    if !root.has-top-inst-1: Text {
+                        text: "No session history recorded yet";
+                        color: Theme.text-secondary;
+                        font-family: Theme.font-family;
+                        font-size: 10px;
+                        wrap: word-wrap;
+                    }
+
+                    if root.has-top-inst-1: Rectangle {
+                        height: 38px;
+                        background: #151821;
+                        border-width: 1px;
+                        border-color: #252B3B;
+                        HorizontalLayout {
+                            x: 0px;
+                            y: 0px;
+                            width: 100%;
+                            height: 100%;
+                            padding-left: 10px;
+                            padding-right: 10px;
+                            spacing: 8px;
+                            alignment: start;
+
+                            Image {
+                                width: 20px;
+                                height: 20px;
+                                source: root.top-inst-1-icon;
+                                image-fit: contain;
+                                image-rendering: pixelated;
+                                vertical-alignment: center;
+                            }
+
+                            VerticalLayout {
+                                spacing: 1px;
+                                alignment: center;
+                                horizontal-stretch: 1;
+                                Text {
+                                    text: root.top-inst-1-name;
+                                    color: #FFFFFF;
+                                    font-family: Theme.font-family;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                    overflow: elide;
+                                }
+                                Text {
+                                    text: root.top-inst-1-time;
+                                    color: Theme.accent;
+                                    font-family: Theme.font-family;
+                                    font-size: 9px;
+                                    font-weight: 600;
+                                }
+                            }
+                        }
+                    }
+
+                    if root.has-top-inst-2: Rectangle {
+                        height: 38px;
+                        background: #151821;
+                        border-width: 1px;
+                        border-color: #252B3B;
+                        HorizontalLayout {
+                            x: 0px;
+                            y: 0px;
+                            width: 100%;
+                            height: 100%;
+                            padding-left: 10px;
+                            padding-right: 10px;
+                            spacing: 8px;
+                            alignment: start;
+
+                            Image {
+                                width: 20px;
+                                height: 20px;
+                                source: root.top-inst-2-icon;
+                                image-fit: contain;
+                                image-rendering: pixelated;
+                                vertical-alignment: center;
+                            }
+
+                            VerticalLayout {
+                                spacing: 1px;
+                                alignment: center;
+                                horizontal-stretch: 1;
+                                Text {
+                                    text: root.top-inst-2-name;
+                                    color: #FFFFFF;
+                                    font-family: Theme.font-family;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                    overflow: elide;
+                                }
+                                Text {
+                                    text: root.top-inst-2-time;
+                                    color: Theme.accent;
+                                    font-family: Theme.font-family;
+                                    font-size: 9px;
+                                    font-weight: 600;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+component PlaytimeDetailsModal inherits Rectangle {
+    in-out property <bool> is-open: false;
+    in-out property <string> total-playtime: "0m";
+    in-out property <int> total-launches: 0;
+    in-out property <[InstallationPlaytimeData]> installations: [];
+    callback close();
+
+    x: 0px;
+    y: 0px;
+    width: 100%;
+    height: 100%;
+    background: #000000.with-alpha(0.80);
+
+    // Absorb clicks on backdrop
+    TouchArea {
+        clicked => { root.close(); }
+    }
+
+    // Modal Window Card
+    Rectangle {
+        width: 560px;
+        height: min(480px, parent.height - 40px);
+        background: #15171D;
+        border-width: 1px;
+        border-color: #2E3342;
+        clip: true;
+
+        // Prevent click through to backdrop
+        TouchArea {}
+
+        VerticalLayout {
+            padding: 20px;
+            spacing: 14px;
+
+            // Header Row: Title & Close Button
+            HorizontalLayout {
+                height: 28px;
+                alignment: space-between;
+
+                HorizontalLayout {
+                    spacing: 10px;
+                    Image {
+                        width: 20px;
+                        height: 20px;
+                        source: @image-url("../../../../icons/icon_list_16.png");
+                        image-fit: contain;
+                        vertical-alignment: center;
+                    }
+                    Text {
+                        text: "INSTALLATION PLAYTIME DETAILS";
+                        color: #FFFFFF;
+                        font-family: Theme.font-family;
+                        font-size: 13px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                        letter-spacing: 1px;
+                    }
+                }
+
+                // Close ✕ button
+                Rectangle {
+                    width: 24px;
+                    height: 24px;
+                    background: close-touch.has-hover ? #2A2F3D : transparent;
+                    border-width: 1px;
+                    border-color: close-touch.has-hover ? #3D4556 : transparent;
+
+                    Text {
+                        text: "✕";
+                        color: close-touch.has-hover ? #FFFFFF : #8C96A8;
+                        font-family: Theme.font-family;
+                        font-size: 12px;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    close-touch := TouchArea {
+                        clicked => { root.close(); }
+                    }
+                }
+            }
+
+            // Summary Info Strip
+            Rectangle {
+                height: 32px;
+                background: #101216;
+                border-width: 1px;
+                border-color: #222630;
+
+                HorizontalLayout {
+                    padding-left: 12px;
+                    padding-right: 12px;
+                    alignment: space-between;
+
+                    Text {
+                        text: "Total Tracked: " + root.total-playtime;
+                        color: Theme.accent;
+                        font-family: Theme.font-family;
+                        font-size: 10px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+
+                    Text {
+                        text: root.total-launches + " Total Game Launches";
+                        color: Theme.text-secondary;
+                        font-family: Theme.font-family;
+                        font-size: 10px;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            // Scrollable Installations List
+            Rectangle {
+                vertical-stretch: 1;
+
+                if root.installations.length == 0: VerticalLayout {
+                    alignment: center;
+                    spacing: 8px;
+                    Text {
+                        text: "No playtime recorded yet";
+                        color: #FFFFFF;
+                        font-family: Theme.font-family;
+                        font-size: 12px;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                    }
+                    Text {
+                        text: "Launch Minecraft through Ny-Luna to begin tracking play duration!";
+                        color: Theme.text-secondary;
+                        font-family: Theme.font-family;
+                        font-size: 10px;
+                        horizontal-alignment: center;
+                    }
+                }
+
+                if root.installations.length > 0: Flickable {
+                    interactive: true;
+                    vertical-stretch: 1;
+                    content-height: root.installations.length * 56px;
+
+                    VerticalLayout {
+                        spacing: 6px;
+                        for inst in root.installations: Rectangle {
+                            height: 50px;
+                            background: inst-touch.has-hover ? #1C1F28 : #111318;
+                            border-width: 1px;
+                            border-color: inst-touch.has-hover ? #383F52 : #222632;
+
+                            inst-touch := TouchArea {}
+
+                            HorizontalLayout {
+                                padding-left: 10px;
+                                padding-right: 12px;
+                                spacing: 10px;
+                                alignment: space-between;
+
+                                // Left: Icon + Name + Version
+                                HorizontalLayout {
+                                    spacing: 10px;
+                                    alignment: start;
+
+                                    Image {
+                                        width: 28px;
+                                        height: 28px;
+                                        source: inst.icon;
+                                        image-fit: contain;
+                                        image-rendering: pixelated;
+                                    }
+
+                                    VerticalLayout {
+                                        spacing: 2px;
+                                        alignment: center;
+
+                                        Text {
+                                            text: inst.name;
+                                            color: #FFFFFF;
+                                            font-family: Theme.font-family;
+                                            font-size: 11px;
+                                            font-weight: 700;
+                                            overflow: elide;
+                                        }
+
+                                        HorizontalLayout {
+                                            spacing: 6px;
+                                            Text {
+                                                text: inst.loader != "" ? (inst.loader + " " + inst.version) : inst.version;
+                                                color: Theme.text-secondary;
+                                                font-family: Theme.font-family;
+                                                font-size: 9px;
+                                            }
+                                            if inst.last-played != "": Text {
+                                                text: "• Last played: " + inst.last-played;
+                                                color: Theme.text-muted;
+                                                font-family: Theme.font-family;
+                                                font-size: 9px;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Right: Playtime & Launches
+                                VerticalLayout {
+                                    spacing: 1px;
+                                    alignment: center;
+
+                                    Text {
+                                        text: inst.playtime-formatted;
+                                        color: Theme.accent;
+                                        font-family: Theme.font-family;
+                                        font-size: 12px;
+                                        font-weight: 800;
+                                        horizontal-alignment: right;
+                                    }
+
+                                    Text {
+                                        text: inst.launches + " launches";
+                                        color: Theme.text-secondary;
+                                        font-family: Theme.font-family;
+                                        font-size: 9px;
+                                        horizontal-alignment: right;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Footer
+            HorizontalLayout {
+                height: 28px;
+                alignment: end;
+                PixelButton {
+                    text: "Close";
+                    custom-height: 28px;
+                    custom-font-size: 10px;
+                    clicked => { root.close(); }
+                }
+            }
+        }
+    }
+}
+
+component ServerQuickJoinModal inherits Rectangle {
+    in-out property <bool> is-open: false;
+    in-out property <[SavedServerData]> servers: [];
+    in-out property <bool> is-pinging: false;
+    property <string> new-server-name: "";
+    property <string> new-server-address: "";
+    property <string> new-server-port: "25565";
+    property <string> error-msg: "";
+
+    callback close();
+    callback add-server(string, string, string);
+    callback delete-server(string);
+    callback ping-all();
+    callback join-server(string, int);
+
+    x: 0px;
+    y: 0px;
+    width: 100%;
+    height: 100%;
+    background: #000000.with-alpha(0.80);
+
+    // Absorb clicks on backdrop
+    TouchArea {
+        clicked => { root.close(); }
+    }
+
+    // Modal Window Card
+    Rectangle {
+        width: 600px;
+        height: min(520px, parent.height - 30px);
+        background: #15171D;
+        border-width: 1px;
+        border-color: #2E3342;
+        clip: true;
+
+        // Prevent click through to backdrop
+        TouchArea {}
+
+        VerticalLayout {
+            padding: 20px;
+            spacing: 12px;
+
+            // Header Row: Title, Ping All, Close Button
+            HorizontalLayout {
+                height: 28px;
+                alignment: space-between;
+
+                HorizontalLayout {
+                    spacing: 10px;
+                    Image {
+                        width: 20px;
+                        height: 20px;
+                        source: @image-url("../../../../icons/icon_link_16.png");
+                        image-fit: contain;
+                        vertical-alignment: center;
+                    }
+                    Text {
+                        text: "SERVER QUICK JOIN MANAGER";
+                        color: #FFFFFF;
+                        font-family: Theme.font-family;
+                        font-size: 13px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                        letter-spacing: 1px;
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: end;
+
+                    PixelButton {
+                        text: root.is-pinging ? "Pinging..." : "Ping All";
+                        icon: @image-url("../../../../icons/icon_refresh_16.png");
+                        has-icon: true;
+                        custom-height: 26px;
+                        custom-font-size: 9px;
+                        clicked => { root.ping-all(); }
+                    }
+
+                    // Close ✕ button
+                    Rectangle {
+                        width: 26px;
+                        height: 26px;
+                        background: close-touch.has-hover ? #2A2F3D : transparent;
+                        border-width: 1px;
+                        border-color: close-touch.has-hover ? #3D4556 : transparent;
+
+                        Text {
+                            text: "✕";
+                            color: close-touch.has-hover ? #FFFFFF : #8C96A8;
+                            font-family: Theme.font-family;
+                            font-size: 12px;
+                            font-weight: 700;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        close-touch := TouchArea {
+                            clicked => { root.close(); }
+                        }
+                    }
+                }
+            }
+
+            // Summary Info Strip
+            Rectangle {
+                height: 30px;
+                background: #101216;
+                border-width: 1px;
+                border-color: #222630;
+
+                HorizontalLayout {
+                    padding-left: 12px;
+                    padding-right: 12px;
+                    alignment: space-between;
+
+                    Text {
+                        text: root.servers.length + (root.servers.length == 1 ? " Saved Multiplayer Server" : " Saved Multiplayer Servers");
+                        color: Theme.accent;
+                        font-family: Theme.font-family;
+                        font-size: 10px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+
+                    Text {
+                        text: "Direct connection connects using your active profile";
+                        color: Theme.text-secondary;
+                        font-family: Theme.font-family;
+                        font-size: 9px;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            // Scrollable Saved Servers List
+            Rectangle {
+                vertical-stretch: 1;
+                background: #0E1015;
+                border-width: 1px;
+                border-color: #212530;
+                clip: true;
+
+                if root.servers.length == 0: VerticalLayout {
+                    alignment: center;
+                    spacing: 6px;
+
+                    Text {
+                        text: "No servers saved yet";
+                        color: Theme.text-primary;
+                        font-family: Theme.font-family;
+                        font-size: 12px;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                    }
+
+                    Text {
+                        text: "Add your favorite multiplayer servers below to view latency and join with one click.";
+                        color: Theme.text-secondary;
+                        font-family: Theme.font-family;
+                        font-size: 10px;
+                        horizontal-alignment: center;
+                    }
+                }
+
+                if root.servers.length > 0: Flickable {
+                    content-height: root.servers.length * 52px + 12px;
+
+                    VerticalLayout {
+                        padding: 6px;
+                        spacing: 6px;
+
+                        for srv in root.servers: Rectangle {
+                            height: 46px;
+                            background: srv-row-touch.has-hover ? #171A24 : #12141A;
+                            border-width: 1px;
+                            border-color: srv-row-touch.has-hover ? #32394B : #20242F;
+
+                            srv-row-touch := TouchArea {}
+
+                            HorizontalLayout {
+                                padding-left: 12px;
+                                padding-right: 10px;
+                                spacing: 10px;
+                                alignment: space-between;
+
+                                // Server Name & Host:Port
+                                VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    spacing: 2px;
+                                    alignment: center;
+
+                                    HorizontalLayout {
+                                        spacing: 6px;
+                                        Text {
+                                            text: srv.name;
+                                            color: #FFFFFF;
+                                            font-family: Theme.font-family;
+                                            font-size: 11px;
+                                            font-weight: 700;
+                                            overflow: elide;
+                                        }
+
+                                        if srv.version != "": Text {
+                                            text: "(" + srv.version + ")";
+                                            color: Theme.text-muted;
+                                            font-family: Theme.font-family;
+                                            font-size: 9px;
+                                            overflow: elide;
+                                        }
+                                    }
+
+                                    Text {
+                                        text: srv.address + ":" + srv.port;
+                                        color: Theme.text-secondary;
+                                        font-family: Theme.font-family;
+                                        font-size: 9px;
+                                    }
+                                }
+
+                                // Ping status badge
+                                Rectangle {
+                                    horizontal-stretch: 0;
+                                    height: 22px;
+                                    background: srv.pinging ? #2B2516 : (srv.online ? #12281A : #28161A);
+                                    border-width: 1px;
+                                    border-color: srv.pinging ? #5A4720 : (srv.online ? #1F5233 : #521F28);
+
+                                    HorizontalLayout {
+                                        padding-left: 8px;
+                                        padding-right: 8px;
+                                        alignment: center;
+
+                                        Text {
+                                            text: srv.pinging ? "Pinging..." : (srv.online ? "● " + srv.latency-ms + "ms" + (srv.players-online > 0 ? " (" + srv.players-online + " online)" : "") : "● Offline");
+                                            color: srv.pinging ? #F39C12 : (srv.online ? #2ECC71 : #E74C3C);
+                                            font-family: Theme.font-family;
+                                            font-size: 9px;
+                                            font-weight: 700;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+
+                                // Actions: Join Now and Delete
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    alignment: center;
+
+                                    PixelButton {
+                                        width: 76px;
+                                        text: "Join Now";
+                                        icon: @image-url("../../../../icons/icon_play_16.png");
+                                        has-icon: true;
+                                        custom-height: 26px;
+                                        custom-font-size: 9px;
+                                        clicked => { root.join-server(srv.address, srv.port); }
+                                    }
+
+                                    // Delete trash button
+                                    Rectangle {
+                                        width: 26px;
+                                        height: 26px;
+                                        background: del-touch.has-hover ? #36171B : #1C1F28;
+                                        border-width: 1px;
+                                        border-color: del-touch.has-hover ? #E74C3C : #2F3646;
+
+                                        Image {
+                                            width: 13px;
+                                            height: 13px;
+                                            source: @image-url("../../../../icons/icon_trash_16.png");
+                                            image-fit: contain;
+                                            image-rendering: pixelated;
+                                            horizontal-alignment: center;
+                                            vertical-alignment: center;
+                                        }
+
+                                        del-touch := TouchArea {
+                                            clicked => { root.delete-server(srv.id); }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ADD NEW SERVER Section
+            VerticalLayout {
+                spacing: 6px;
+
+                Text {
+                    text: "ADD NEW SERVER";
+                    color: Theme.text-muted;
+                    font-family: Theme.font-family;
+                    font-size: 8px;
+                    font-weight: 700;
+                    letter-spacing: 1px;
+                }
+
+                HorizontalLayout {
+                    spacing: 8px;
+                    height: 28px;
+
+                    // Server Name Input
+                    Rectangle {
+                        width: 140px;
+                        background: #101216;
+                        border-width: 1px;
+                        border-color: name-inp.has-focus ? Theme.accent : #282C38;
+
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            name-inp := TextInput {
+                                text <=> root.new-server-name;
+                                color: #FFFFFF;
+                                font-family: Theme.font-family;
+                                font-size: 10px;
+                                vertical-alignment: center;
+                                single-line: true;
+                            }
+                        }
+
+                        if root.new-server-name == "": Text {
+                            x: 8px;
+                            text: "Server Name";
+                            color: #616B7E;
+                            font-family: Theme.font-family;
+                            font-size: 10px;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    // Server Address Input
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        background: #101216;
+                        border-width: 1px;
+                        border-color: addr-inp.has-focus ? Theme.accent : #282C38;
+
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            addr-inp := TextInput {
+                                text <=> root.new-server-address;
+                                color: #FFFFFF;
+                                font-family: Theme.font-family;
+                                font-size: 10px;
+                                vertical-alignment: center;
+                                single-line: true;
+                            }
+                        }
+
+                        if root.new-server-address == "": Text {
+                            x: 8px;
+                            text: "Server Address (e.g. mc.hypixel.net)";
+                            color: #616B7E;
+                            font-family: Theme.font-family;
+                            font-size: 10px;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    // Server Port Input
+                    Rectangle {
+                        width: 64px;
+                        background: #101216;
+                        border-width: 1px;
+                        border-color: port-inp.has-focus ? Theme.accent : #282C38;
+
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            port-inp := TextInput {
+                                text <=> root.new-server-port;
+                                color: #FFFFFF;
+                                font-family: Theme.font-family;
+                                font-size: 10px;
+                                vertical-alignment: center;
+                                single-line: true;
+                            }
+                        }
+
+                        if root.new-server-port == "": Text {
+                            x: 8px;
+                            text: "25565";
+                            color: #616B7E;
+                            font-family: Theme.font-family;
+                            font-size: 10px;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    PixelButton {
+                        width: 88px;
+                        text: "Add Server";
+                        icon: @image-url("../../../../icons/icon_add_16.png");
+                        has-icon: true;
+                        custom-height: 28px;
+                        custom-font-size: 10px;
+                        clicked => {
+                            if (root.new-server-address == "") {
+                                root.error-msg = "Enter a server address first";
+                            } else {
+                                root.error-msg = "";
+                                root.add-server(root.new-server-name, root.new-server-address, root.new-server-port == "" ? "25565" : root.new-server-port);
+                                root.new-server-name = "";
+                                root.new-server-address = "";
+                                root.new-server-port = "25565";
+                            }
+                        }
+                    }
+                }
+
+                if root.error-msg != "": Text {
+                    text: root.error-msg;
+                    color: #E74C3C;
+                    font-family: Theme.font-family;
+                    font-size: 9px;
+                }
+            }
+
+            // Footer Row: Close Button
+            HorizontalLayout {
+                height: 28px;
+                alignment: end;
+                PixelButton {
+                    text: "Close";
+                    custom-height: 28px;
+                    custom-font-size: 10px;
+                    clicked => { root.close(); }
+                }
+            }
+        }
+    }
+}
+
+export component AddonsScreen {
+    in-out property <[AddonItemData]> addons: [];
+    in-out property <string> search-query: "";
+    in-out property <string> active-category: "all"; // "all", "local", "community", "builtin"
+    in-out property <bool> is-loading: false;
+    in-out property <image> loading-spinner-frame;
+    in-out property <string> status-message: "";
+    in-out property <bool> animations-enabled: true;
+
+    // Direct Playtime tracking stats
+    in-out property <string> total-playtime-formatted: "0m";
+    in-out property <int> total-minutes: 0;
+    in-out property <int> total-launches: 0;
+    in-out property <bool> playtime-details-open: false;
+    in-out property <[InstallationPlaytimeData]> installation-playtimes: [];
+    in-out property <string> top-inst-1-name: "";
+    in-out property <string> top-inst-1-time: "";
+    in-out property <image> top-inst-1-icon;
+    in-out property <bool> has-top-inst-1: false;
+    in-out property <string> top-inst-2-name: "";
+    in-out property <string> top-inst-2-time: "";
+    in-out property <image> top-inst-2-icon;
+    in-out property <bool> has-top-inst-2: false;
+
+    property <int> addons-grid-cols: max(2, floor((root.width - 48px) / 280px));
+    property <bool> show-playtime-hero: (root.active-category == "all" || root.active-category == "builtin")
+        && (root.search-query == "");
+
+    callback refresh-addons();
+    callback open-addons-folder();
+    callback run-addon-action(string, string); // addon_id, action_id
+    callback search-addons(string);
+    callback select-category(string);
+    callback install-addon(string);
+    callback reset-stats();
+    callback submit-addon-pr();
+    callback open-playtime-details();
+
+    // Server Quick Join Manager stats & state
+    in-out property <bool> server-manager-open: false;
+    in-out property <[SavedServerData]> saved-servers: [];
+    in-out property <bool> is-pinging-servers: false;
+
+    callback open-server-manager();
+    callback close-server-manager();
+    callback add-saved-server(string, string, string); // name, address, port
+    callback delete-saved-server(string); // server_id
+    callback ping-all-servers();
+    callback quick-join-server(string, int); // address, port
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        background: Theme.main-bg;
+
+        VerticalLayout {
+            padding-left: 24px;
+            padding-right: 24px;
+            padding-top: 16px;
+            padding-bottom: 16px;
+            spacing: 12px;
+
+            // --- Top Header: Locked 32px height ---
+            HorizontalLayout {
+                height: 32px;
+                alignment: space-between;
+
+                Text {
+                    text: "ADDONS & EXTENSIONS";
+                    color: #FFFFFF;
+                    font-family: Theme.font-family;
+                    font-size: 14px;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                }
+
+                HorizontalLayout {
+                    spacing: 6px;
+                    alignment: end;
+
+                    PixelButton {
+                        text: "Submit Addon via GitHub PR";
+                        custom-height: 28px;
+                        custom-font-size: 10px;
+                        clicked => { root.submit-addon-pr(); }
+                    }
+
+                    PixelButton {
+                        text: "Open Folder";
+                        icon: @image-url("../../../../icons/icon_folder_16.png");
+                        has-icon: true;
+                        custom-height: 28px;
+                        custom-font-size: 10px;
+                        clicked => { root.open-addons-folder(); }
+                    }
+
+                    PixelButton {
+                        text: "Refresh";
+                        icon: @image-url("../../../../icons/icon_refresh_16.png");
+                        has-icon: true;
+                        custom-height: 28px;
+                        custom-font-size: 10px;
+                        clicked => { root.refresh-addons(); }
+                    }
+                }
+            }
+
+            // --- Construction Disclaimer Banner ---
+            Rectangle {
+                height: 32px;
+                background: #FF69B41A;
+                border-width: 1px;
+                border-color: #FF69B466;
+
+                HorizontalLayout {
+                    padding-left: 14px;
+                    padding-right: 14px;
+                    spacing: 10px;
+                    alignment: start;
+
+                    VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 18px;
+                            height: 18px;
+                            background: #FF69B433;
+                            border-width: 1px;
+                            border-color: #FF69B4;
+
+                            Text {
+                                text: "!";
+                                color: #FF69B4;
+                                font-family: Theme.font-family;
+                                font-size: 11px;
+                                font-weight: 700;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    Text {
+                        text: "This page is still under construction most features are still not implemented!";
+                        color: #FFB3D9;
+                        font-family: Theme.font-family;
+                        font-size: 10px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            // --- Filter Bar: Search Input ---
+            HorizontalLayout {
+                height: 28px;
+                spacing: 12px;
+
+                SearchInput {
+                    text <=> root.search-query;
+                    placeholder: "Search community addons, installed modules, or built-in tools...";
+                    preferred-input-width: 340px;
+                    edited(q) => { root.search-addons(q); }
+                }
+            }
+
+            if root.status-message != "": HorizontalLayout {
+                height: 16px;
+                Text {
+                    text: root.status-message;
+                    color: Theme.accent;
+                    font-family: Theme.font-family;
+                    font-size: 9px;
+                    vertical-alignment: center;
+                }
+            }
+
+            // --- Main Content Stretch Area: Empty State or Responsive Grid ---
+            Rectangle {
+                vertical-stretch: 1;
+
+                if root.addons.length == 0 && !root.show-playtime-hero: Rectangle {
+                    width: 100%;
+                    height: 100%;
+                    background: #14161C;
+                    border-width: 1px;
+                    border-color: #262934;
+
+                    if root.is-loading: LoadingSpinner {
+                        frame: root.loading-spinner-frame;
+                        message: "Loading Addons & Extensions...";
+                        sub-message: "Discovering community addons and local modules";
+                        spinner-size: 72px;
+                    }
+
+                    if !root.is-loading: VerticalLayout {
+                        alignment: center;
+                        spacing: 8px;
+
+                        Text {
+                            text: "No addons found";
+                            color: Theme.text-primary;
+                            font-family: Theme.font-family;
+                            font-size: 13px;
+                            font-weight: 700;
+                            horizontal-alignment: center;
+                        }
+                        Text {
+                            text: "No addons match the active filter. Install extensions locally into addons/ or submit one via GitHub PR!";
+                            color: Theme.text-secondary;
+                            font-family: Theme.font-family;
+                            font-size: 11px;
+                            horizontal-alignment: center;
+                        }
+                    }
+                }
+
+                if root.addons.length > 0 || root.show-playtime-hero: Flickable {
+                    interactive: true;
+                    vertical-stretch: 1;
+                    content-height: (root.show-playtime-hero ? 190px : 0px)
+                        + (ceil(root.addons.length / root.addons-grid-cols)) * 190px;
+
+                    VerticalLayout {
+                        spacing: 12px;
+
+                        // Featured 2-Column Playtime Stats Card
+                        if root.show-playtime-hero: PlaytimeStatsCard {
+                            total-playtime: root.total-playtime-formatted;
+                            total-launches: root.total-launches;
+                            animations-enabled: root.animations-enabled;
+                            top-inst-1-name: root.top-inst-1-name;
+                            top-inst-1-time: root.top-inst-1-time;
+                            top-inst-1-icon: root.top-inst-1-icon;
+                            has-top-inst-1: root.has-top-inst-1;
+                            top-inst-2-name: root.top-inst-2-name;
+                            top-inst-2-time: root.top-inst-2-time;
+                            top-inst-2-icon: root.top-inst-2-icon;
+                            has-top-inst-2: root.has-top-inst-2;
+                            open-details => { root.open-playtime-details(); }
+                            reset-stats => { root.reset-stats(); }
+                        }
+
+                        // Grid for remaining installed & community addons
+                        if root.addons.length > 0: GridLayout {
+                            spacing: 12px;
+                            for addon[idx] in root.addons: AddonCard {
+                                data: addon;
+                                animations-enabled: root.animations-enabled;
+                                row: idx / root.addons-grid-cols;
+                                col: mod(idx, root.addons-grid-cols);
+                                primary-action => {
+                                    if (addon.source == "community" && !addon.installed) {
+                                        root.install-addon(addon.id);
+                                    } else {
+                                        root.run-addon-action(addon.id, addon.action-id);
+                                    }
+                                }
+                                open-folder => {
+                                    root.open-addons-folder();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Installation Playtime Breakdown Modal Overlay
+        if root.playtime-details-open: PlaytimeDetailsModal {
+            is-open: root.playtime-details-open;
+            total-playtime: root.total-playtime-formatted;
+            total-launches: root.total-launches;
+            installations: root.installation-playtimes;
+            close => { root.playtime-details-open = false; }
+        }
+
+        // Server Quick Join Manager Modal Overlay
+        if root.server-manager-open: ServerQuickJoinModal {
+            is-open: root.server-manager-open;
+            servers: root.saved-servers;
+            is-pinging: root.is-pinging-servers;
+            close => {
+                root.server-manager-open = false;
+                root.close-server-manager();
+            }
+            add-server(name, addr, port) => {
+                root.add-saved-server(name, addr, port);
+            }
+            delete-server(id) => {
+                root.delete-saved-server(id);
+            }
+            ping-all => {
+                root.ping-all-servers();
+            }
+            join-server(addr, port) => {
+                root.server-manager-open = false;
+                root.quick-join-server(addr, port);
+            }
+        }
+    }
+}

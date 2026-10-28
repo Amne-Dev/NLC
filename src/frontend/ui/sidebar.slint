@@ -1,0 +1,727 @@
+import { Theme } from "theme.slint";
+
+component NavItem {
+    in-out property <string> text: "Item";
+    in-out property <image> icon;
+    in-out property <bool> has-icon: true;
+    in-out property <string> icon-glyph: "";
+    in-out property <string> icon-font: Theme.icon-font-family;
+    in-out property <bool> colorize-icon: false;
+    in-out property <bool> is-active: false;
+    in-out property <bool> smooth-animations: Theme.smooth-animations;
+    callback clicked();
+
+    height: 38px;
+
+    Rectangle {
+        background: root.is-active ? Theme.sidebar-active : (touch.has-hover ? Theme.sidebar-hover : transparent);
+
+        animate background {
+            duration: root.smooth-animations ? 150ms : 0ms;
+            easing: ease-out;
+        }
+
+        // Left Cyan Accent Indicator Bar (exact 3px width) with animated slide and opacity
+        Rectangle {
+            x: root.is-active ? 0px : -3px;
+            width: root.is-active ? 3px : 0px;
+            height: parent.height - 12px;
+            y: 6px;
+            background: Theme.accent;
+            opacity: root.is-active ? 1.0 : 0.0;
+
+            animate x, width, opacity {
+                duration: root.smooth-animations ? 160ms : 0ms;
+                easing: ease-out;
+            }
+        }
+
+        HorizontalLayout {
+            padding-left: 14px;
+            padding-right: 14px;
+            spacing: 12px;
+            alignment: start;
+
+            if root.icon-glyph != "": Rectangle {
+                width: 20px;
+                height: 20px;
+                y: (parent.height - self.height) / 2;
+
+                Text {
+                    text: root.icon-glyph;
+                    font-family: root.icon-font;
+                    font-size: 15px;
+                    color: root.is-active ? Theme.accent : (touch.has-hover ? #FFFFFF : Theme.text-secondary);
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    width: 100%;
+                    height: 100%;
+                }
+            }
+
+            if root.has-icon && root.icon-glyph == "": Rectangle {
+                width: 20px;
+                height: 20px;
+                y: (parent.height - self.height) / 2;
+
+                if root.colorize-icon: Image {
+                    source: root.icon;
+                    width: 20px;
+                    height: 20px;
+                    image-fit: contain;
+                    image-rendering: smooth;
+                    colorize: root.is-active ? Theme.accent : (touch.has-hover ? #FFFFFF : Theme.text-secondary);
+
+                    animate colorize {
+                        duration: root.smooth-animations ? 150ms : 0ms;
+                        easing: ease-out;
+                    }
+                }
+
+                if !root.colorize-icon: Image {
+                    source: root.icon;
+                    width: 20px;
+                    height: 20px;
+                    image-fit: contain;
+                    image-rendering: pixelated;
+                }
+            }
+
+            Text {
+                text: root.text;
+                color: root.is-active ? #FFFFFF : (touch.has-hover ? #FFFFFF : Theme.text-secondary);
+                font-family: Theme.font-family;
+                font-size: 11px;
+                font-weight: root.is-active ? 700 : 400;
+                vertical-alignment: center;
+                overflow: elide;
+
+                animate color {
+                    duration: root.smooth-animations ? 150ms : 0ms;
+                    easing: ease-out;
+                }
+            }
+        }
+
+        touch := TouchArea {
+            clicked => { root.clicked(); }
+        }
+    }
+}
+
+component CategoryHeader {
+    in-out property <string> title: "CATEGORY";
+
+    height: 28px;
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-top: 8px;
+        padding-bottom: 4px;
+        Text {
+            text: root.title;
+            color: Theme.text-muted;
+            font-family: Theme.font-family;
+            font-size: 9px;
+            font-weight: 700;
+            vertical-alignment: center;
+        }
+    }
+}
+
+export struct AccountData {
+    id: string,
+    index: int,
+    name: string,
+    account-type: string,
+    is-active: bool,
+    has-head: bool,
+    head-image: image,
+}
+
+export component Sidebar {
+    in-out property <string> username: "No Account";
+    in-out property <string> account-type: "Click to Sign In";
+    in-out property <bool> has-active-head: false;
+    in-out property <image> active-head-image;
+    in-out property <string> current-tab: "Play";
+    in-out property <string> sidebar-mode: "main"; // "main", "modrinth", "settings", "addons"
+    in-out property <string> current-modrinth-mode: "mod";
+    in-out property <string> current-settings-cat: "General";
+    in-out property <string> current-addons-source: "all"; // "all", "local", "community", "builtin"
+    in-out property <bool> account-drawer-open: false;
+    in-out property <bool> notifications-open: false;
+    in-out property <[AccountData]> accounts: [];
+    in-out property <bool> smooth-animations: Theme.smooth-animations;
+
+    in-out property <bool> adding-account: false;
+    in-out property <string> new-account-name: "";
+
+    callback select-tab(string);
+    callback select-modrinth(string);
+    callback select-settings-cat(string);
+    callback select-addons-source(string);
+    callback set-sidebar-mode(string);
+    callback open-dock(string);
+    callback select-account(int, string, string);
+    callback remove-account(int, string, string);
+    callback add-account();
+    callback create-account(string);
+
+    width: Theme.sidebar-width;
+
+    Rectangle {
+        background: Theme.sidebar-bg;
+
+        // Right border line
+        Rectangle {
+            x: parent.width - 1px;
+            width: 1px;
+            background: Theme.border-subtle;
+        }
+
+        VerticalLayout {
+            padding: 8px;
+            spacing: 4px;
+
+            // --- Top Account Capsule (Sharp 0px) ---
+            Rectangle {
+                height: 52px;
+                background: profile-touch.has-hover ? Theme.sidebar-hover : transparent;
+
+                HorizontalLayout {
+                    padding-left: 8px;
+                    padding-right: 8px;
+                    spacing: 10px;
+                    alignment: start;
+
+                    // Player Head Thumbnail
+                    Rectangle {
+                        width: 34px;
+                        height: 34px;
+                        y: (parent.height - self.height) / 2;
+                        background: #111215;
+                        border-width: 1px;
+                        border-color: (root.username == "No Account" || root.username == "No Account Connected" || root.username == "") ? Theme.accent : #2D3038;
+
+                        if (root.username == "No Account" || root.username == "No Account Connected" || root.username == ""): Rectangle {
+                            width: 100%;
+                            height: 100%;
+                            background: #00A8FF15;
+                            Text {
+                                text: "+";
+                                color: Theme.accent;
+                                font-family: Theme.font-family;
+                                font-size: 16px;
+                                font-weight: 700;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        if (root.username != "No Account" && root.username != "No Account Connected" && root.username != ""): Image {
+                            source: root.has-active-head ? root.active-head-image : @image-url("../../../skins/steve_head.png");
+                            width: 32px;
+                            height: 32px;
+                            image-fit: contain;
+                            image-rendering: pixelated;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    // Username & Account Subtitle
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 2px;
+                        horizontal-stretch: 1;
+
+                        Text {
+                            text: root.username;
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 11px;
+                            font-weight: 700;
+                            overflow: elide;
+                            vertical-alignment: center;
+                        }
+
+                        Text {
+                            text: root.account-type;
+                            color: Theme.text-secondary;
+                            font-family: Theme.font-family;
+                            font-size: 8px;
+                            overflow: elide;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    // Expand Chevron
+                    Text {
+                        text: root.account-drawer-open ? "▲" : "▼";
+                        color: Theme.text-muted;
+                        font-family: Theme.font-family;
+                        font-size: 8px;
+                        vertical-alignment: center;
+                    }
+                }
+
+                profile-touch := TouchArea {
+                    clicked => {
+                        if root.accounts.length == 0 {
+                            root.add-account();
+                        } else {
+                            root.account-drawer-open = !root.account-drawer-open;
+                        }
+                    }
+                }
+            }
+
+            // In-Sidebar Account Drawer Dropdown (Sharp 0px)
+            Rectangle {
+                clip: true;
+                height: root.account-drawer-open ? (root.accounts.length == 0 ? 104px : (min(root.accounts.length, 5) * 44px + 62px)) : 0px;
+                opacity: root.account-drawer-open ? 1.0 : 0.0;
+                background: #1A1C21;
+                border-width: root.account-drawer-open ? 1px : 0px;
+                border-color: #282C35;
+
+                animate height, opacity {
+                    duration: root.smooth-animations ? 180ms : 0ms;
+                    easing: ease-in-out;
+                }
+
+                VerticalLayout {
+                    padding: 8px;
+                    spacing: 6px;
+
+                    Text {
+                        text: "ACCOUNTS (" + root.accounts.length + ")";
+                        color: Theme.text-muted;
+                        font-family: Theme.font-family;
+                        font-size: 9px;
+                        font-weight: 700;
+                    }
+
+                    if root.accounts.length == 0: Rectangle {
+                        height: 36px;
+                        background: #14171E;
+                        border-width: 1px;
+                        border-color: Theme.border-subtle;
+                        HorizontalLayout {
+                            alignment: center;
+                            spacing: 6px;
+                            Text {
+                                text: "No accounts connected yet";
+                                color: Theme.text-muted;
+                                font-family: Theme.font-family;
+                                font-size: 9px;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    for acc[idx] in root.accounts: Rectangle {
+                        height: 38px;
+                        background: acc.is-active ? Theme.sidebar-active : (card-touch.has-hover ? Theme.sidebar-hover : Theme.sidebar-bg);
+                        border-width: 1px;
+                        border-color: acc.is-active ? Theme.accent : Theme.border;
+
+                        animate background, border-color {
+                            duration: root.smooth-animations ? 150ms : 0ms;
+                            easing: ease-out;
+                        }
+
+                        // Whole Card TouchArea for selecting account
+                        card-touch := TouchArea {
+                            clicked => {
+                                root.select-account(acc.index, acc.name, acc.id);
+                                root.account-drawer-open = false;
+                            }
+                        }
+
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            alignment: space-between;
+
+                            // Left: Head Thumbnail + Username & Account Type
+                            HorizontalLayout {
+                                spacing: 8px;
+                                alignment: start;
+                                horizontal-stretch: 1;
+
+                                Rectangle {
+                                    width: 24px;
+                                    height: 24px;
+                                    y: (parent.height - self.height) / 2;
+                                    background: #111215;
+                                    border-width: 1px;
+                                    border-color: Theme.border;
+
+                                    Image {
+                                        source: acc.has-head ? acc.head-image : @image-url("../../../skins/steve_head.png");
+                                        width: 22px;
+                                        height: 22px;
+                                        image-fit: contain;
+                                        image-rendering: pixelated;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+                                }
+
+                                VerticalLayout {
+                                    alignment: center;
+                                    spacing: 1px;
+                                    Text {
+                                        text: acc.name;
+                                        color: acc.is-active ? #FFFFFF : Theme.text-secondary;
+                                        font-family: Theme.font-family;
+                                        font-size: 10px;
+                                        font-weight: 700;
+                                    }
+                                    Text {
+                                        text: acc.account-type;
+                                        color: acc.is-active ? Theme.accent : Theme.text-muted;
+                                        font-family: Theme.font-family;
+                                        font-size: 8px;
+                                    }
+                                }
+                            }
+
+                            // Right: Checkmark & Vertically Centered Delete Button
+                            HorizontalLayout {
+                                spacing: 6px;
+                                alignment: end;
+
+                                if acc.is-active: Text {
+                                    text: "✓";
+                                    font-family: Theme.icon-font-family;
+                                    color: Theme.accent;
+                                    font-size: 10px;
+                                    vertical-alignment: center;
+                                }
+
+                                Rectangle {
+                                    width: 22px;
+                                    height: 22px;
+                                    y: (parent.height - self.height) / 2;
+                                    background: del-touch.has-hover ? #E74C3C33 : transparent;
+
+                                    Text {
+                                        text: "X";
+                                        font-family: Theme.font-family;
+                                        color: del-touch.has-hover ? #FF6B6B : Theme.text-muted;
+                                        font-size: 11px;
+                                        font-weight: 700;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+                                    del-touch := TouchArea {
+                                        clicked => {
+                                            root.remove-account(acc.index, acc.name, acc.id);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        height: 28px;
+                        background: add-touch.has-hover ? Theme.card-hover : Theme.button-dark;
+                        border-width: 1px;
+                        border-color: Theme.border;
+
+                        HorizontalLayout {
+                            alignment: center;
+                            Text {
+                                text: "+ Add Account";
+                                color: Theme.text-secondary;
+                                font-family: Theme.font-family;
+                                font-size: 9px;
+                                vertical-alignment: center;
+                            }
+                        }
+                        add-touch := TouchArea {
+                            clicked => {
+                                root.account-drawer-open = false;
+                                root.add-account();
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Separator Line
+            Rectangle {
+                height: 1px;
+                background: Theme.border-subtle;
+            }
+
+            // --- Dynamic Navigation Area ---
+            if root.sidebar-mode == "main": VerticalLayout {
+                spacing: 2px;
+
+                CategoryHeader { title: "GAMES"; }
+
+                NavItem {
+                    text: "Minecraft Java";
+                    icon: @image-url("../../../icons/2x/grass_block_side.png");
+                    is-active: root.current-tab == "Play";
+                    clicked => { root.select-tab("Play"); }
+                }
+
+                NavItem {
+                    text: "Installations";
+                    icon: @image-url("../../../icons/2x/crafting_table_front.png");
+                    is-active: root.current-tab == "Installations";
+                    clicked => { root.select-tab("Installations"); }
+                }
+
+                NavItem {
+                    text: "Modpacks";
+                    icon: @image-url("../../../icons/2x/shulker_box.png");
+                    is-active: root.current-tab == "Modpacks";
+                    clicked => { root.select-tab("Modpacks"); }
+                }
+
+                CategoryHeader { title: "DISCOVER"; }
+
+                NavItem {
+                    text: "Modrinth";
+                    icon: @image-url("../../../icons/2x/crafting_table_top.png");
+                    is-active: root.current-tab == "Mods" || root.current-tab == "Modrinth";
+                    clicked => {
+                        root.set-sidebar-mode("modrinth");
+                        root.select-modrinth(root.current-modrinth-mode != "" ? root.current-modrinth-mode : "mod");
+                    }
+                }
+
+                NavItem {
+                    text: "Addons";
+                    icon: @image-url("../../../icons/2x/beacon.png");
+                    is-active: root.current-tab == "Addons";
+                    clicked => {
+                        root.set-sidebar-mode("addons");
+                        root.select-tab("Addons");
+                    }
+                }
+
+                NavItem {
+                    text: "Locker";
+                    icon: @image-url("../../../icons/2x/enchanting_table_side.png");
+                    is-active: root.current-tab == "Locker";
+                    clicked => { root.select-tab("Locker"); }
+                }
+            }
+
+            if root.sidebar-mode == "modrinth": VerticalLayout {
+                spacing: 2px;
+
+                NavItem {
+                    text: "← Back";
+                    icon: @image-url("../../../icons/2x/observer_back.png");
+                    is-active: false;
+                    clicked => {
+                        root.set-sidebar-mode("main");
+                        root.select-tab("Play");
+                    }
+                }
+
+                CategoryHeader { title: "MODRINTH NETWORK"; }
+
+                NavItem {
+                    text: "Mods";
+                    icon: @image-url("../../../icons/2x/comparator_on.png");
+                    is-active: root.current-modrinth-mode == "mod";
+                    clicked => { root.select-modrinth("mod"); }
+                }
+
+                NavItem {
+                    text: "Resource Packs";
+                    icon: @image-url("../../../icons/2x/painting.png");
+                    is-active: root.current-modrinth-mode == "resourcepack";
+                    clicked => { root.select-modrinth("resourcepack"); }
+                }
+
+                NavItem {
+                    text: "Modpacks";
+                    icon: @image-url("../../../icons/2x/shulker_box.png");
+                    is-active: root.current-modrinth-mode == "modpack";
+                    clicked => { root.select-modrinth("modpack"); }
+                }
+
+                NavItem {
+                    text: "Shaders";
+                    icon: @image-url("../../../icons/2x/glowstone.png");
+                    is-active: root.current-modrinth-mode == "shader";
+                    clicked => { root.select-modrinth("shader"); }
+                }
+            }
+
+            if root.sidebar-mode == "settings": VerticalLayout {
+                spacing: 2px;
+
+                NavItem {
+                    text: "← Back";
+                    icon: @image-url("../../../icons/2x/observer_back.png");
+                    is-active: false;
+                    clicked => {
+                        root.set-sidebar-mode("main");
+                        root.select-tab("Play");
+                    }
+                }
+
+                CategoryHeader { title: "SETTINGS"; }
+
+                NavItem {
+                    text: "General";
+                    has-icon: false;
+                    is-active: root.current-settings-cat == "General";
+                    clicked => { root.select-settings-cat("General"); }
+                }
+
+                NavItem {
+                    text: "Appearance";
+                    has-icon: false;
+                    is-active: root.current-settings-cat == "Appearance";
+                    clicked => { root.select-settings-cat("Appearance"); }
+                }
+
+                NavItem {
+                    text: "Modpacks & Instances";
+                    has-icon: false;
+                    is-active: root.current-settings-cat == "Modpacks & Instances";
+                    clicked => { root.select-settings-cat("Modpacks & Instances"); }
+                }
+
+                NavItem {
+                    text: "Java & Memory";
+                    has-icon: false;
+                    is-active: root.current-settings-cat == "Java & Memory";
+                    clicked => { root.select-settings-cat("Java & Memory"); }
+                }
+
+                NavItem {
+                    text: "Downloads";
+                    has-icon: false;
+                    is-active: root.current-settings-cat == "Downloads";
+                    clicked => { root.select-settings-cat("Downloads"); }
+                }
+
+                NavItem {
+                    text: "Integrations";
+                    has-icon: false;
+                    is-active: root.current-settings-cat == "Integrations";
+                    clicked => { root.select-settings-cat("Integrations"); }
+                }
+
+                NavItem {
+                    text: "Logs & Diagnostics";
+                    has-icon: false;
+                    is-active: root.current-settings-cat == "Logs & Diagnostics";
+                    clicked => { root.select-settings-cat("Logs & Diagnostics"); }
+                }
+
+                NavItem {
+                    text: "About & Reset";
+                    has-icon: false;
+                    is-active: root.current-settings-cat == "About & Reset";
+                    clicked => { root.select-settings-cat("About & Reset"); }
+                }
+            }
+
+            if root.sidebar-mode == "addons": VerticalLayout {
+                spacing: 2px;
+
+                NavItem {
+                    text: "← Back";
+                    icon: @image-url("../../../icons/2x/observer_back.png");
+                    is-active: false;
+                    clicked => {
+                        root.set-sidebar-mode("main");
+                        root.select-tab("Play");
+                    }
+                }
+
+                CategoryHeader { title: "ADDON SOURCES"; }
+
+                NavItem {
+                    text: "All Addons";
+                    icon: @image-url("../../../icons/2x/beacon.png");
+                    is-active: root.current-addons-source == "all";
+                    clicked => { root.select-addons-source("all"); }
+                }
+
+                NavItem {
+                    text: "Installed / Local";
+                    icon: @image-url("../../../icons/2x/bookshelf.png");
+                    is-active: root.current-addons-source == "local" || root.current-addons-source == "installed";
+                    clicked => { root.select-addons-source("local"); }
+                }
+
+                NavItem {
+                    text: "Community Addons";
+                    icon: @image-url("../../../icons/icon_puzzle_16.png");
+                    is-active: root.current-addons-source == "community" || root.current-addons-source == "discover" || root.current-addons-source == "modrinth";
+                    clicked => { root.select-addons-source("community"); }
+                }
+
+                NavItem {
+                    text: "Built-in Tools";
+                    icon: @image-url("../../../icons/2x/repeater.png");
+                    is-active: root.current-addons-source == "builtin";
+                    clicked => { root.select-addons-source("builtin"); }
+                }
+            }
+
+            // Expands to push bottom dock down
+            Rectangle {
+                vertical-stretch: 1;
+            }
+
+            // --- Bottom Dock Area ---
+            Rectangle {
+                height: 1px;
+                background: Theme.border-subtle;
+            }
+
+            VerticalLayout {
+                spacing: 2px;
+
+                NavItem {
+                    text: "GitHub";
+                    icon: @image-url("../../../icons/2x/chiseled_bookshelf_occupied.png");
+                    is-active: false;
+                    clicked => { root.open-dock("github"); }
+                }
+
+                NavItem {
+                    text: "Screenshots";
+                    icon: @image-url("../../../icons/2x/jukebox_side.png");
+                    is-active: root.current-tab == "Screenshots";
+                    clicked => { root.open-dock("screenshots"); }
+                }
+
+                NavItem {
+                    text: "Notifications";
+                    icon: @image-url("../../../icons/2x/bell_side.png");
+                    is-active: root.notifications-open;
+                    clicked => { root.open-dock("notifications"); }
+                }
+
+                NavItem {
+                    text: "Settings";
+                    icon: @image-url("../../../icons/2x/gear.png");
+                    colorize-icon: true;
+                    is-active: root.current-tab == "Settings";
+                    clicked => {
+                        root.set-sidebar-mode("settings");
+                        root.select-tab("Settings");
+                    }
+                }
+            }
+        }
+    }
+}
+

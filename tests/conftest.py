@@ -1,32 +1,19 @@
 import sys
 from pathlib import Path
 import pytest
-import tkinter as tk
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+backend_dir = REPO_ROOT / "src" / "backend"
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
-
-@pytest.fixture(scope="session")
-def tk_root():
-    """Shared withdrawn Tk instance for tests requiring Tkinter widgets."""
-    try:
-        root = tk.Tk()
-        root.withdraw()
-        yield root
-        try:
-            root.destroy()
-        except Exception:
-            pass
-    except Exception:
-        # Headless environment fallback
-        yield None
 
 
 @pytest.fixture(autouse=True)
 def mock_agent_process_for_ui(request, monkeypatch):
     """Prevent launcher UI tests from spawning lingering background agent.py processes."""
-    if request.node.name == "test_agent_script_exists_and_runs":
+    if request.node.name == "test_agent_script_exists_and_runs" or "tests/e2e" in str(request.node.fspath).replace("\\", "/"):
         return
     import subprocess
     real_popen = subprocess.Popen

@@ -48,6 +48,7 @@ audit_*.png
 audit_snapshots/
 temp_community_repo/
 
+/.cargo
 /.agents
 /.gemini
 /.codex
@@ -56,3 +57,6 @@ temp_community_repo/
 /.github/hooks
 /scripts
 /tests
+tests/conftest.py
+icons/candidates/
+.impeccable/

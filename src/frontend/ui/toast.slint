@@ -1,0 +1,289 @@
+import { Theme } from "theme.slint";
+import { PixelCloseIcon } from "components.slint";
+
+export component RadialProgress {
+    in-out property <float> progress: 0.0; // 0..100
+    in-out property <string> status: "normal"; // "normal", "completed", "error", "warning"
+
+    width: 32px;
+    height: 32px;
+
+    // Track Circle: Smooth, unsegmented 5px stroke
+    Rectangle {
+        width: 32px;
+        height: 32px;
+        border-radius: 16px; // radial progress track oval
+        border-width: 5px;
+        border-color: #2D3340;
+        background: transparent;
+    }
+
+    // Active Progress Ring (Smooth, continuous unsegmented arc)
+    if root.progress > 0.0 && root.status == "normal": Path {
+        width: 32px;
+        height: 32px;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: 32;
+        viewbox-height: 32;
+        stroke: Theme.accent;
+        stroke-width: 5px;
+        fill: transparent;
+        MoveTo { x: 16.0; y: 3.0; }
+        ArcTo {
+            radius-x: 13.0;
+            radius-y: 13.0;
+            x: root.progress >= 99.5 ? 15.99 : (16.0 + 13.0 * sin((root.progress / 100.0) * 360deg));
+            y: root.progress >= 99.5 ? 3.0 : (16.0 - 13.0 * cos((root.progress / 100.0) * 360deg));
+            sweep: true;
+            large-arc: root.progress > 50.0;
+        }
+    }
+
+    if root.status == "completed": Rectangle {
+        width: 32px;
+        height: 32px;
+        border-radius: 16px; // radial progress completed oval
+        border-width: 5px;
+        border-color: Theme.success;
+        background: transparent;
+    }
+
+    if root.status == "error": Rectangle {
+        width: 32px;
+        height: 32px;
+        border-radius: 16px; // radial progress error oval
+        border-width: 5px;
+        border-color: Theme.danger;
+        background: transparent;
+    }
+
+    // Dynamic Center Text / Glyph (Single Centered Percentage)
+    if root.status == "normal": Text {
+        text: Math.round(root.progress) + "%";
+        color: #FFFFFF;
+        font-family: Theme.font-family;
+        font-size: 7px;
+        font-weight: 700;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        width: 100%;
+        height: 100%;
+    }
+
+    if root.status == "completed": Text {
+        text: "✓";
+        color: Theme.success;
+        font-family: Theme.icon-font-family;
+        font-size: 11px;
+        font-weight: 700;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        width: 100%;
+        height: 100%;
+    }
+
+    if root.status == "error": Text {
+        text: "X";
+        color: Theme.danger;
+        font-family: Theme.font-family;
+        font-size: 10px;
+        font-weight: 700;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        width: 100%;
+        height: 100%;
+    }
+
+    if root.status == "warning": Text {
+        text: "!";
+        color: #E67E22;
+        font-family: Theme.font-family;
+        font-size: 11px;
+        font-weight: 700;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        width: 100%;
+        height: 100%;
+    }
+}
+
+export component DownloadToast {
+    in-out property <bool> is-visible: false;
+    in-out property <string> title: "Sodium";
+    in-out property <string> detail: "Downloading...";
+    in-out property <float> progress: 0.0;
+    in-out property <string> status: "normal"; // "normal", "completed", "error", "warning"
+
+    callback dismiss();
+    callback clicked();
+
+    width: 340px;
+    height: 54px;
+
+    if root.is-visible: Rectangle {
+        width: 100%;
+        height: 100%;
+        background: root.status == "error" ? #251114 :
+                    (root.status == "warning" ? #291E0C :
+                    (root.status == "completed" ? #0F2417 : #1E2025));
+        border-width: 1px;
+        border-color: root.status == "error" ? #5C1D24 :
+                      (root.status == "warning" ? #5E4014 :
+                      (root.status == "completed" ? #1B4D2E : #2A303F));
+
+        HorizontalLayout {
+            padding-left: 8px;
+            padding-right: 8px;
+            padding-top: 6px;
+            padding-bottom: 6px;
+            spacing: 10px;
+            alignment: space-between;
+
+            // Interactive content area (Left block + Title/Detail)
+            Rectangle {
+                horizontal-stretch: 1;
+                background: transparent;
+
+                HorizontalLayout {
+                    spacing: 10px;
+
+                    // Left Solid Square Icon Block (Neutral graphite, no blue hue)
+                    Rectangle {
+                        width: 36px;
+                        height: 36px;
+                        y: (parent.height - self.height) / 2;
+                        background: root.status == "error" ? #E74C3C :
+                                    (root.status == "warning" ? #E67E22 :
+                                    (root.status == "completed" ? #27AE60 : #181A1E));
+
+                        if root.status == "normal" && root.progress > 0.0 && root.progress < 100.0: RadialProgress {
+                            progress: root.progress;
+                            status: root.status;
+                            x: (parent.width - self.width) / 2;
+                            y: (parent.height - self.height) / 2;
+                        }
+
+                        if root.status == "normal" && (root.progress <= 0.0 || root.progress >= 100.0): Text {
+                            text: "i";
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 14px;
+                            font-weight: 700;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            width: 100%;
+                            height: 100%;
+                        }
+
+                        if root.status == "completed": Text {
+                            text: "✓";
+                            color: #FFFFFF;
+                            font-family: Theme.icon-font-family;
+                            font-size: 16px;
+                            font-weight: 700;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            width: 100%;
+                            height: 100%;
+                        }
+
+                        if root.status == "error": Text {
+                            text: "X";
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 14px;
+                            font-weight: 700;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            width: 100%;
+                            height: 100%;
+                        }
+
+                        if root.status == "warning": Text {
+                            text: "!";
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 16px;
+                            font-weight: 700;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            width: 100%;
+                            height: 100%;
+                        }
+                    }
+
+                    // Center: Title + Detail info
+                    VerticalLayout {
+                        horizontal-stretch: 1;
+                        alignment: center;
+                        spacing: 2px;
+
+                        Text {
+                            text: root.title;
+                            color: #FFFFFF;
+                            font-family: Theme.font-family;
+                            font-size: 11px;
+                            font-weight: 700;
+                            overflow: elide;
+                        }
+
+                        Text {
+                            text: root.detail;
+                            color: #A0B0C4;
+                            font-family: Theme.font-family;
+                            font-size: 9px;
+                            overflow: elide;
+                        }
+                    }
+                }
+
+                body-touch := TouchArea {
+                    clicked => { root.clicked(); }
+                }
+            }
+
+            // Right side: Close button (Single centered percentage is already inside the radial progress ring)
+            HorizontalLayout {
+                spacing: 6px;
+                alignment: end;
+
+                // Close button (0px sharp box)
+                Rectangle {
+                    width: 22px;
+                    height: 22px;
+                    y: (parent.height - self.height) / 2;
+                    background: close-touch.has-hover ? #2A3342 : transparent;
+
+                    PixelCloseIcon {
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        icon-color: close-touch.has-hover ? #FFFFFF : #8C9AA8;
+                    }
+
+                    close-touch := TouchArea {
+                        clicked => { root.dismiss(); }
+                    }
+                }
+            }
+        }
+
+        // Bottom Continuous Progress Micro-bar (2px sharp track, 0px corners)
+        Rectangle {
+            y: parent.height - 2px;
+            height: 2px;
+            width: parent.width;
+            background: #18202A;
+
+            Rectangle {
+                x: 0px;
+                y: 0px;
+                height: parent.height;
+                width: parent.width * (root.status == "completed" ? 1.0 : min(1.0, max(0.0, root.progress / 100.0)));
+                background: root.status == "completed" ? Theme.success :
+                            (root.status == "error" ? Theme.danger :
+                            (root.status == "warning" ? #E67E22 : Theme.accent));
+            }
+        }
+    }
+}
