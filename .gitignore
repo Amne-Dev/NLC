@@ -57,7 +57,8 @@ temp_community_repo/
 /.github/skills
 /.github/agents
 /.github/hooks
-/scripts
+/scripts/*
+!/scripts/generate_release_cdc.py
 /tests
 tests/conftest.py
 icons/candidates/
