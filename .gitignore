@@ -25,7 +25,9 @@ installer/
 # Logs & Config
 logs/
 authlib-injector.log
-/skins
+/skins/*
+!/skins/steve_head.png
+!/skins/default_steve.png
 launcher_config.json
 *.AppImage
 /AppDir
