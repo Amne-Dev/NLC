@@ -7,11 +7,33 @@ fetch('https://api.github.com/repos/Amne-Dev/NLC/releases/latest')
             const ver = data.tag_name.replace(/^v/, '');
             const versionEl = document.getElementById('version-text');
             if (versionEl) {
-                versionEl.innerText = `Version ${ver} • Open Source • Free`;
+                versionEl.innerText = `Version ${ver}`;
             }
         }
     })
     .catch(e => console.error("Could not fetch version", e));
+
+fetch('https://api.github.com/repos/Amne-Dev/NLC/releases')
+    .then(res => res.json())
+    .then(releases => {
+        let totalDownloads = 0;
+
+        // Loop through all releases and accumulate asset download counts
+        releases.forEach(release => {
+            if (release.assets) {
+                release.assets.forEach(asset => {
+                    totalDownloads += asset.download_count;
+                });
+            }
+        });
+
+        // Update the DOM exactly once with the finalized total
+        const downloadsEl = document.querySelector('.stats .stat:first-child');
+        if (downloadsEl) {
+            downloadsEl.innerText = `${totalDownloads.toLocaleString()} Downloads`;
+        }
+    })
+    .catch(err => console.error("Error fetching release data:", err));
 
 // Switch between Modpacks and Mods views in Modrinth showcase
 function switchModrinthTab(tab) {
@@ -235,51 +257,139 @@ function switchModrinthTab(tab) {
     });
 })();
 
-
 // =============================================================================
-// Dynamic Vertical Timeline Section Spy & Fluid Beam Progress (Right Rail)
+// Mobile Navigation Drawer Toggle
 // =============================================================================
 (function() {
+    const navToggle = document.getElementById("nav-toggle");
+    const navLinks = document.getElementById("nav-links");
+    if (!navToggle || !navLinks) return;
+
+    function toggleMenu() {
+        const isOpen = navLinks.classList.toggle("open");
+        navToggle.classList.toggle("open", isOpen);
+        navToggle.setAttribute("aria-expanded", String(isOpen));
+        if (isOpen) {
+            document.body.classList.add("nav-open");
+        } else {
+            document.body.classList.remove("nav-open");
+        }
+    }
+
+    function closeMenu() {
+        navLinks.classList.remove("open");
+        navToggle.classList.remove("open");
+        navToggle.setAttribute("aria-expanded", "false");
+        document.body.classList.remove("nav-open");
+    }
+
+    navToggle.addEventListener("click", toggleMenu);
+
+    // Close on navigation link click
+    navLinks.querySelectorAll("a").forEach(link => {
+        link.addEventListener("click", closeMenu);
+    });
+
+    // Close on Escape key
+    document.addEventListener("keydown", e => {
+        if (e.key === "Escape" && navLinks.classList.contains("open")) {
+            closeMenu();
+        }
+    });
+
+    // Auto-close if resized to desktop viewport
+    window.addEventListener("resize", () => {
+        if (window.innerWidth > 768 && navLinks.classList.contains("open")) {
+            closeMenu();
+        }
+    }, { passive: true });
+})();
+
+
+// =============================================================================
+// Dynamic Vertical Timeline Section Spy & Fluid Beam Progress (Glassmorphism Capsule 2.0)
+// =============================================================================
+(function() {
+    const timeline = document.querySelector('.vertical-timeline');
     const nodes = document.querySelectorAll('.vertical-timeline .timeline-node');
     const progressBar = document.getElementById('timeline-progress-bar');
-    if (!nodes.length) return;
+    const trackBg = document.querySelector('.timeline-track-bg');
+    if (!timeline || !nodes.length) return;
 
     const sections = Array.from(nodes).map(node => {
         const id = node.getAttribute('data-section');
         return document.getElementById(id);
     }).filter(Boolean);
 
-    function updateTimeline() {
-        const scrollY = window.scrollY;
-        const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-        
-        // Fluid progress beam fill
-        if (progressBar && docHeight > 0) {
-            const progress = Math.min(Math.max(scrollY / docHeight, 0), 1);
-            progressBar.style.height = `${progress * 100}%`;
-        }
-
-        // Active node detection
-        const triggerPos = scrollY + window.innerHeight * 0.38;
-        let currentSectionId = sections[0]?.id;
-
-        for (const sec of sections) {
-            if (triggerPos >= sec.offsetTop) {
-                currentSectionId = sec.id;
+    function alignTrack() {
+        if (trackBg && nodes.length > 1) {
+            const firstDot = nodes[0].querySelector('.timeline-dot');
+            const lastDot = nodes[nodes.length - 1].querySelector('.timeline-dot');
+            if (firstDot && lastDot) {
+                const timelineRect = timeline.getBoundingClientRect();
+                const firstRect = firstDot.getBoundingClientRect();
+                const lastRect = lastDot.getBoundingClientRect();
+                const topOffset = (firstRect.top + firstRect.height / 2) - timelineRect.top;
+                const totalHeight = (lastRect.top + lastRect.height / 2) - (firstRect.top + firstRect.height / 2);
+                trackBg.style.top = topOffset + 'px';
+                trackBg.style.height = totalHeight + 'px';
+                trackBg.style.bottom = 'auto';
             }
         }
+    }
 
-        nodes.forEach(node => {
-            if (node.getAttribute('data-section') === currentSectionId) {
+    function updateTimeline() {
+        const scrollY = window.scrollY;
+        const triggerPos = scrollY + window.innerHeight * 0.38;
+        let activeIdx = 0;
+
+        sections.forEach((sec, idx) => {
+            if (triggerPos >= sec.offsetTop) {
+                activeIdx = idx;
+            }
+        });
+
+        // If scrolled to bottom, highlight the final section
+        if (window.innerHeight + scrollY >= document.documentElement.scrollHeight - 60) {
+            activeIdx = sections.length - 1;
+        }
+
+        nodes.forEach((node, idx) => {
+            if (idx === activeIdx) {
                 node.classList.add('active');
             } else {
                 node.classList.remove('active');
             }
         });
+
+        // Precisely connect progress beam from first dot to active dot center
+        if (progressBar && nodes.length > 1) {
+            const firstDot = nodes[0].querySelector('.timeline-dot');
+            const activeDot = nodes[activeIdx]?.querySelector('.timeline-dot');
+            
+            if (firstDot && activeDot) {
+                const timelineRect = timeline.getBoundingClientRect();
+                const firstRect = firstDot.getBoundingClientRect();
+                const activeRect = activeDot.getBoundingClientRect();
+                
+                const topOffset = (firstRect.top + firstRect.height / 2) - timelineRect.top;
+                const activeCenter = (activeRect.top + activeRect.height / 2) - timelineRect.top;
+                const fillHeight = Math.max(0, activeCenter - topOffset);
+                
+                progressBar.style.top = topOffset + 'px';
+                progressBar.style.height = fillHeight + 'px';
+            }
+        }
     }
 
     window.addEventListener('scroll', updateTimeline, { passive: true });
-    window.addEventListener('resize', updateTimeline, { passive: true });
+    window.addEventListener('resize', () => {
+        alignTrack();
+        updateTimeline();
+    }, { passive: true });
+
+    // Initial setup
+    alignTrack();
     updateTimeline();
 
     // Smooth navigation click
