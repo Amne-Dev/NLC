@@ -40,16 +40,17 @@ package() {
     src \
     "${appdir}/"
 
-  # Install compiled native Slint UI
-  install -Dm755 src/frontend/target/release/nlc-ui "${pkgdir}/usr/bin/newlauncher"
+  # Install compiled native Slint UI (primary: nlc, legacy alias: newlauncher)
+  install -Dm755 src/frontend/target/release/nlc-ui "${pkgdir}/usr/bin/nlc"
+  ln -sf nlc "${pkgdir}/usr/bin/newlauncher"
 
   # Install desktop entry
   install -Dm644 packaging/linux/NewLauncher.desktop \
-    "${pkgdir}/usr/share/applications/newlauncher.desktop"
+    "${pkgdir}/usr/share/applications/nlc.desktop"
   sed -i \
-    -e 's/^Exec=NewLauncher$/Exec=newlauncher/' \
+    -e 's/^Exec=NewLauncher$/Exec=nlc/' \
     -e 's/^Icon=logo$/Icon=newlauncher/' \
-    "${pkgdir}/usr/share/applications/newlauncher.desktop"
+    "${pkgdir}/usr/share/applications/nlc.desktop"
 
   # Install application icon
   install -Dm644 logo.png \

@@ -22,6 +22,25 @@ fn get_project_root() -> PathBuf {
         .to_path_buf()
 }
 
+fn kill_pid(pid: u32) {
+    #[cfg(windows)]
+    {
+        let output = std::process::Command::new("taskkill")
+            .args(["/F", "/PID", &pid.to_string()])
+            .output()
+            .expect("Failed to run taskkill");
+        assert!(output.status.success(), "taskkill failed: {:?}", output);
+    }
+    #[cfg(not(windows))]
+    {
+        let output = std::process::Command::new("kill")
+            .args(["-9", &pid.to_string()])
+            .output()
+            .expect("Failed to run kill");
+        assert!(output.status.success(), "kill -9 failed: {:?}", output);
+    }
+}
+
 #[tokio::test]
 async fn test_rust_ipc_100_concurrent_requests() {
     let root = get_project_root();
@@ -213,11 +232,7 @@ while True:
     let pid: u32 = pid_str.trim().parse().expect("Invalid PID");
 
     println!("[TEST] Killing agent process PID {} while 5 requests are pending...", pid);
-    let kill_output = std::process::Command::new("taskkill")
-        .args(["/F", "/PID", &pid.to_string()])
-        .output()
-        .expect("Failed to run taskkill");
-    assert!(kill_output.status.success(), "taskkill failed: {:?}", kill_output);
+    kill_pid(pid);
 
     // Verify all pending callers resolve promptly with AgentDisconnected and DO NOT HANG
     for (idx, handle) in handles.into_iter().enumerate() {
@@ -287,9 +302,7 @@ while True:
     }
     assert!(!pid_str.is_empty(), "agent.pid was not written within 3s");
     let pid: u32 = pid_str.trim().parse().expect("Invalid PID");
-    let _ = std::process::Command::new("taskkill")
-        .args(["/F", "/PID", &pid.to_string()])
-        .output();
+    kill_pid(pid);
 
     tokio::time::sleep(Duration::from_millis(100)).await;
 

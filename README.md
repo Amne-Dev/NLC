@@ -59,7 +59,7 @@ Ny-Luna keeps the familiar parts of Minecraft launcher setup while making it eas
 ### Linux
 
 #### Option 1: Quick Install (Debian, Ubuntu, Arch, Manjaro, Pop!_OS)
-Run this single command in your terminal to automatically install prerequisites (FUSE runtime, desktop icons), download the latest AppImage to `/opt/new-launcher`, configure application menu shortcuts, and enable the `newlauncher` terminal command:
+Run this single command in your terminal to automatically install prerequisites (FUSE runtime, desktop icons), download the latest AppImage to `/opt/new-launcher`, configure application menu shortcuts, and enable the `nlc` (or `newlauncher`) terminal command:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Amne-Dev/NLC/main/packaging/linux/install.sh | bash

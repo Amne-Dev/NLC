@@ -6,11 +6,13 @@
 set -euo pipefail
 
 APP_NAME="New Launcher"
-BIN_NAME="newlauncher"
+BIN_NAME="nlc"
+LEGACY_BIN_NAME="newlauncher"
 INSTALL_DIR="/opt/new-launcher"
 APPIMAGE_DEST="${INSTALL_DIR}/NewLauncher.AppImage"
 BIN_LINK="/usr/local/bin/${BIN_NAME}"
-DESKTOP_FILE="/usr/share/applications/newlauncher.desktop"
+LEGACY_BIN_LINK="/usr/local/bin/${LEGACY_BIN_NAME}"
+DESKTOP_FILE="/usr/share/applications/nlc.desktop"
 ICON_DEST="/usr/share/icons/hicolor/256x256/apps/newlauncher.png"
 PIXMAP_DEST="/usr/share/pixmaps/newlauncher.png"
 GITHUB_REPO="Amne-Dev/NLC"
@@ -155,8 +157,9 @@ else
 fi
 
 # 6. Create Binary Symlink
-log "Creating executable symlink ${BIN_LINK}..."
+log "Creating executable symlink ${BIN_LINK} (and ${LEGACY_BIN_LINK} for compatibility)..."
 ${SUDO} ln -sf "${APPIMAGE_DEST}" "${BIN_LINK}"
+${SUDO} ln -sf "${BIN_LINK}" "${LEGACY_BIN_LINK}"
 
 # 7. Write Desktop Entry
 log "Installing desktop launcher entry..."
@@ -170,7 +173,7 @@ Exec=${BIN_LINK} %U
 Icon=newlauncher
 Terminal=false
 Categories=Game;ActionGame;
-Keywords=minecraft;game;launcher;mc;craft;
+Keywords=minecraft;game;launcher;mc;craft;nlc;
 StartupNotify=true
 StartupWMClass=nlc-ui
 EOF
@@ -187,10 +190,10 @@ fi
 
 log "================================================================="
 log "Installation Successful! ✓"
-log "Launch from terminal:   ${BIN_NAME}"
+log "Launch from terminal:   ${BIN_NAME} (or ${LEGACY_BIN_NAME})"
 log "Launch from menu:       Application Menu -> Games -> New Launcher"
 log ""
 log "To uninstall, run:"
-log "  ${SUDO} rm -f '${BIN_LINK}' '${DESKTOP_FILE}' '${ICON_DEST}' '${PIXMAP_DEST}' && ${SUDO} rm -rf '${INSTALL_DIR}'"
+log "  ${SUDO} rm -f '${BIN_LINK}' '${LEGACY_BIN_LINK}' '${DESKTOP_FILE}' '${ICON_DEST}' '${PIXMAP_DEST}' && ${SUDO} rm -rf '${INSTALL_DIR}'"
 log "================================================================="
 
