@@ -82,6 +82,10 @@ fn prompt_open_file(filter: &str) -> Option<String> {
     dialogs::prompt_open_file(filter)
 }
 
+fn prompt_save_file(default_name: &str, filter: &str) -> Option<String> {
+    dialogs::prompt_save_file(default_name, filter)
+}
+
 fn prompt_open_folder() -> Option<String> {
     dialogs::prompt_open_folder()
 }
@@ -811,6 +815,7 @@ pub fn apply_theme_palette(win: &MainWindow, theme_name: &str, custom_accent_hex
 }
 
 
+#[cfg(windows)]
 #[repr(C)]
 struct MemoryStatusEx {
     dw_length: u32,
@@ -824,6 +829,7 @@ struct MemoryStatusEx {
     ull_avail_extended_virtual: u64,
 }
 
+#[cfg(windows)]
 #[link(name = "kernel32")]
 extern "system" {
     fn GlobalMemoryStatusEx(lpBuffer: *mut MemoryStatusEx) -> i32;
@@ -843,6 +849,28 @@ pub fn detect_system_ram() -> (i32, String) {
             );
         }
     }
+
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(meminfo) = std::fs::read_to_string("/proc/meminfo") {
+            for line in meminfo.lines() {
+                if line.starts_with("MemTotal:") {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if parts.len() >= 2 {
+                        if let Ok(kb) = parts[1].parse::<u64>() {
+                            let total_mb = (kb / 1024) as i32;
+                            let total_gb = (kb as f64) / (1024.0 * 1024.0);
+                            return (
+                                total_mb,
+                                format!("Total Physical System Memory: {:.1} GB ({} MB)", total_gb, total_mb),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     (8192, "Total Physical System Memory: 8.0 GB (8192 MB)".to_string())
 }
 
@@ -4187,20 +4215,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 s.skin_path.clone()
             };
             if let Some(src_path) = src {
-                #[cfg(windows)]
-                {
-                    let script = format!(r#"
-Add-Type -AssemblyName System.Windows.Forms
-$dlg = New-Object System.Windows.Forms.SaveFileDialog
-$dlg.Filter = "Minecraft Skin (*.png)|*.png"
-$dlg.FileName = "skin_export.png"
-if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {{
-    Copy-Item -Path "{}" -Destination $dlg.FileName
-}}
-"#, src_path.replace('"', "\\\""));
-                    let _ = std::process::Command::new("powershell")
-                        .args(["-NoProfile", "-NonInteractive", "-Command", &script])
-                        .spawn();
+                if let Some(dest_path) = prompt_save_file("skin_export.png", "Minecraft Skin (*.png)|*.png") {
+                    if let Err(e) = std::fs::copy(&src_path, &dest_path) {
+                        eprintln!("[NLC-Rust] Failed to export skin to {}: {}", dest_path, e);
+                    } else {
+                        println!("[NLC-Rust] Successfully exported skin to: {}", dest_path);
+                    }
                 }
             }
         });
