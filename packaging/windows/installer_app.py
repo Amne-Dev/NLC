@@ -14,7 +14,10 @@ import ctypes
 import tempfile
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
-import winreg
+try:
+    import winreg
+except (ImportError, ModuleNotFoundError):
+    winreg = None
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 BACKEND_DIR = REPO_ROOT / "src" / "backend"
@@ -213,6 +216,8 @@ def check_write_access(target_dir: str) -> tuple[bool, str]:
 
 
 def _read_reg_str(root, key_path: str, value_name: str) -> str:
+    if winreg is None:
+        return ""
     try:
         with winreg.OpenKey(root, key_path, 0, winreg.KEY_READ) as key:
             value, _ = winreg.QueryValueEx(key, value_name)
@@ -249,17 +254,18 @@ def _looks_like_install_dir(path: str) -> bool:
 
 
 def discover_existing_install_dir() -> str:
-    roots = (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE)
-    keys = (CUSTOM_UNINSTALL_KEY, LEGACY_INNO_KEY)
-    for root in roots:
-        for key in keys:
-            path = _extract_install_dir_from_uninstall_key(root, key)
-            if not path:
-                continue
-            if _looks_like_install_dir(path):
-                return path
-            if os.path.isdir(path):
-                return path
+    if winreg is not None:
+        roots = (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE)
+        keys = (CUSTOM_UNINSTALL_KEY, LEGACY_INNO_KEY)
+        for root in roots:
+            for key in keys:
+                path = _extract_install_dir_from_uninstall_key(root, key)
+                if not path:
+                    continue
+                if _looks_like_install_dir(path):
+                    return path
+                if os.path.isdir(path):
+                    return path
 
     candidates = [
         default_install_dir(),
@@ -281,6 +287,8 @@ def remove_shortcut_if_exists(path: str) -> None:
 
 
 def remove_uninstall_entry() -> None:
+    if winreg is None:
+        return
     for root in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
         for sub_key in ("NyLuna", CUSTOM_UNINSTALL_KEY, LEGACY_INNO_KEY):
             try:
@@ -290,6 +298,8 @@ def remove_uninstall_entry() -> None:
 
 
 def register_uninstall_entry(install_dir: str, setup_exe_path: str = "") -> None:
+    if winreg is None:
+        return
     uninst_path = os.path.join(install_dir, UNINSTALL_EXE_NAME)
     if setup_exe_path and os.path.isfile(setup_exe_path):
         try:

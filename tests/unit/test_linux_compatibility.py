@@ -104,3 +104,28 @@ def test_main_candidates_include_linux():
     content = Path("main.py").read_text(encoding="utf-8")
     assert 'REPO_ROOT / "dist" / "NyLuna"' in content
     assert 'REPO_ROOT / "src" / "frontend" / "target" / "release" / "nlc-ui"' in content
+
+
+def test_installer_app_import_without_winreg(monkeypatch):
+    """Ensure packaging/windows/installer_app.py does not crash when winreg is absent on Linux."""
+    orig_installer = sys.modules.pop("installer_app", None)
+    pkg_win = str(Path(__file__).resolve().parent.parent.parent / "packaging" / "windows")
+    if pkg_win not in sys.path:
+        sys.path.insert(0, pkg_win)
+
+    # Simulate non-Windows environment where winreg is missing
+    monkeypatch.setitem(sys.modules, "winreg", None)
+
+    try:
+        import installer_app
+        assert installer_app.winreg is None
+        # Verify functions degrade gracefully
+        assert installer_app._read_reg_str(None, "path", "val") == ""
+        installer_app.remove_uninstall_entry()
+        installer_app.register_uninstall_entry("C:/dummy")
+        existing = installer_app.discover_existing_install_dir()
+        assert isinstance(existing, str)
+    finally:
+        if orig_installer:
+            sys.modules["installer_app"] = orig_installer
+
