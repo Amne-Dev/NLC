@@ -51,34 +51,76 @@
                 <h2>Installation (Linux)</h2>
 
                 <h3 id="linux-universal" style="font-size: 1.15rem; color: #FFFFFF; margin: 20px 0 10px;">1. Universal Quick Install (All Distros)</h3>
-                <p>Installs prerequisites (FUSE runtime, desktop icons), downloads the AppImage to <code>/opt/new-launcher</code>, adds the Ny-Luna application menu shortcut, and registers the <code>nlc</code> command (with <code>newlauncher</code> alias):</p>
+                <p>The recommended method for all Linux distributions. Run this single command in your terminal to automatically install prerequisites (FUSE runtime, desktop icons), download the latest AppImage into <code>/opt/new-launcher</code>, integrate Ny-Luna into your desktop application menu, and register the <code>nlc</code> terminal command:</p>
                 <pre><code>curl -fsSL https://raw.githubusercontent.com/Amne-Dev/NLC/main/packaging/linux/install.sh | bash</code></pre>
 
-                <h3 id="linux-arch" style="font-size: 1.15rem; color: #FFFFFF; margin: 24px 0 10px;">2. Arch Linux, Manjaro & EndeavourOS (PKGBUILD)</h3>
-                <p>Build and install the native Slint UI package directly using <code>makepkg</code>:</p>
-                <pre><code>cd packaging/linux
-makepkg -si</code></pre>
-
-                <h3 id="linux-debian-ubuntu" style="font-size: 1.15rem; color: #FFFFFF; margin: 24px 0 10px;">3. Ubuntu & Debian (FUSE Setup)</h3>
-                <p>Ubuntu 22.04+ and Debian 12+ require the FUSE 2 runtime to execute AppImages. Install it with:</p>
-                <pre><code>sudo apt update && sudo apt install -y libfuse2</code></pre>
-                <p><em>Note: On Ubuntu 24.04 LTS and newer, use <code>sudo apt install -y libfuse2t64</code> if <code>libfuse2</code> is unavailable.</em></p>
-
-                <h3 id="linux-manual" style="font-size: 1.15rem; color: #FFFFFF; margin: 24px 0 10px;">4. Other Distros (Manual AppImage)</h3>
+                <h3 id="linux-arch" style="font-size: 1.15rem; color: #FFFFFF; margin: 28px 0 10px;">2. Arch Linux, Manjaro & EndeavourOS (PKGBUILD)</h3>
+                <p>To compile and install the native Slint UI package directly using Arch's package manager:</p>
                 <ol>
-                    <li>Download the latest Linux <code>NewLauncher-*-x86_64.AppImage</code> from the <a href="https://github.com/Amne-Dev/NLC/releases" target="_blank">Releases</a> page.</li>
-                    <li>Make it executable and run it directly:</li>
+                    <li>Ensure <code>git</code> and <code>base-devel</code> are installed:</li>
+                </ol>
+                <pre><code>sudo pacman -S --needed base-devel git</code></pre>
+                <ol start="2">
+                    <li>Clone the repository and enter the packaging directory:</li>
+                </ol>
+                <pre><code>git clone https://github.com/Amne-Dev/NLC.git
+cd NLC/packaging/linux</code></pre>
+                <ol start="3">
+                    <li>Build and install the package with <code>makepkg</code>:</li>
+                </ol>
+                <pre><code>makepkg -si</code></pre>
+                <p>Once finished, launch the app from your application menu or run <code>nlc</code> in the terminal.</p>
+
+                <h3 id="linux-debian-ubuntu" style="font-size: 1.15rem; color: #FFFFFF; margin: 28px 0 10px;">3. Ubuntu, Debian & Linux Mint (AppImage Setup)</h3>
+                <p>Ubuntu 22.04+ and Debian 12+ require the FUSE 2 library to execute AppImages. Follow these steps to download and set up Ny-Luna:</p>
+                <ol>
+                    <li>Install the required FUSE runtime:</li>
+                </ol>
+                <pre><code>sudo apt update && sudo apt install -y libfuse2 curl</code></pre>
+                <p><em>(Note: On Ubuntu 24.04 LTS and newer, if <code>libfuse2</code> is not found, install <code>libfuse2t64</code> instead: <code>sudo apt install -y libfuse2t64</code>)</em></p>
+                <ol start="2">
+                    <li>Download the latest release AppImage:</li>
+                </ol>
+                <pre><code>curl -s https://api.github.com/repos/Amne-Dev/NLC/releases/latest \
+| grep "browser_download_url.*AppImage" \
+| cut -d : -f 2,3 \
+| tr -d \" \
+| wget -qi -</code></pre>
+                <ol start="3">
+                    <li>Make the downloaded AppImage executable and launch it:</li>
                 </ol>
                 <pre><code>chmod +x NewLauncher-*-x86_64.AppImage
 ./NewLauncher-*-x86_64.AppImage</code></pre>
+                <p><em>Tip: For automatic desktop menu shortcuts and the <code>nlc</code> command, use the <a href="#linux-universal">Universal Quick Install</a>.</em></p>
+
+                <h3 id="linux-manual" style="font-size: 1.15rem; color: #FFFFFF; margin: 28px 0 10px;">4. Other Distros (Manual AppImage Download)</h3>
+                <ol>
+                    <li>Visit the official GitHub <a href="https://github.com/Amne-Dev/NLC/releases" target="_blank">Releases</a> page and download <code>NewLauncher-*-x86_64.AppImage</code>.</li>
+                    <li>Open your terminal in the directory where the file was saved.</li>
+                    <li>Grant execution permissions:</li>
+                </ol>
+                <pre><code>chmod +x NewLauncher-*-x86_64.AppImage</code></pre>
+                <ol start="4">
+                    <li>Run the launcher:</li>
+                </ol>
+                <pre><code>./NewLauncher-*-x86_64.AppImage</code></pre>
+                <p>The AppImage is fully self-contained and portable with no system-wide installation required.</p>
             </section>
 
             <section id="build-from-source">
                 <h2>Build on Linux From Source</h2>
-                <p>To compile the release binaries and package the self-contained Linux AppImage from this repository:</p>
+                <p>If you prefer to build the native Rust frontend and Python backend daemon directly from the source repository:</p>
+                <ol>
+                    <li>Clone the repository and install system build dependencies:</li>
+                </ol>
+                <pre><code>git clone https://github.com/Amne-Dev/NLC.git
+cd NLC</code></pre>
+                <ol start="2">
+                    <li>Make the AppImage builder executable and run it:</li>
+                </ol>
                 <pre><code>chmod +x packaging/linux/build_appimage.sh
 ./packaging/linux/build_appimage.sh</code></pre>
-                <p>The script creates a portable AppImage in the repository root.</p>
+                <p>The compiled <code>NewLauncher-*-x86_64.AppImage</code> will be generated in the repository root directory.</p>
             </section>
 
             <section id="first-run">
