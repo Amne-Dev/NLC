@@ -77,20 +77,24 @@
         <section>
             <h2>Developer Documentation</h2>
             <div class="wiki-content">
-                <p>Refactored (v1.4) structure:</p>
+                <p>Modern Decoupled Architecture (v4.0+):</p>
                 <ul>
-                    <li><code>alt.py</code>: Main entry point and UI.</li>
-                    <li><code>auth.py</code>: Ely.by authentication logic.</li>
-                    <li><code>handlers.py</code>: HTTP handlers (Skin Server, Microsoft Auth).</li>
-                    <li><code>utils.py</code>: Helper functions.</li>
+                    <li><code>src/frontend/</code>: Native Slint GPU-rendered UI (Rust).</li>
+                    <li><code>src/backend/</code>: Python background agent daemon (authentication, process isolation, skins, updates).</li>
+                    <li><code>main.py</code>: Standalone local execution entry point.</li>
+                    <li><code>packaging/linux/</code>: Linux packaging scripts (AppImage builder, PKGBUILD, universal installer).</li>
                 </ul>
                 
-                <h3>Building from Source</h3>
-                <pre><code>pyinstaller alt.spec</code></pre>
+                <h3>Building from Source (Windows & Linux)</h3>
+                <pre><code>python -m pip install -r requirements.txt
+cargo run --manifest-path src/frontend/Cargo.toml</code></pre>
 
                 <h3>Building for Linux (AppImage)</h3>
-                <pre><code>chmod +x linux/build_appimage.sh
-./linux/build_appimage.sh</code></pre>
+                <pre><code>chmod +x packaging/linux/build_appimage.sh
+./packaging/linux/build_appimage.sh</code></pre>
+
+                <h3>Arch Linux Native Package</h3>
+                <pre><code>cd packaging/linux && makepkg -si</code></pre>
             </div>
         </section>
 

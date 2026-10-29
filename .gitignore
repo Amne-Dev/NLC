@@ -59,7 +59,14 @@ temp_community_repo/
 /.github/hooks
 /scripts/*
 !/scripts/generate_release_cdc.py
-/tests
-tests/conftest.py
+!/scripts/run_dev.sh
+/tests/*
+!/tests/conftest.py
+!/tests/unit/
+/tests/unit/*
+!/tests/unit/test_challenger_stress_m3.py
+!/tests/unit/test_packaging_and_signing.py
+!/tests/unit/test_web_installer_assets.py
+!/tests/unit/test_linux_compatibility.py
 icons/candidates/
 .impeccable/

@@ -207,36 +207,69 @@ def handle_agent_shutdown(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _start_parent_watchdog():
-    if sys.platform != "win32":
-        return
-    try:
-        import ctypes
-        ppid = os.getppid()
-        if ppid <= 0:
-            return
-        SYNCHRONIZE = 0x00100000
-        h_proc = ctypes.windll.kernel32.OpenProcess(SYNCHRONIZE, False, ppid)
-        if not h_proc:
-            return
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            ppid = os.getppid()
+            if ppid <= 0:
+                return
+            SYNCHRONIZE = 0x00100000
+            h_proc = ctypes.windll.kernel32.OpenProcess(SYNCHRONIZE, False, ppid)
+            if not h_proc:
+                return
 
-        def _watch():
-            ctypes.windll.kernel32.WaitForSingleObject(h_proc, 0xFFFFFFFF)
-            ctypes.windll.kernel32.CloseHandle(h_proc)
-            try:
-                _WORKER_POOL.shutdown(wait=False, cancel_futures=True)
-            except Exception:
-                pass
-            try:
-                if _discord_rpc_manager:
-                    _discord_rpc_manager.stop()
-            except Exception:
-                pass
-            os._exit(0)
+            def _watch():
+                ctypes.windll.kernel32.WaitForSingleObject(h_proc, 0xFFFFFFFF)
+                ctypes.windll.kernel32.CloseHandle(h_proc)
+                try:
+                    _WORKER_POOL.shutdown(wait=False, cancel_futures=True)
+                except Exception:
+                    pass
+                try:
+                    if _discord_rpc_manager:
+                        _discord_rpc_manager.stop()
+                except Exception:
+                    pass
+                os._exit(0)
 
-        t = threading.Thread(target=_watch, daemon=True, name="parent-watchdog")
-        t.start()
-    except Exception as e:
-        logger.debug("Could not start parent watchdog: %s", e)
+            t = threading.Thread(target=_watch, daemon=True, name="parent-watchdog")
+            t.start()
+        except Exception as e:
+            logger.debug("Could not start Windows parent watchdog: %s", e)
+    elif sys.platform.startswith("linux"):
+        # 1. Ask Linux kernel to send SIGTERM to us when the parent process exits
+        try:
+            import ctypes
+            import signal
+            libc = ctypes.CDLL("libc.so.6")
+            PR_SET_PDEATHSIG = 1
+            libc.prctl(PR_SET_PDEATHSIG, signal.SIGTERM)
+        except Exception:
+            pass
+
+        # 2. Daemon thread polling ppid in case PR_SET_PDEATHSIG is unavailable
+        try:
+            orig_ppid = os.getppid()
+            if orig_ppid > 1:
+                def _linux_watch():
+                    import time
+                    while True:
+                        time.sleep(1.0)
+                        if os.getppid() != orig_ppid or os.getppid() == 1:
+                            try:
+                                _WORKER_POOL.shutdown(wait=False, cancel_futures=True)
+                            except Exception:
+                                pass
+                            try:
+                                if _discord_rpc_manager:
+                                    _discord_rpc_manager.stop()
+                            except Exception:
+                                pass
+                            os._exit(0)
+
+                threading.Thread(target=_linux_watch, daemon=True, name="parent-watchdog-linux").start()
+        except Exception as e:
+            logger.debug("Could not start Linux parent watchdog thread: %s", e)
 
 
 
@@ -1252,11 +1285,24 @@ def handle_system_open_url(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 def handle_system_copy_clipboard(payload: Dict[str, Any]) -> Dict[str, Any]:
     text = payload.get("text", "")
-    if text and sys.platform == "win32":
-        try:
-            subprocess.run("clip", input=text.encode("utf-16le"), check=True, creationflags=0x08000000)
-        except Exception as e:
-            logger.warning("Clip subprocess failed: %s", e)
+    if text:
+        if sys.platform == "win32":
+            try:
+                subprocess.run("clip", input=text.encode("utf-16le"), check=True, creationflags=0x08000000)
+            except Exception as e:
+                logger.warning("Clip subprocess failed: %s", e)
+        elif sys.platform.startswith("linux"):
+            copied = False
+            for tool, args in [("wl-copy", []), ("xclip", ["-selection", "clipboard"]), ("xsel", ["-b", "-i"])]:
+                if shutil.which(tool):
+                    try:
+                        subprocess.run([tool] + args, input=text.encode("utf-8"), check=True, timeout=2)
+                        copied = True
+                        break
+                    except Exception as e:
+                        logger.debug("Clipboard helper %s failed: %s", tool, e)
+            if not copied:
+                logger.debug("No Linux clipboard helper (wl-copy, xclip, xsel) succeeded.")
     return {"status": "success"}
 
 
@@ -3576,7 +3622,7 @@ def ensure_java_runtime(version: str, mc_dir: str, launch_callbacks: Optional[Di
     if which_java:
         return which_java
 
-    # 5. Fallback: Standard Windows installation directories
+    # 5. Fallback: Standard installation directories (Windows & Linux)
     if sys.platform == "win32":
         standard_dirs = [
             Path(os.environ.get("ProgramFiles", "C:\\Program Files")) / "Eclipse Adoptium",
@@ -3592,6 +3638,19 @@ def ensure_java_runtime(version: str, mc_dir: str, launch_callbacks: Optional[Di
                         return str(cand)
                 for cand in base.glob("**/bin/java.exe"):
                     if cand.is_file():
+                        return str(cand)
+    else:
+        linux_dirs = [
+            Path("/usr/lib/jvm"),
+            Path("/usr/lib64/jvm"),
+            Path("/usr/local/jvm"),
+            Path(os.path.expanduser("~/.sdkman/candidates/java")),
+            Path(os.path.expanduser("~/.jdks")),
+        ]
+        for base in linux_dirs:
+            if base.exists():
+                for cand in base.glob("**/bin/java"):
+                    if cand.is_file() and os.access(cand, os.X_OK):
                         return str(cand)
 
     return "java"
@@ -5109,18 +5168,26 @@ def handle_system_check_updates(payload: Optional[Dict[str, Any]] = None) -> Dic
 def handle_system_apply_update(payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     try:
         launcher_dir = get_launcher_dir()
-        setup_exe = os.path.join(launcher_dir, "NLCSetup.exe")
-        if os.path.isfile(setup_exe):
+        candidates = [
+            os.path.join(launcher_dir, "NLCSetup.exe"),
+            os.path.join(launcher_dir, "NLCUpdater.exe"),
+            os.path.join(launcher_dir, "NLCUpdater"),
+            os.path.join(launcher_dir, "updater.sh"),
+        ]
+        setup_exe = next((c for c in candidates if os.path.isfile(c)), None)
+        if setup_exe:
             cmd = [setup_exe, "--update", "--target", launcher_dir]
-            subprocess.Popen(
-                cmd,
-                cwd=launcher_dir,
-                close_fds=True,
-                creationflags=getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-            )
+            popen_kwargs = {"cwd": launcher_dir, "close_fds": True}
+            if sys.platform == "win32":
+                popen_kwargs["creationflags"] = (
+                    getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+                )
+            else:
+                popen_kwargs["start_new_session"] = True
+            subprocess.Popen(cmd, **popen_kwargs)
             return {"status": "success", "message": "Updater launched"}
         else:
-            return {"status": "error", "error": "NLCSetup.exe not found in install directory"}
+            return {"status": "error", "error": "Updater executable not found in install directory"}
     except Exception as exc:
         return {"status": "error", "error": str(exc)}
 

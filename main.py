@@ -15,10 +15,14 @@ def main() -> int:
         from agent import main as agent_main
         return agent_main()
 
-    # Search for compiled release or debug Slint binary
+    # Search for compiled release or debug Slint binary (cross-platform)
     candidates = [
         REPO_ROOT / "dist" / "NyLuna.exe",
-
+        REPO_ROOT / "dist" / "NyLuna",
+        REPO_ROOT / "dist" / "nlc-ui.exe",
+        REPO_ROOT / "dist" / "nlc-ui",
+        REPO_ROOT / "src" / "frontend" / "target" / "release" / "nlc-ui",
+        REPO_ROOT / "src" / "frontend" / "target" / "debug" / "nlc-ui",
         REPO_ROOT / "src" / "frontend" / "target" / "x86_64-pc-windows-gnullvm" / "release" / "nlc-ui.exe",
         REPO_ROOT / "src" / "frontend" / "target" / "release" / "nlc-ui.exe",
         REPO_ROOT / "src" / "frontend" / "target" / "debug" / "nlc-ui.exe",

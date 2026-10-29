@@ -58,16 +58,35 @@ Ny-Luna keeps the familiar parts of Minecraft launcher setup while making it eas
 
 ### Linux
 
+#### Option 1: Quick Install (Debian, Ubuntu, Arch, Manjaro, Pop!_OS)
+Run this single command in your terminal to automatically install prerequisites (FUSE runtime, desktop icons), download the latest AppImage to `/opt/new-launcher`, configure application menu shortcuts, and enable the `newlauncher` terminal command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Amne-Dev/NLC/main/packaging/linux/install.sh | bash
+```
+
+#### Option 2: Arch Linux (AUR / PKGBUILD)
+To build and install the native Slint UI package directly on Arch Linux:
+
+```bash
+cd packaging/linux
+makepkg -si
+```
+
+#### Option 3: Manual AppImage Download
 1. Open the [latest release](https://github.com/Amne-Dev/NLC/releases/latest).
-2. Download the Linux AppImage.
-3. Make it executable and launch it:
+2. Download the `NewLauncher-*-x86_64.AppImage`.
+3. Make it executable and run it:
 
 ```bash
 chmod +x NewLauncher-*.AppImage
 ./NewLauncher-*.AppImage
 ```
 
-The AppImage is portable and does not require a system-wide installation.
+> [!NOTE]
+> On Ubuntu 22.04+ or Debian 12+, ensure FUSE 2 is installed if your system does not already provide it:
+> `sudo apt install libfuse2` (or `libfuse2t64` on Ubuntu 24.04+). On Arch: `sudo pacman -S fuse2`.
+
 
 ## Your First Installation
 
@@ -145,6 +164,16 @@ To compile all release binaries, build FastCDC chunk recipes, and generate both 
 ```bash
 python packaging/windows/build_installers.py --all
 ```
+
+### Packaging Linux AppImage
+
+To build the self-contained Linux AppImage (bundles native Rust Slint frontend and frozen Python agent):
+
+```bash
+chmod +x packaging/linux/build_appimage.sh
+./packaging/linux/build_appimage.sh
+```
+
 
 Outputs are generated in `dist/` and `dist/installers/`:
 - `dist/NyLuna.exe` — Native Rust frontend binary

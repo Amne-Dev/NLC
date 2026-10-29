@@ -4,6 +4,8 @@ slint::include_modules!();
 
 mod ipc;
 mod animations;
+mod paths;
+mod dialogs;
 
 use ipc::AgentClient;
 use slint::{ComponentHandle, Model};
@@ -55,66 +57,33 @@ fn resolve_icon_path(icon_name: &str, project_root: &std::path::Path) -> std::pa
         return with_png_2x;
     }
 
-    // Check APPDATA/.nlc paths if on Windows
-    #[cfg(windows)]
-    if let Ok(appdata) = std::env::var("APPDATA") {
-        let nlc_base = std::path::PathBuf::from(appdata).join(".nlc");
-        let mp_path = nlc_base.join("modpacks").join(icon_name);
-        if mp_path.exists() {
-            return mp_path;
-        }
-        let mp_icon = nlc_base.join("modpacks").join(icon_name).join("icon.png");
-        if mp_icon.exists() {
-            return mp_icon;
-        }
-        let cache_icon = nlc_base.join("cache").join("icons").join(icon_name);
-        if cache_icon.exists() {
-            return cache_icon;
-        }
-        let cache_icon_png = nlc_base.join("cache").join("icons").join(format!("{}.png", icon_name));
-        if cache_icon_png.exists() {
-            return cache_icon_png;
-        }
+    let nlc_base = paths::get_launcher_data_dir();
+    let mp_path = nlc_base.join("modpacks").join(icon_name);
+    if mp_path.exists() {
+        return mp_path;
+    }
+    let mp_icon = nlc_base.join("modpacks").join(icon_name).join("icon.png");
+    if mp_icon.exists() {
+        return mp_icon;
+    }
+    let cache_icon = nlc_base.join("cache").join("icons").join(icon_name);
+    if cache_icon.exists() {
+        return cache_icon;
+    }
+    let cache_icon_png = nlc_base.join("cache").join("icons").join(format!("{}.png", icon_name));
+    if cache_icon_png.exists() {
+        return cache_icon_png;
     }
 
     project_root.join("icons").join("2x").join("grass_block_side.png")
 }
 
 fn prompt_open_file(filter: &str) -> Option<String> {
-    #[cfg(windows)]
-    {
-        let cmd = format!(
-            "Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.OpenFileDialog; $f.Filter = '{}'; if($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK){{ Write-Output $f.FileName }}",
-            filter
-        );
-        if let Ok(output) = std::process::Command::new("powershell")
-            .args(["-NoProfile", "-NonInteractive", "-Command", &cmd])
-            .output()
-        {
-            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !path.is_empty() {
-                return Some(path);
-            }
-        }
-    }
-    None
+    dialogs::prompt_open_file(filter)
 }
 
 fn prompt_open_folder() -> Option<String> {
-    #[cfg(windows)]
-    {
-        let cmd = "Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.FolderBrowserDialog; if($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK){ Write-Output $f.SelectedPath }";
-        if let Ok(output) = std::process::Command::new("powershell")
-            .args(["-NoProfile", "-NonInteractive", "-Command", cmd])
-            .output()
-        {
-            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !path.is_empty() {
-                return Some(path);
-            }
-        }
-    }
-    None
+    dialogs::prompt_open_folder()
 }
 
 fn map_installation(item: &ipc::InstallationItem, root_dir: &std::path::Path) -> InstallationData {
@@ -405,30 +374,28 @@ async fn refresh_screenshots_gallery(agent: Option<&ipc::AgentClient>, root_dir:
 
     if items.is_empty() {
         let mut paths_to_scan = Vec::new();
-        if let Ok(appdata) = std::env::var("APPDATA") {
-            let mc_sc = std::path::Path::new(&appdata).join(".minecraft").join("screenshots");
-            if mc_sc.exists() {
-                paths_to_scan.push(mc_sc);
-            }
-            let nlc_packs = std::path::Path::new(&appdata).join(".nlc").join("modpacks");
-            if let Ok(entries) = std::fs::read_dir(&nlc_packs) {
-                for e in entries.flatten() {
-                    let sc = e.path().join("screenshots");
-                    if sc.exists() {
-                        paths_to_scan.push(sc);
-                    }
+        let mc_sc = paths::get_minecraft_dir().join("screenshots");
+        if mc_sc.exists() {
+            paths_to_scan.push(mc_sc);
+        }
+        let nlc_packs = paths::get_modpacks_dir();
+        if let Ok(entries) = std::fs::read_dir(&nlc_packs) {
+            for e in entries.flatten() {
+                let sc = e.path().join("screenshots");
+                if sc.exists() {
+                    paths_to_scan.push(sc);
                 }
             }
-            let cfg_path = std::path::Path::new(&appdata).join(".nlc").join("launcher_config.json");
-            if let Ok(content) = std::fs::read_to_string(&cfg_path) {
-                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
-                    if let Some(insts) = val.get("installations").and_then(|i| i.as_array()) {
-                        for inst in insts {
-                            if let Some(g_dir) = inst.get("game_directory").and_then(|g| g.as_str()) {
-                                let sc = std::path::PathBuf::from(g_dir).join("screenshots");
-                                if sc.exists() {
-                                    paths_to_scan.push(sc);
-                                }
+        }
+        let cfg_path = paths::get_config_path();
+        if let Ok(content) = std::fs::read_to_string(&cfg_path) {
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(insts) = val.get("installations").and_then(|i| i.as_array()) {
+                    for inst in insts {
+                        if let Some(g_dir) = inst.get("game_directory").and_then(|g| g.as_str()) {
+                            let sc = std::path::PathBuf::from(g_dir).join("screenshots");
+                            if sc.exists() {
+                                paths_to_scan.push(sc);
                             }
                         }
                     }
@@ -1126,12 +1093,9 @@ fn map_modpack(pack: &ipc::ModpackItem) -> ModpackData {
     }
 
     if resolved_path.is_none() {
-        #[cfg(windows)]
-        if let Ok(appdata) = std::env::var("APPDATA") {
-            let direct = std::path::PathBuf::from(appdata).join(".nlc").join("modpacks").join(&pack.id).join("icon.png");
-            if direct.exists() {
-                resolved_path = Some(direct);
-            }
+        let direct = paths::get_modpacks_dir().join(&pack.id).join("icon.png");
+        if direct.exists() {
+            resolved_path = Some(direct);
         }
     }
 
@@ -1219,7 +1183,11 @@ fn resolve_project_id_icon_path(proj_id: &str, root: &std::path::Path) -> Option
     if local.exists() {
         return Some(local);
     }
-    std::env::var("APPDATA").ok().map(|a| std::path::PathBuf::from(a).join(".nlc").join("cache").join("icons").join(format!("{}.png", proj_id))).filter(|p| p.exists())
+    let cache_p = paths::get_cache_icons_dir().join(format!("{}.png", proj_id));
+    if cache_p.exists() {
+        return Some(cache_p);
+    }
+    None
 }
 
 fn resolve_modrinth_icon_path(hit: &ipc::ModrinthHit, root: &std::path::Path) -> Option<std::path::PathBuf> {
@@ -1245,11 +1213,9 @@ fn resolve_gallery_item_image_path(proj_id: &str, idx: usize, root: &std::path::
     if local.exists() {
         return Some(local);
     }
-    if let Ok(appdata) = std::env::var("APPDATA") {
-        let appdata_p = std::path::Path::new(&appdata).join(".nlc").join("cache").join("gallery").join(format!("{}_{}.png", proj_id, idx));
-        if appdata_p.exists() {
-            return Some(appdata_p);
-        }
+    let cache_p = paths::get_cache_dir().join("gallery").join(format!("{}_{}.png", proj_id, idx));
+    if cache_p.exists() {
+        return Some(cache_p);
     }
     None
 }
@@ -1490,25 +1456,23 @@ async fn update_playtime_stats_in_ui(
 }
 
 fn get_addons_config_state() -> (bool, usize, String) {
-    if let Ok(appdata) = std::env::var("APPDATA") {
-        let cfg_path = std::path::Path::new(&appdata).join(".nlc").join("launcher_config.json");
-        if let Ok(content) = std::fs::read_to_string(&cfg_path) {
-            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
-                let streamer = val.get("streamer_mode")
-                    .or_else(|| val.get("streamer_privacy"))
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false);
-                let saved_count = val.get("addons")
-                    .and_then(|a| a.get("saved_servers"))
-                    .and_then(|s| s.as_array())
-                    .map(|arr| arr.len())
-                    .unwrap_or(0);
-                let gh_repo = val.get("gh_sync_repo")
-                    .and_then(|r| r.as_str())
-                    .unwrap_or("")
-                    .to_string();
-                return (streamer, saved_count, gh_repo);
-            }
+    let cfg_path = paths::get_config_path();
+    if let Ok(content) = std::fs::read_to_string(&cfg_path) {
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+            let streamer = val.get("streamer_mode")
+                .or_else(|| val.get("streamer_privacy"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            let saved_count = val.get("addons")
+                .and_then(|a| a.get("saved_servers"))
+                .and_then(|s| s.as_array())
+                .map(|arr| arr.len())
+                .unwrap_or(0);
+            let gh_repo = val.get("gh_sync_repo")
+                .and_then(|r| r.as_str())
+                .unwrap_or("")
+                .to_string();
+            return (streamer, saved_count, gh_repo);
         }
     }
     (false, 0, String::new())
@@ -4024,9 +3988,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let agent = agent_client_up.clone();
         let state = skin_state_up.clone();
         rt_up.spawn(async move {
-            #[cfg(windows)]
-            {
-                if let Some(path) = prompt_open_file("Minecraft Skin (*.png)|*.png") {
+            if let Some(path) = prompt_open_file("Minecraft Skin (*.png)|*.png") {
                     if !path.is_empty() && std::path::Path::new(&path).exists() {
                         if let Some(ref ag) = agent {
                             let curr_model = {
@@ -4063,7 +4025,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     }
                 }
-            }
         });
     });
 
@@ -4267,11 +4228,12 @@ if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {{
     });
 
     main_window.on_open_skins_folder(move || {
-        let appdata = std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string());
-        let path = std::path::PathBuf::from(appdata).join(".nlc").join("skins");
+        let path = paths::get_launcher_data_dir().join("skins");
         let _ = std::fs::create_dir_all(&path);
         #[cfg(windows)]
         let _ = std::process::Command::new("explorer").arg(&path).spawn();
+        #[cfg(not(windows))]
+        let _ = std::process::Command::new("xdg-open").arg(&path).spawn();
     });
 
     // 5b. Wire Wallpapers Studio Handlers
@@ -4338,9 +4300,7 @@ if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {{
         let agent = agent_client_up_wp.clone();
         let win = win_weak_up_wp.clone();
         rt_up_wp.spawn(async move {
-            #[cfg(windows)]
-            {
-                if let Some(path) = prompt_open_file("Image Files (*.png;*.jpg;*.jpeg)|*.png;*.jpg;*.jpeg") {
+            if let Some(path) = prompt_open_file("Image Files (*.png;*.jpg;*.jpeg)|*.png;*.jpg;*.jpeg") {
                     if !path.is_empty() && std::path::Path::new(&path).exists() {
                         if let Some(ref ag) = agent {
                             let _ = ag.call::<serde_json::Value>("wallpapers_upload", serde_json::json!({
@@ -4350,7 +4310,6 @@ if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {{
                         }
                     }
                 }
-            }
         });
     });
 
@@ -4884,16 +4843,17 @@ if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {{
             if let Some(ref agent) = agent {
                 let _ = agent.open_folder(&target_str).await;
             } else {
-                let appdata = std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string());
                 let folder_path = match target_str.as_str() {
-                    "mods" => std::path::PathBuf::from(&appdata).join(".nlc").join("modpacks"),
-                    "screenshots" => std::path::PathBuf::from(&appdata).join(".minecraft").join("screenshots"),
-                    "latest-release" => std::path::PathBuf::from(&appdata).join(".minecraft"),
-                    target_id => std::path::PathBuf::from(&appdata).join(".nlc").join("modpacks").join(target_id),
+                    "mods" => paths::get_modpacks_dir(),
+                    "screenshots" => paths::get_minecraft_dir().join("screenshots"),
+                    "latest-release" => paths::get_minecraft_dir(),
+                    target_id => paths::get_modpacks_dir().join(target_id),
                 };
                 let _ = std::fs::create_dir_all(&folder_path);
                 #[cfg(windows)]
                 let _ = std::process::Command::new("explorer").arg(&folder_path).spawn();
+                #[cfg(not(windows))]
+                let _ = std::process::Command::new("xdg-open").arg(&folder_path).spawn();
             }
         });
     });
@@ -5129,9 +5089,7 @@ if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {{
         println!("[NLC-Rust] Browse curseforge/modpack zip dialog requested");
         let win_weak = win_weak_browse_zip.clone();
         rt_browse_zip.spawn(async move {
-            #[cfg(windows)]
-            {
-                if let Some(path) = prompt_open_file("Modpacks (*.zip, *.mrpack)|*.zip;*.mrpack|All files (*.*)|*.*") {
+            if let Some(path) = prompt_open_file("Modpacks (*.zip, *.mrpack)|*.zip;*.mrpack|All files (*.*)|*.*") {
                     if !path.is_empty() {
                         let _ = slint::invoke_from_event_loop(move || {
                             if let Some(w) = win_weak.upgrade() {
@@ -5140,7 +5098,6 @@ if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {{
                         });
                     }
                 }
-            }
         });
     });
 
@@ -5194,12 +5151,7 @@ if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {{
                     let ver = pack.version.clone().or_else(|| pack.mc_version.clone()).unwrap_or_else(|| "1.21.1".to_string());
                     let ldr = pack.loader.clone().unwrap_or_else(|| "Fabric".to_string());
 
-                    let appdata = std::env::var("APPDATA").unwrap_or_default();
-                    let pack_dir = if !appdata.is_empty() {
-                        std::path::Path::new(&appdata).join(".nlc").join("modpacks").join(&pack.id).to_string_lossy().to_string()
-                    } else {
-                        String::new()
-                    };
+                    let pack_dir = paths::get_modpacks_dir().join(&pack.id).to_string_lossy().to_string();
 
                     let mut payload = serde_json::json!({
                         "id": new_inst_id,
@@ -5377,9 +5329,7 @@ fn apply_mod_filter(
         let win_weak_inner = win_weak_add_mod.clone();
         let cached_mods_inner = cached_mods_add.clone();
         rt_add_mod.spawn(async move {
-            #[cfg(windows)]
-            {
-                if let Some(path) = prompt_open_file("Minecraft Mods (*.jar)|*.jar|All files (*.*)|*.*") {
+            if let Some(path) = prompt_open_file("Minecraft Mods (*.jar)|*.jar|All files (*.*)|*.*") {
                     if !path.is_empty() {
                         if let Some(ref agent) = agent {
                             let _ = agent.install_pack_mod(&pack_str, &path).await;
@@ -5400,7 +5350,6 @@ fn apply_mod_filter(
                         }
                     }
                 }
-            }
         });
     });
 
@@ -5636,25 +5585,27 @@ fn apply_mod_filter(
         let win_weak = win_weak_b_java.clone();
         let agent = agent_client_b_java.clone();
         rt_b_java.spawn(async move {
-            #[cfg(windows)]
-            {
-                if let Some(path) = prompt_open_file("Java Executable (javaw.exe;java.exe)|javaw.exe;java.exe|All Executables (*.exe)|*.exe") {
-                    if !path.is_empty() && std::path::Path::new(&path).exists() {
-                        if let Some(ref ag) = agent {
-                            let _ = ag.set_config(serde_json::json!({ "java_executable": &path, "java_path": &path })).await;
-                        }
-                        let p_clone = path.clone();
-                        let _ = slint::invoke_from_event_loop(move || {
-                            if let Some(w) = win_weak.upgrade() {
-                                w.set_java_executable(p_clone.into());
-                                w.set_toast_visible(true);
-                                w.set_toast_title("Java Executable Updated".into());
-                                w.set_toast_detail("New Java runtime configured ✓".into());
-                                w.set_toast_status("completed".into());
-                                push_toast(&w, "java-update", "Java Executable Updated", "New Java runtime configured ✓", "completed");
-                            }
-                        });
+            let filter = if cfg!(windows) {
+                "Java Executable (javaw.exe;java.exe)|javaw.exe;java.exe|All Executables (*.exe)|*.exe"
+            } else {
+                "Java Executable (java)|java|All files (*)|*"
+            };
+            if let Some(path) = prompt_open_file(filter) {
+                if !path.is_empty() && std::path::Path::new(&path).exists() {
+                    if let Some(ref ag) = agent {
+                        let _ = ag.set_config(serde_json::json!({ "java_executable": &path, "java_path": &path })).await;
                     }
+                    let p_clone = path.clone();
+                    let _ = slint::invoke_from_event_loop(move || {
+                        if let Some(w) = win_weak.upgrade() {
+                            w.set_java_executable(p_clone.into());
+                            w.set_toast_visible(true);
+                            w.set_toast_title("Java Executable Updated".into());
+                            w.set_toast_detail("New Java runtime configured ✓".into());
+                            w.set_toast_status("completed".into());
+                            push_toast(&w, "java-update", "Java Executable Updated", "New Java runtime configured ✓", "completed");
+                        }
+                    });
                 }
             }
         });
@@ -5675,7 +5626,7 @@ fn apply_mod_filter(
                         let path = entry.path();
                         if path.is_file() {
                             let name = path.file_name().unwrap_or_default().to_string_lossy().to_lowercase();
-                            if name == "javaw.exe" || name == "java.exe" {
+                            if name == "javaw.exe" || name == "java.exe" || name == "java" {
                                 return Some(path.to_string_lossy().to_string());
                             }
                         } else if path.is_dir() {
@@ -5689,15 +5640,24 @@ fn apply_mod_filter(
             }
 
             let mut candidates: Vec<std::path::PathBuf> = Vec::new();
-            if let Ok(appdata) = std::env::var("APPDATA") {
-                candidates.push(std::path::Path::new(&appdata).join(".minecraft").join("runtime"));
-                candidates.push(std::path::Path::new(&appdata).join(".nlc").join("runtime"));
+            candidates.push(paths::get_minecraft_dir().join("runtime"));
+            candidates.push(paths::get_launcher_data_dir().join("runtime"));
+            #[cfg(windows)]
+            {
+                candidates.push(std::path::PathBuf::from("C:\\Program Files\\Eclipse Adoptium"));
+                candidates.push(std::path::PathBuf::from("C:\\Program Files\\Java"));
+                candidates.push(std::path::PathBuf::from("C:\\Program Files\\Microsoft"));
+                candidates.push(std::path::PathBuf::from("C:\\Program Files\\BellSoft"));
+                candidates.push(std::path::PathBuf::from("C:\\Program Files (x86)\\Java"));
             }
-            candidates.push(std::path::PathBuf::from("C:\\Program Files\\Eclipse Adoptium"));
-            candidates.push(std::path::PathBuf::from("C:\\Program Files\\Java"));
-            candidates.push(std::path::PathBuf::from("C:\\Program Files\\Microsoft"));
-            candidates.push(std::path::PathBuf::from("C:\\Program Files\\BellSoft"));
-            candidates.push(std::path::PathBuf::from("C:\\Program Files (x86)\\Java"));
+            #[cfg(not(windows))]
+            {
+                candidates.push(std::path::PathBuf::from("/usr/lib/jvm"));
+                candidates.push(std::path::PathBuf::from("/usr/lib64/jvm"));
+                candidates.push(std::path::PathBuf::from("/usr/local/jvm"));
+                candidates.push(paths::get_user_home().join(".sdkman").join("candidates").join("java"));
+                candidates.push(paths::get_user_home().join(".jdks"));
+            }
 
             let mut detected: Option<String> = None;
             for base in &candidates {
@@ -5761,25 +5721,22 @@ fn apply_mod_filter(
         let win_weak = win_weak_ch_mc.clone();
         let agent = agent_client_ch_mc.clone();
         rt_ch_mc.spawn(async move {
-            #[cfg(windows)]
-            {
-                if let Some(path) = prompt_open_folder() {
-                    if !path.is_empty() && std::path::Path::new(&path).exists() {
-                        if let Some(ref ag) = agent {
-                            let _ = ag.set_config(serde_json::json!({ "minecraft_directory": &path, "game_dir": &path })).await;
-                        }
-                        let p_clone = path.clone();
-                        let _ = slint::invoke_from_event_loop(move || {
-                            if let Some(w) = win_weak.upgrade() {
-                                w.set_minecraft_directory(p_clone.into());
-                                w.set_toast_visible(true);
-                                w.set_toast_title("Minecraft Directory Updated".into());
-                                w.set_toast_detail("Game data directory saved ✓".into());
-                                w.set_toast_status("completed".into());
-                                push_toast(&w, "mc-dir", "Minecraft Directory Updated", "Game data directory saved ✓", "completed");
-                            }
-                        });
+            if let Some(path) = prompt_open_folder() {
+                if !path.is_empty() && std::path::Path::new(&path).exists() {
+                    if let Some(ref ag) = agent {
+                        let _ = ag.set_config(serde_json::json!({ "minecraft_directory": &path, "game_dir": &path })).await;
                     }
+                    let p_clone = path.clone();
+                    let _ = slint::invoke_from_event_loop(move || {
+                        if let Some(w) = win_weak.upgrade() {
+                            w.set_minecraft_directory(p_clone.into());
+                            w.set_toast_visible(true);
+                            w.set_toast_title("Minecraft Directory Updated".into());
+                            w.set_toast_detail("Game data directory saved ✓".into());
+                            w.set_toast_status("completed".into());
+                            push_toast(&w, "mc-dir", "Minecraft Directory Updated", "Game data directory saved ✓", "completed");
+                        }
+                    });
                 }
             }
         });
@@ -5837,16 +5794,7 @@ fn apply_mod_filter(
                     if !st.addons_dir.is_empty() {
                         st.addons_dir.clone()
                     } else {
-                        #[cfg(windows)]
-                        {
-                            std::env::var("APPDATA")
-                                .map(|appdata| format!("{}\\.nlc\\addons", appdata))
-                                .unwrap_or_else(|_| "addons".to_string())
-                        }
-                        #[cfg(not(windows))]
-                        {
-                            "addons".to_string()
-                        }
+                        paths::get_addons_dir().to_string_lossy().to_string()
                     }
                 };
 
@@ -5858,6 +5806,10 @@ fn apply_mod_filter(
                 #[cfg(windows)]
                 {
                     let _ = std::process::Command::new("explorer").arg(&target).spawn();
+                }
+                #[cfg(not(windows))]
+                {
+                    let _ = std::process::Command::new("xdg-open").arg(&target).spawn();
                 }
                 if let Some(ref a) = agent {
                     let _ = a.open_folder(&target).await;
@@ -6300,24 +6252,22 @@ fn apply_mod_filter(
                 let mut active_inst_id = String::new();
                 let mut active_ver = "latest-release".to_string();
                 let mut active_loader = "Vanilla".to_string();
-                if let Ok(appdata) = std::env::var("APPDATA") {
-                    let cfg_path = std::path::Path::new(&appdata).join(".nlc").join("launcher_config.json");
-                    if let Ok(content) = std::fs::read_to_string(&cfg_path) {
-                        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
-                            if let Some(id) = val.get("active_installation_id").and_then(|i| i.as_str()) {
-                                active_inst_id = id.to_string();
-                            }
-                            if let Some(insts) = val.get("installations").and_then(|i| i.as_array()) {
-                                for inst in insts {
-                                    if inst.get("id").and_then(|i| i.as_str()) == Some(&active_inst_id) {
-                                        if let Some(v) = inst.get("version").and_then(|v| v.as_str()) {
-                                            active_ver = v.to_string();
-                                        }
-                                        if let Some(l) = inst.get("loader").and_then(|l| l.as_str()) {
-                                            active_loader = l.to_string();
-                                        }
-                                        break;
+                let cfg_path = paths::get_config_path();
+                if let Ok(content) = std::fs::read_to_string(&cfg_path) {
+                    if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+                        if let Some(id) = val.get("active_installation_id").and_then(|i| i.as_str()) {
+                            active_inst_id = id.to_string();
+                        }
+                        if let Some(insts) = val.get("installations").and_then(|i| i.as_array()) {
+                            for inst in insts {
+                                if inst.get("id").and_then(|i| i.as_str()) == Some(&active_inst_id) {
+                                    if let Some(v) = inst.get("version").and_then(|v| v.as_str()) {
+                                        active_ver = v.to_string();
                                     }
+                                    if let Some(l) = inst.get("loader").and_then(|l| l.as_str()) {
+                                        active_loader = l.to_string();
+                                    }
+                                    break;
                                 }
                             }
                         }

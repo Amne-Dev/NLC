@@ -47,25 +47,30 @@
         </section>
 
         <section>
-            <h2>Installation (Linux AppImage)</h2>
+            <h2>Installation (Linux)</h2>
+            <p><strong>Option 1: Universal One-Liner (Debian, Ubuntu, Arch, Manjaro, Pop!_OS)</strong></p>
+            <p>Installs prerequisites (FUSE runtime, desktop icons), downloads the AppImage to <code>/opt/new-launcher</code>, adds an application menu shortcut, and provides the <code>newlauncher</code> command:</p>
+            <pre><code>curl -fsSL https://raw.githubusercontent.com/Amne-Dev/NLC/main/packaging/linux/install.sh | bash</code></pre>
+
+            <p style="margin-top: 1.5rem;"><strong>Option 2: Arch Linux (PKGBUILD)</strong></p>
+            <pre><code>cd packaging/linux
+makepkg -si</code></pre>
+
+            <p style="margin-top: 1.5rem;"><strong>Option 3: Manual AppImage Download</strong></p>
             <ol>
                 <li>Download the latest Linux <code>AppImage</code> from the <a href="https://github.com/Amne-Dev/NLC/releases" target="_blank">Releases</a> page.</li>
-                <li>Open a terminal in the folder where the file was downloaded.</li>
-                <li>Make the AppImage executable:</li>
+                <li>Make it executable and run it:</li>
             </ol>
-            <pre><code>chmod +x NewLauncher-*-x86_64.AppImage</code></pre>
-            <ol start="4">
-                <li>Run it:</li>
-            </ol>
-            <pre><code>./NewLauncher-*-x86_64.AppImage</code></pre>
-            <p>If your distro does not open AppImages by double-clicking, launching it from the terminal is enough.</p>
+            <pre><code>chmod +x NewLauncher-*-x86_64.AppImage
+./NewLauncher-*-x86_64.AppImage</code></pre>
+            <p><em>Note: If using Ubuntu 22.04+ or Debian 12+, ensure FUSE 2 is available: <code>sudo apt install libfuse2</code>.</em></p>
         </section>
 
         <section>
             <h2>Build on Linux From Source</h2>
             <p>If you want to build the Linux AppImage yourself from this repository:</p>
-            <pre><code>chmod +x linux/build_appimage.sh
-./linux/build_appimage.sh</code></pre>
+            <pre><code>chmod +x packaging/linux/build_appimage.sh
+./packaging/linux/build_appimage.sh</code></pre>
             <p>The script creates a portable AppImage in the repository root.</p>
         </section>
 

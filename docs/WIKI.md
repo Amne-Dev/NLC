@@ -24,11 +24,16 @@ New Launcher is an open-source Minecraft Java launcher for Windows and Linux. It
 ## Getting Started
 1. Download the latest release from GitHub: https://github.com/Amne-Dev/NLC/releases/latest
 2. On Windows, run `NLCSetup.exe` and launch New Launcher from the Start Menu.
-3. On Linux, download the AppImage, make it executable, and launch it:
+3. On Linux, install via the quick installer (Debian, Ubuntu, Arch, Manjaro, Pop!_OS):
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/Amne-Dev/NLC/main/packaging/linux/install.sh | bash
+    ```
+   Or download the AppImage directly, make it executable, and run it:
     ```bash
     chmod +x NewLauncher-*.AppImage
     ./NewLauncher-*.AppImage
     ```
+   *(Note: Ensure `libfuse2` on Debian/Ubuntu or `fuse2` on Arch is installed).*
 4. Create a profile, choose an installation, and launch Minecraft.
 
 The hosted [Getting Started](https://amne-dev.github.io/NLC/getting-started.html) page includes the short version of this guide. The [Download & Verification](https://amne-dev.github.io/NLC/download.html) page contains release download information.
@@ -83,44 +88,48 @@ The current application is organized around `main.py` and the `nlc/` package:
 
 The current release version is defined as `CURRENT_VERSION` in `config.py`.
 
-### Building from Source (Windows)
-Install the Python dependencies first, then run the application directly:
+### Building from Source (Windows & Linux)
+Install the Python backend dependencies first, then run the native Slint UI (which automatically spawns the background Python daemon):
 
 ```bash
 python -m pip install -r requirements.txt
-python main.py
+cargo run --manifest-path src/frontend/Cargo.toml
 ```
 
-Windows release builds are automated by `.github/workflows/windows-build.yml`. The provided PyInstaller specs can also be used for local builds:
-
-```bash
-pyinstaller alt.spec
-```
-
-### Building for Linux (AppImage)
-Since the project relies on system-level libraries (like Tkinter) that vary by distro, we recommend packaging as an **AppImage**.
+### Building for Linux (AppImage & Arch PKGBUILD)
+The Linux package uses our decoupled architecture: a compiled native Rust Slint frontend and a frozen Python agent.
 
 **Prerequisites**:
-*   Linux Environment (e.g., Ubuntu 20.04 LTS) or **WSL**.
-*   Python 3.8+.
-*   **Debian/Ubuntu**: `sudo apt install python3-tk python3-venv`
-*   **Fedora**: `sudo dnf install python3-tkinter`
+*   Linux Environment (Ubuntu 20.04+, Debian 12+, Arch Linux, Fedora, or WSL2).
+*   **Python 3.12+** with venv and pip.
+*   **Rust & Cargo** (stable).
+*   **Debian/Ubuntu**: `sudo apt install python3-venv python3-pip cargo rustc libfuse2`
+*   **Arch Linux**: `sudo pacman -S python python-pip cargo rust fuse2`
+*   **Fedora**: `sudo dnf install python3-pip cargo rust fuse`
 
-**Steps**:
-1.  Open a terminal in the repository root.
-2.  Make the build script executable:
-    ```bash
-    chmod +x linux/build_appimage.sh
-    ```
-3.  Run the script:
-    ```bash
-    ./linux/build_appimage.sh
-    ```
-4.  This will:
-    *   Install pip requirements.
-    *   Run PyInstaller to create a portable binary.
-    *   Download `appimagetool`.
-    *   Package everything into a versioned `NewLauncher-*-x86_64.AppImage`.
+**Option A: Build AppImage**:
+1. Make the build script executable:
+   ```bash
+   chmod +x packaging/linux/build_appimage.sh
+   ```
+2. Run the script from the repository root:
+   ```bash
+   ./packaging/linux/build_appimage.sh
+   ```
+   The self-contained `NewLauncher-*-x86_64.AppImage` will be placed in the repository root.
+
+**Option B: Arch Linux PKGBUILD**:
+1. Navigate to `packaging/linux/`:
+   ```bash
+   cd packaging/linux
+   makepkg -si
+   ```
+
+**Option C: Universal Automated Installer**:
+To automatically fetch and install the AppImage into `/opt/new-launcher/` with system menu integration:
+```bash
+bash packaging/linux/install.sh
+```
 
 ### Skin System Architecture
 

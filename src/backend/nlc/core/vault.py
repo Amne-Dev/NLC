@@ -3,7 +3,10 @@
 
 import base64
 import ctypes
-from ctypes import wintypes
+try:
+    from ctypes import wintypes
+except (ImportError, ValueError):
+    wintypes = None  # type: ignore
 import logging
 import os
 import sys
@@ -26,11 +29,18 @@ VAULT_PREFIX_LOCAL = "vault:local:"
 APP_ENTROPY = b"NyLunaLauncher-Vault-v1"
 
 
-class DATA_BLOB(ctypes.Structure):
-    _fields_ = [
-        ("cbData", wintypes.DWORD),
-        ("pbData", ctypes.POINTER(ctypes.c_byte)),
-    ]
+if wintypes is not None and hasattr(wintypes, "DWORD"):
+    class DATA_BLOB(ctypes.Structure):
+        _fields_ = [
+            ("cbData", wintypes.DWORD),
+            ("pbData", ctypes.POINTER(ctypes.c_byte)),
+        ]
+else:
+    class DATA_BLOB(ctypes.Structure):  # type: ignore
+        _fields_ = [
+            ("cbData", ctypes.c_uint32),
+            ("pbData", ctypes.POINTER(ctypes.c_byte)),
+        ]
 
 
 def _get_machine_guid() -> str:

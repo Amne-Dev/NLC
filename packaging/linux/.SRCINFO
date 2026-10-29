@@ -1,6 +1,6 @@
 pkgbase = new-launcher
 	pkgdesc = Minecraft Java launcher for managing installations, modpacks, mods, skins, and profiles
-	pkgver = 4.0.0
+	pkgver = 4.0.1
 	pkgrel = 1
 	url = https://github.com/Amne-Dev/NLC
 	arch = any
@@ -14,7 +14,7 @@ pkgbase = new-launcher
 	depends = python-requests
 	depends = tk
 	depends = xdg-utils
-	source = https://github.com/Amne-Dev/NLC/archive/refs/tags/v4.0.0.tar.gz
+	source = https://github.com/Amne-Dev/NLC/archive/refs/tags/v4.0.1.tar.gz
 	sha256sums = 6e3ed8fac25ed4bc9abcf74fc16831ed42b0c920f7e28e02da0b31ed0691bc7e
 
 pkgname = new-launcher

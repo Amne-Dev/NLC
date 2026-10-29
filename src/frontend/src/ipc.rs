@@ -828,10 +828,15 @@ impl AgentClient {
             .and_then(|p| p.parent().map(|p| p.to_path_buf()))
             .unwrap_or_else(|| project_root.clone());
 
-        let agent_exe = exe_dir.join("agent.exe");
+        let agent_candidates = [
+            exe_dir.join("agent.exe"),
+            exe_dir.join("agent"),
+            exe_dir.join("bin").join("agent"),
+        ];
+        let found_agent = agent_candidates.into_iter().find(|p| p.is_file());
 
-        let mut child: Child = if agent_exe.exists() {
-            let mut cmd = Command::new(&agent_exe);
+        let mut child: Child = if let Some(ref agent_bin) = found_agent {
+            let mut cmd = Command::new(agent_bin);
             cmd.stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped());
@@ -865,7 +870,19 @@ impl AgentClient {
                 resolved_root.join("agent.py")
             };
             println!("[NLC-Rust] Launching agent backend at: {:?}", agent_py);
-            let mut cmd = Command::new("python");
+            let python_bin = if cfg!(windows) {
+                "python".to_string()
+            } else {
+                let venv_py = resolved_root.join(".venv").join("bin").join("python");
+                if venv_py.is_file() {
+                    venv_py.to_string_lossy().to_string()
+                } else if std::process::Command::new("python3").arg("--version").output().is_ok() {
+                    "python3".to_string()
+                } else {
+                    "python".to_string()
+                }
+            };
+            let mut cmd = Command::new(&python_bin);
             cmd.current_dir(&resolved_root)
                 .arg(&agent_py)
                 .stdin(Stdio::piped())

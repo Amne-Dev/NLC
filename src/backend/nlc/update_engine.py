@@ -59,7 +59,7 @@ def load_patch_manifest(package_path: str | Path) -> dict[str, Any]:
     if (
         not isinstance(manifest, dict)
         or manifest.get("formatVersion") != 1
-        or manifest.get("platform") != "windows"
+        or manifest.get("platform") not in ("windows", "linux", "darwin")
         or not isinstance(manifest.get("baseVersion"), str)
         or not manifest.get("baseVersion")
         or not isinstance(manifest.get("targetVersion"), str)

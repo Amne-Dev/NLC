@@ -1,0 +1,77 @@
+name: Build Linux Artifacts
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set Up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Set Up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install System Dependencies for Slint and Linux
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libfontconfig1-dev \
+            libx11-dev \
+            libxkbcommon-dev \
+            libxrandr-dev \
+            libxi-dev \
+            libgl1-mesa-dev \
+            libwayland-dev \
+            libasound2-dev \
+            fuse3 \
+            libfuse2 \
+            zenity
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest pyinstaller
+
+      - name: Frontend Cargo Check & Test
+        run: |
+          cargo check --manifest-path src/frontend/Cargo.toml
+          cargo test --manifest-path src/frontend/Cargo.toml -- --nocapture
+
+      - name: Backend Unit Tests
+        run: |
+          pytest tests/unit -v
+
+      - name: Build AppImage Package
+        run: |
+          chmod +x packaging/linux/build_appimage.sh
+          ./packaging/linux/build_appimage.sh
+
+      - name: Upload Linux AppImage Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage
+          path: NewLauncher-*-x86_64.AppImage
+          if-no-files-found: error
+
