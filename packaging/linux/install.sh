@@ -5,7 +5,7 @@
 # ==============================================================================
 set -euo pipefail
 
-APP_NAME="New Launcher"
+APP_NAME="Ny-Luna"
 BIN_NAME="nlc"
 LEGACY_BIN_NAME="newlauncher"
 INSTALL_DIR="/opt/new-launcher"
@@ -18,15 +18,15 @@ PIXMAP_DEST="/usr/share/pixmaps/newlauncher.png"
 GITHUB_REPO="Amne-Dev/NLC"
 
 log() {
-  echo -e "\033[1;34m[newlauncher-install]\033[0m $*"
+  echo -e "\033[1;34m[nyluna-install]\033[0m $*"
 }
 
 warn() {
-  echo -e "\033[1;33m[newlauncher-install] WARNING:\033[0m $*" >&2
+  echo -e "\033[1;33m[nyluna-install] WARNING:\033[0m $*" >&2
 }
 
 die() {
-  echo -e "\033[1;31m[newlauncher-install] ERROR:\033[0m $*" >&2
+  echo -e "\033[1;31m[nyluna-install] ERROR:\033[0m $*" >&2
   exit 1
 }
 
@@ -166,14 +166,14 @@ log "Installing desktop launcher entry..."
 ${SUDO} tee "${DESKTOP_FILE}" >/dev/null <<EOF
 [Desktop Entry]
 Type=Application
-Name=New Launcher
+Name=Ny-Luna
 GenericName=Minecraft Launcher
 Comment=High-performance Minecraft Java launcher with Slint UI and modular core
 Exec=${BIN_LINK} %U
 Icon=newlauncher
 Terminal=false
 Categories=Game;ActionGame;
-Keywords=minecraft;game;launcher;mc;craft;nlc;
+Keywords=minecraft;game;launcher;mc;craft;nlc;nyluna;ny-luna;
 StartupNotify=true
 StartupWMClass=nlc-ui
 EOF
@@ -191,7 +191,7 @@ fi
 log "================================================================="
 log "Installation Successful! ✓"
 log "Launch from terminal:   ${BIN_NAME} (or ${LEGACY_BIN_NAME})"
-log "Launch from menu:       Application Menu -> Games -> New Launcher"
+log "Launch from menu:       Application Menu -> Games -> Ny-Luna"
 log ""
 log "To uninstall, run:"
 log "  ${SUDO} rm -f '${BIN_LINK}' '${LEGACY_BIN_LINK}' '${DESKTOP_FILE}' '${ICON_DEST}' '${PIXMAP_DEST}' && ${SUDO} rm -rf '${INSTALL_DIR}'"

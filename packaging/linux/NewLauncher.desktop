@@ -1,8 +1,12 @@
 [Desktop Entry]
 Type=Application
-Name=New Launcher
-Comment=A lightweight Minecraft Launcher
-Exec=NewLauncher
-Icon=logo
-Categories=Game;
+Name=Ny-Luna
+GenericName=Minecraft Launcher
+Comment=High-performance Minecraft Java launcher with Slint UI and modular core
+Exec=nlc %U
+Icon=newlauncher
 Terminal=false
+Categories=Game;ActionGame;
+Keywords=minecraft;game;launcher;mc;craft;nlc;nyluna;ny-luna;
+StartupNotify=true
+StartupWMClass=nlc-ui

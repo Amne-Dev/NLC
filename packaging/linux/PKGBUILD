@@ -1,7 +1,7 @@
 pkgname=new-launcher
 pkgver=4.0.0
 pkgrel=1
-pkgdesc='High-performance Minecraft Java launcher with Slint UI and modular core'
+pkgdesc='Ny-Luna Core: High-performance Minecraft Java launcher with Slint UI and modular core'
 arch=('x86_64')
 url='https://github.com/Amne-Dev/NLC'
 license=('BSD-3-Clause')

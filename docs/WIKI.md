@@ -1,9 +1,9 @@
-# New Launcher — Project Wiki
+# Ny-Luna Core — Project Wiki
 
 Welcome to the project wiki. This file provides a centralized, human-readable overview of the project and links to canonical documentation and website pages.
 
 ## Overview
-New Launcher is an open-source Minecraft Java launcher for Windows and Linux. It keeps installation and launch workflows simple while adding profiles, modpacks, mods, skins, wallpapers, addons, and optional integrations.
+Ny-Luna Core is an open-source Minecraft Java launcher for Windows and Linux. It keeps installation and launch workflows simple while adding profiles, modpacks, mods, skins, wallpapers, addons, and optional integrations.
 
 ## Quick links (hosted)
 - Website: https://amne-dev.github.io/NLC/
