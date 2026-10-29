@@ -27,7 +27,7 @@
     <div class="docs-layout-container">
         <main class="docs-main-content terms-container" style="max-width: none; margin: 0; padding: 0;">
             <h1>Getting Started</h1>
-            <p class="last-updated">Last Updated: 2026-04-04</p>
+            <p class="last-updated">Last Updated: 2026-10-29</p>
 
             <section id="system-requirements">
                 <h2>System Requirements</h2>
@@ -71,13 +71,12 @@ cd NLC/packaging/linux</code></pre>
                 <pre><code>makepkg -si</code></pre>
                 <p>Once finished, launch the app from your application menu or run <code>nlc</code> in the terminal.</p>
 
-                <h3 id="linux-debian-ubuntu" style="font-size: 1.15rem; color: #FFFFFF; margin: 28px 0 10px;">3. Ubuntu, Debian & Linux Mint (AppImage Setup)</h3>
-                <p>Ubuntu 22.04+ and Debian 12+ require the FUSE 2 library to execute AppImages. Follow these steps to download and set up Ny-Luna:</p>
+                <h3 id="linux-ubuntu-22" style="font-size: 1.15rem; color: #FFFFFF; margin: 28px 0 10px;">3. Ubuntu 22.04 LTS, Debian 12 & Linux Mint (AppImage Setup)</h3>
+                <p>Ubuntu 22.04 LTS, Debian 12 (Bookworm), and Linux Mint rely on <code>libfuse2</code> to execute AppImages. Follow these steps:</p>
                 <ol>
-                    <li>Install the required FUSE runtime:</li>
+                    <li>Install the FUSE 2 runtime:</li>
                 </ol>
                 <pre><code>sudo apt update && sudo apt install -y libfuse2 curl</code></pre>
-                <p><em>(Note: On Ubuntu 24.04 LTS and newer, if <code>libfuse2</code> is not found, install <code>libfuse2t64</code> instead: <code>sudo apt install -y libfuse2t64</code>)</em></p>
                 <ol start="2">
                     <li>Download the latest release AppImage:</li>
                 </ol>
@@ -87,13 +86,33 @@ cd NLC/packaging/linux</code></pre>
 | tr -d \" \
 | wget -qi -</code></pre>
                 <ol start="3">
-                    <li>Make the downloaded AppImage executable and launch it:</li>
+                    <li>Make the downloaded AppImage executable and launch:</li>
                 </ol>
                 <pre><code>chmod +x NewLauncher-*-x86_64.AppImage
 ./NewLauncher-*-x86_64.AppImage</code></pre>
                 <p><em>Tip: For automatic desktop menu shortcuts and the <code>nlc</code> command, use the <a href="#linux-universal">Universal Quick Install</a>.</em></p>
 
-                <h3 id="linux-manual" style="font-size: 1.15rem; color: #FFFFFF; margin: 28px 0 10px;">4. Other Distros (Manual AppImage Download)</h3>
+                <h3 id="linux-ubuntu-24" style="font-size: 1.15rem; color: #FFFFFF; margin: 28px 0 10px;">4. Ubuntu 24.04 LTS & Newer (Noble Numbat FUSE Setup)</h3>
+                <p>Starting with Ubuntu 24.04 LTS, Debian 64-bit transition packages renamed <code>libfuse2</code> to <code>libfuse2t64</code>. Follow these steps:</p>
+                <ol>
+                    <li>Install the modern FUSE 2 transition library:</li>
+                </ol>
+                <pre><code>sudo apt update && sudo apt install -y libfuse2t64 curl</code></pre>
+                <ol start="2">
+                    <li>Download the latest release AppImage:</li>
+                </ol>
+                <pre><code>curl -s https://api.github.com/repos/Amne-Dev/NLC/releases/latest \
+| grep "browser_download_url.*AppImage" \
+| cut -d : -f 2,3 \
+| tr -d \" \
+| wget -qi -</code></pre>
+                <ol start="3">
+                    <li>Make executable and launch:</li>
+                </ol>
+                <pre><code>chmod +x NewLauncher-*-x86_64.AppImage
+./NewLauncher-*-x86_64.AppImage</code></pre>
+
+                <h3 id="linux-manual" style="font-size: 1.15rem; color: #FFFFFF; margin: 28px 0 10px;">5. Other Distros (Manual AppImage Download)</h3>
                 <ol>
                     <li>Visit the official GitHub <a href="https://github.com/Amne-Dev/NLC/releases" target="_blank">Releases</a> page and download <code>NewLauncher-*-x86_64.AppImage</code>.</li>
                     <li>Open your terminal in the directory where the file was saved.</li>
@@ -145,7 +164,8 @@ cd NLC</code></pre>
                             <ol>
                                 <li><a href="#linux-universal">Universal Quick Install</a></li>
                                 <li><a href="#linux-arch">Arch Linux (PKGBUILD)</a></li>
-                                <li><a href="#linux-debian-ubuntu">Ubuntu & Debian</a></li>
+                                <li><a href="#linux-ubuntu-22">Ubuntu 22.04+ & Debian 12</a></li>
+                                <li><a href="#linux-ubuntu-24">Ubuntu 24.04+</a></li>
                                 <li><a href="#linux-manual">Other Distros (Manual)</a></li>
                             </ol>
                         </li>

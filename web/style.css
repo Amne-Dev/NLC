@@ -39,6 +39,11 @@
     --font-pixel: 'Minecraft', monospace;
 }
 
+html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 100px;
+}
+
 * {
     box-sizing: border-box;
 }
@@ -956,6 +961,10 @@ footer {
     margin: 40px auto;
     padding: 0 24px;
     min-height: 60vh;
+
+    & section, & h2, & h3, & [id] {
+        scroll-margin-top: 100px;
+    }
 
     & h1 {
         font-size: 2.6rem;
