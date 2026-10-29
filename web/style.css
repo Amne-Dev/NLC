@@ -896,6 +896,86 @@ footer {
     }
 }
 
+/* Interactive Copy Code Snippet Components */
+.code-snippet {
+    position: relative;
+    background: #14161A;
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    margin: 14px 0 20px;
+    overflow: hidden;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+        border-color: rgba(255, 105, 180, 0.35);
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+    }
+
+    & pre {
+        margin: 0;
+        padding: 14px 75px 14px 18px;
+        overflow-x: auto;
+        font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, Monaco, monospace;
+        font-size: 0.92rem;
+        line-height: 1.5;
+        color: #E2E8F0;
+        background: transparent;
+        border: none;
+        white-space: pre;
+
+        & code {
+            font-family: inherit;
+            color: inherit;
+            background: transparent;
+            padding: 0;
+            border: none;
+        }
+    }
+
+    & .btn-copy-code {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(36, 40, 48, 0.85);
+        color: var(--text-sec);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
+        padding: 5px 10px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        font-family: var(--font-stack);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        user-select: none;
+        backdrop-filter: blur(4px);
+
+        & svg {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+            transition: transform 0.2s ease;
+        }
+
+        &:hover {
+            color: #FFFFFF;
+            background: rgba(46, 51, 61, 0.95);
+            border-color: var(--accent);
+            transform: translateY(-1px);
+        }
+
+        &.copied {
+            color: #10B981;
+            background: rgba(16, 185, 129, 0.15);
+            border-color: #10B981;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+        }
+    }
+}
+
 main a, .terms-container a { 
     color: var(--accent); 
     font-weight: 600; 

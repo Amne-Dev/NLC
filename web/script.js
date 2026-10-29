@@ -404,3 +404,73 @@ function switchModrinthTab(tab) {
         });
     });
 })();
+
+// Interactive Copy Code Snippet Controller
+(function() {
+    function initCodeSnippets() {
+        // Find any <div class="code-snippet"> or plain <pre> elements not yet wrapped
+        const preElements = document.querySelectorAll('pre');
+        const copyIconSvg = '<svg viewBox="0 0 24 24"><path d="M16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1ZM19 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H19C20.1 23 21 22.1 21 21V7C21 5.9 20.1 5 19 5ZM19 21H8V7H19V21Z"/></svg>';
+        const checkIconSvg = '<svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12L3.4 13.4L9 19L21 7L19.6 5.6L9 16.2Z"/></svg>';
+
+        preElements.forEach(pre => {
+            let wrapper = pre.parentElement;
+            if (!wrapper || !wrapper.classList.contains('code-snippet')) {
+                wrapper = document.createElement('div');
+                wrapper.className = 'code-snippet';
+                pre.parentNode.insertBefore(wrapper, pre);
+                wrapper.appendChild(pre);
+            }
+
+            // Ensure only one copy button per snippet container
+            if (wrapper.querySelector('.btn-copy-code')) return;
+
+            const btn = document.createElement('button');
+            btn.className = 'btn-copy-code';
+            btn.setAttribute('type', 'button');
+            btn.setAttribute('aria-label', 'Copy code to clipboard');
+            btn.innerHTML = `${copyIconSvg}<span>Copy</span>`;
+
+            btn.addEventListener('click', async () => {
+                const codeEl = pre.querySelector('code') || pre;
+                const textToCopy = codeEl.innerText.trim();
+
+                try {
+                    if (navigator.clipboard && window.isSecureContext) {
+                        await navigator.clipboard.writeText(textToCopy);
+                    } else {
+                        // Fallback for non-https/local file viewing
+                        const textarea = document.createElement('textarea');
+                        textarea.value = textToCopy;
+                        textarea.style.position = 'fixed';
+                        textarea.style.opacity = '0';
+                        document.body.appendChild(textarea);
+                        textarea.focus();
+                        textarea.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(textarea);
+                    }
+
+                    btn.classList.add('copied');
+                    btn.innerHTML = `${checkIconSvg}<span>Copied!</span>`;
+
+                    setTimeout(() => {
+                        btn.classList.remove('copied');
+                        btn.innerHTML = `${copyIconSvg}<span>Copy</span>`;
+                    }, 2000);
+                } catch (err) {
+                    console.error('Failed to copy code snippet: ', err);
+                }
+            });
+
+            wrapper.appendChild(btn);
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initCodeSnippets);
+    } else {
+        initCodeSnippets();
+    }
+})();
+
