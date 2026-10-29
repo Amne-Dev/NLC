@@ -857,6 +857,99 @@ footer {
     }
 }
 
+/* Page Layout with Right-Side Sticky Table of Contents (Content Tree) */
+.docs-layout-container {
+    max-width: 1200px;
+    margin: 40px auto;
+    padding: 0 24px;
+    display: flex;
+    gap: 40px;
+    align-items: flex-start;
+    min-height: 70vh;
+}
+
+.docs-main-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.content-tree {
+    width: 280px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 90px;
+    background: #14161A;
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+}
+
+.content-tree-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--accent);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.content-tree ol {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--text-sec);
+    font-size: 0.88rem;
+    line-height: 1.6;
+}
+
+.content-tree ol ol {
+    margin: 4px 0 6px;
+    padding-left: 18px;
+    font-size: 0.84rem;
+}
+
+.content-tree li {
+    margin-bottom: 5px;
+}
+
+.content-tree a {
+    color: var(--text-sec);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s ease, transform 0.2s ease;
+    display: inline-block;
+
+    &:hover {
+        color: #FFFFFF;
+        text-decoration: none;
+        transform: translateX(2px);
+    }
+
+    &.active {
+        color: var(--accent);
+        font-weight: 600;
+    }
+}
+
+@media (max-width: 960px) {
+    .docs-layout-container {
+        flex-direction: column-reverse;
+        gap: 30px;
+    }
+
+    .content-tree {
+        width: 100%;
+        position: static;
+        max-height: none;
+    }
+}
+
+
 /* Terms, Wiki, Markdown content pages */
 .terms-container {
     max-width: 850px;
