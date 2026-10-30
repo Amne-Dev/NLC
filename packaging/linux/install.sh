@@ -140,26 +140,43 @@ ${SUDO} cp -f "${APPIMAGE_SRC}" "${APPIMAGE_DEST}"
 ${SUDO} chmod 755 "${APPIMAGE_DEST}"
 
 # 5. Icon Installation
+ICON_SRC=""
 if [ -n "${REPO_ROOT}" ] && [ -f "${REPO_ROOT}/logo.png" ]; then
-  ${SUDO} cp -f "${REPO_ROOT}/logo.png" "${ICON_DEST}"
-  ${SUDO} cp -f "${REPO_ROOT}/logo.png" "${PIXMAP_DEST}"
-  ${SUDO} chmod 644 "${ICON_DEST}" "${PIXMAP_DEST}"
+  ICON_SRC="${REPO_ROOT}/logo.png"
 else
   # Extract logo from AppImage or fetch from raw repo
   log "Retrieving application icon..."
   ICON_TEMP="${TEMP_DIR:-/tmp}/newlauncher_logo.png"
   if curl -fsSL "https://raw.githubusercontent.com/${GITHUB_REPO}/main/logo.png" -o "${ICON_TEMP}" 2>/dev/null; then
-    ${SUDO} cp -f "${ICON_TEMP}" "${ICON_DEST}"
-    ${SUDO} cp -f "${ICON_TEMP}" "${PIXMAP_DEST}"
-    ${SUDO} chmod 644 "${ICON_DEST}" "${PIXMAP_DEST}"
-    rm -f "${ICON_TEMP}"
+    ICON_SRC="${ICON_TEMP}"
   fi
 fi
 
-# 6. Create Binary Symlink
-log "Creating executable symlink ${BIN_LINK} (and ${LEGACY_BIN_LINK} for compatibility)..."
-${SUDO} ln -sf "${APPIMAGE_DEST}" "${BIN_LINK}"
-${SUDO} ln -sf "${BIN_LINK}" "${LEGACY_BIN_LINK}"
+if [ -n "${ICON_SRC}" ] && [ -f "${ICON_SRC}" ]; then
+  for sz in 16x16 22x22 24x24 32x32 48x48 64x64 128x128 256x256 scalable; do
+    ${SUDO} mkdir -p "/usr/share/icons/hicolor/${sz}/apps"
+    ${SUDO} cp -f "${ICON_SRC}" "/usr/share/icons/hicolor/${sz}/apps/nlc.png"
+    ${SUDO} cp -f "${ICON_SRC}" "/usr/share/icons/hicolor/${sz}/apps/newlauncher.png"
+    ${SUDO} cp -f "${ICON_SRC}" "/usr/share/icons/hicolor/${sz}/apps/NewLauncher.png"
+    ${SUDO} chmod 644 "/usr/share/icons/hicolor/${sz}/apps/nlc.png" "/usr/share/icons/hicolor/${sz}/apps/newlauncher.png" "/usr/share/icons/hicolor/${sz}/apps/NewLauncher.png"
+  done
+
+  ${SUDO} mkdir -p /usr/share/pixmaps
+  ${SUDO} cp -f "${ICON_SRC}" /usr/share/pixmaps/nlc.png
+  ${SUDO} cp -f "${ICON_SRC}" /usr/share/pixmaps/newlauncher.png
+  ${SUDO} cp -f "${ICON_SRC}" /usr/share/pixmaps/NewLauncher.png
+  ${SUDO} chmod 644 /usr/share/pixmaps/nlc.png /usr/share/pixmaps/newlauncher.png /usr/share/pixmaps/NewLauncher.png
+fi
+
+# 6. Create Binary Launchers
+log "Creating executable wrapper ${BIN_LINK} (and ${LEGACY_BIN_LINK} for compatibility)..."
+${SUDO} tee "${BIN_LINK}" >/dev/null <<EOF
+#!/bin/sh
+export APPIMAGELAUNCHER_DISABLE=1
+exec "${APPIMAGE_DEST}" "\$@"
+EOF
+${SUDO} chmod 755 "${BIN_LINK}"
+${SUDO} ln -sf "${BIN_NAME}" "${LEGACY_BIN_LINK}"
 
 # 7. Write Desktop Entry
 log "Installing desktop launcher entry..."
@@ -170,14 +187,15 @@ Name=Ny-Luna
 GenericName=Minecraft Launcher
 Comment=High-performance Minecraft Java launcher with Slint UI and modular core
 Exec=${BIN_LINK} %U
-Icon=newlauncher
+Icon=nlc
 Terminal=false
 Categories=Game;ActionGame;
 Keywords=minecraft;game;launcher;mc;craft;nlc;nyluna;ny-luna;
-StartupNotify=true
-StartupWMClass=nlc-ui
+StartupNotify=false
+StartupWMClass=nlc
 EOF
 ${SUDO} chmod 644 "${DESKTOP_FILE}"
+${SUDO} cp -f "${DESKTOP_FILE}" "/usr/share/applications/NewLauncher.desktop"
 
 # 8. Update Desktop & Icon Databases
 if command -v update-desktop-database >/dev/null 2>&1; then
@@ -188,12 +206,18 @@ if command -v gtk-update-icon-cache >/dev/null 2>&1; then
   ${SUDO} gtk-update-icon-cache -f -t /usr/share/icons/hicolor || true
 fi
 
+if command -v kbuildsycoca6 >/dev/null 2>&1; then
+  kbuildsycoca6 --noincremental >/dev/null 2>&1 || true
+elif command -v kbuildsycoca5 >/dev/null 2>&1; then
+  kbuildsycoca5 --noincremental >/dev/null 2>&1 || true
+fi
+
 log "================================================================="
 log "Installation Successful! ✓"
 log "Launch from terminal:   ${BIN_NAME} (or ${LEGACY_BIN_NAME})"
 log "Launch from menu:       Application Menu -> Games -> Ny-Luna"
 log ""
 log "To uninstall, run:"
-log "  ${SUDO} rm -f '${BIN_LINK}' '${LEGACY_BIN_LINK}' '${DESKTOP_FILE}' '${ICON_DEST}' '${PIXMAP_DEST}' && ${SUDO} rm -rf '${INSTALL_DIR}'"
+log "  ${SUDO} rm -f '${BIN_LINK}' '${LEGACY_BIN_LINK}' '${DESKTOP_FILE}' '/usr/share/applications/NewLauncher.desktop' /usr/share/icons/hicolor/256x256/apps/{nlc,newlauncher,NewLauncher}.png /usr/share/pixmaps/{nlc,newlauncher,NewLauncher}.png && ${SUDO} rm -rf '${INSTALL_DIR}'"
 log "================================================================="
 

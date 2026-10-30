@@ -79,10 +79,17 @@ def test_system_info_linux_meminfo(tmp_path):
     fake_meminfo = tmp_path / "meminfo"
     fake_meminfo.write_text(meminfo_content, encoding="utf-8")
 
-    with patch("nlc.core.system_info.Path") as mock_path, patch("os.name", "posix"):
+    with patch("os.sysconf", side_effect=AttributeError), patch("nlc.core.system_info.Path") as mock_path, patch("os.name", "posix"):
         mock_path.return_value = fake_meminfo
         ram = get_total_ram_mb()
         assert ram == 16324220 // 1024
+
+
+def test_system_info_linux_sysconf():
+    with patch("os.sysconf") as mock_sysconf:
+        mock_sysconf.side_effect = lambda name: 4096 if name == "SC_PAGE_SIZE" else (4194304 if name == "SC_PHYS_PAGES" else None)
+        ram = get_total_ram_mb()
+        assert ram == (4194304 * 4096) // (1024 * 1024)
 
 
 def test_agent_clipboard_linux():

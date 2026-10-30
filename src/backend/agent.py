@@ -1279,7 +1279,20 @@ def handle_accounts_auth_elyby(payload: Dict[str, Any]) -> Dict[str, Any]:
 def handle_system_open_url(payload: Dict[str, Any]) -> Dict[str, Any]:
     url = payload.get("url", "")
     if url:
-        webbrowser.open(url)
+        if sys.platform.startswith("linux"):
+            clean_env = dict(os.environ)
+            clean_env.pop("LD_LIBRARY_PATH", None)
+            clean_env.pop("PYTHONPATH", None)
+            clean_env.pop("PYTHONHOME", None)
+            clean_env.pop("LD_PRELOAD", None)
+            if "LD_LIBRARY_PATH_ORIG" in os.environ:
+                clean_env["LD_LIBRARY_PATH"] = os.environ["LD_LIBRARY_PATH_ORIG"]
+            try:
+                subprocess.Popen(["xdg-open", url], env=clean_env)
+            except Exception:
+                webbrowser.open(url)
+        else:
+            webbrowser.open(url)
     return {"status": "success"}
 
 
@@ -1352,7 +1365,14 @@ def handle_system_open_folder(payload: Dict[str, Any]) -> Dict[str, Any]:
         elif sys.platform == "darwin":
             subprocess.Popen(["open", os.path.abspath(folder_path)])
         else:
-            subprocess.Popen(["xdg-open", os.path.abspath(folder_path)])
+            clean_env = dict(os.environ)
+            clean_env.pop("LD_LIBRARY_PATH", None)
+            clean_env.pop("PYTHONPATH", None)
+            clean_env.pop("PYTHONHOME", None)
+            clean_env.pop("LD_PRELOAD", None)
+            if "LD_LIBRARY_PATH_ORIG" in os.environ:
+                clean_env["LD_LIBRARY_PATH"] = os.environ["LD_LIBRARY_PATH_ORIG"]
+            subprocess.Popen(["xdg-open", os.path.abspath(folder_path)], env=clean_env)
     except Exception as e:
         logger.warning("Failed to open directory %s: %s", folder_path, e)
         return {"status": "error", "message": str(e), "path": folder_path}
@@ -5469,8 +5489,13 @@ def handle_instances_list(payload):
     for inst in installations:
         inst_copy = dict(inst)
         inst_id = inst.get("id", "")
-        # Find if this installation is linked to a modpack
-        linked_pack = next((p for p in packs if p.get("linked_installation_id") == inst_id or (inst.get("modpack_id") and p.get("id") == inst.get("modpack_id")) or (inst.get("name") and p.get("name", "").strip().lower() == inst.get("name", "").strip().lower())), None)
+        # Find if this installation is linked to a modpack (prioritize exact link/id before name matching)
+        linked_pack = (
+            next((p for p in packs if p.get("linked_installation_id") == inst_id), None)
+            or next((p for p in packs if inst.get("modpack_id") and p.get("id") == inst.get("modpack_id")), None)
+            or next((p for p in packs if inst_id == f"inst-{p.get('id')}" or (inst.get("game_directory") and str(p.get("id")) in str(inst.get("game_directory")))), None)
+            or next((p for p in packs if p.get("linked_installation_id") is None and inst.get("name") and p.get("name", "").strip().lower() == inst.get("name", "").strip().lower()), None)
+        )
         if linked_pack:
             # Check if linked pack has an icon
             pack_icon = Path(get_config_dir()) / "modpacks" / linked_pack.get("id", "") / "icon.png"
@@ -5483,6 +5508,13 @@ def handle_instances_list(payload):
                 curr_icon = inst_copy.get("icon") or ""
                 if not curr_icon or "grass_block" in curr_icon:
                     inst_copy["icon"] = str(linked_pack.get("icon_path"))
+
+        # Fallback: check game_directory/icon.png directly if still default icon
+        curr_icon = inst_copy.get("icon") or ""
+        if (not curr_icon or "grass_block" in curr_icon) and inst.get("game_directory"):
+            direct_icon = Path(inst["game_directory"]) / "icon.png"
+            if direct_icon.exists():
+                inst_copy["icon"] = str(direct_icon)
         inst_results.append(inst_copy)
 
     return {

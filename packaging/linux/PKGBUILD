@@ -1,5 +1,5 @@
 pkgname=new-launcher
-pkgver=4.0.0
+pkgver=4.0.1
 pkgrel=1
 pkgdesc='Ny-Luna Core: High-performance Minecraft Java launcher with Slint UI and modular core'
 arch=('x86_64')
@@ -44,15 +44,19 @@ package() {
   install -Dm755 src/frontend/target/release/nlc-ui "${pkgdir}/usr/bin/nlc"
   ln -sf nlc "${pkgdir}/usr/bin/newlauncher"
 
-  # Install desktop entry
+  # Install desktop entries
   install -Dm644 packaging/linux/NewLauncher.desktop \
     "${pkgdir}/usr/share/applications/nlc.desktop"
-  sed -i \
-    -e 's/^Exec=NewLauncher$/Exec=nlc/' \
-    -e 's/^Icon=logo$/Icon=newlauncher/' \
-    "${pkgdir}/usr/share/applications/nlc.desktop"
+  install -Dm644 packaging/linux/NewLauncher.desktop \
+    "${pkgdir}/usr/share/applications/NewLauncher.desktop"
 
-  # Install application icon
-  install -Dm644 logo.png \
-    "${pkgdir}/usr/share/icons/hicolor/256x256/apps/newlauncher.png"
+  # Install application icons across all standard sizes
+  for sz in 16x16 22x22 24x24 32x32 48x48 64x64 128x128 256x256 scalable; do
+    install -Dm644 logo.png "${pkgdir}/usr/share/icons/hicolor/${sz}/apps/nlc.png"
+    install -Dm644 logo.png "${pkgdir}/usr/share/icons/hicolor/${sz}/apps/newlauncher.png"
+    install -Dm644 logo.png "${pkgdir}/usr/share/icons/hicolor/${sz}/apps/NewLauncher.png"
+  done
+  install -Dm644 logo.png "${pkgdir}/usr/share/pixmaps/nlc.png"
+  install -Dm644 logo.png "${pkgdir}/usr/share/pixmaps/newlauncher.png"
+  install -Dm644 logo.png "${pkgdir}/usr/share/pixmaps/NewLauncher.png"
 }

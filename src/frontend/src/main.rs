@@ -91,8 +91,34 @@ fn prompt_open_folder() -> Option<String> {
 }
 
 fn map_installation(item: &ipc::InstallationItem, root_dir: &std::path::Path) -> InstallationData {
+    let mut resolved_path: Option<std::path::PathBuf> = None;
+    if let Some(ref icon_raw) = item.icon {
+        if !icon_raw.is_empty() && !icon_raw.contains("grass_block") {
+            let p = resolve_icon_path(icon_raw, root_dir);
+            if p.exists() {
+                resolved_path = Some(p);
+            }
+        }
+    }
+    if resolved_path.is_none() {
+        if let Some(ref gd) = item.game_directory {
+            if !gd.is_empty() {
+                let p = std::path::Path::new(gd).join("icon.png");
+                if p.exists() {
+                    resolved_path = Some(p);
+                }
+            }
+        }
+    }
+    if resolved_path.is_none() && item.id.starts_with("inst-") {
+        let pack_id = item.id.trim_start_matches("inst-");
+        let p = paths::get_modpacks_dir().join(pack_id).join("icon.png");
+        if p.exists() {
+            resolved_path = Some(p);
+        }
+    }
     let icon_raw = item.icon.as_deref().unwrap_or("grass_block_side.png");
-    let icon_path = resolve_icon_path(icon_raw, root_dir);
+    let icon_path = resolved_path.clone().unwrap_or_else(|| resolve_icon_path(icon_raw, root_dir));
     let img = load_image_safely(&icon_path).unwrap_or_default();
     let is_snap = item.r#type.as_deref() == Some("snapshot")
         || item.version.to_lowercase().contains("snapshot")
@@ -107,7 +133,7 @@ fn map_installation(item: &ipc::InstallationItem, root_dir: &std::path::Path) ->
         version: item.version.clone().into(),
         loader: item.loader.clone().unwrap_or_else(|| "Vanilla".to_string()).into(),
         icon: img,
-        icon_name: icon_raw.into(),
+        icon_name: resolved_path.map(|p| p.to_string_lossy().to_string()).unwrap_or_else(|| icon_raw.to_string()).into(),
         last_played: item.last_played.clone().unwrap_or_else(|| "Never".to_string()).into(),
         created: item.created.clone().unwrap_or_else(|| "2026-10-12".to_string()).into(),
         is_snapshot: is_snap,
@@ -2453,6 +2479,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 2. Initialize Slint Window
     let main_window = MainWindow::new()?;
+    #[cfg(target_os = "linux")]
+    {
+        if let Err(e) = slint::set_xdg_app_id("nlc") {
+            eprintln!("[NLC-Rust] Failed to set XDG app id: {:?}", e);
+        }
+        std::env::remove_var("DESKTOP_STARTUP_ID");
+        std::env::remove_var("XDG_ACTIVATION_TOKEN");
+    }
     let (init_ram_mb, init_ram_str) = detect_system_ram();
     main_window.set_total_system_ram_mb(init_ram_mb);
     main_window.set_total_system_ram_str(init_ram_str.into());
@@ -2882,7 +2916,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     main_window.on_close_window(move || {
         if let Some(win) = win_weak_close.upgrade() {
             if win.get_minimize_to_tray() {
-                let _ = win.hide();
+                #[cfg(target_os = "linux")]
+                {
+                    if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+                        win.window().set_minimized(true);
+                    } else {
+                        let _ = win.hide();
+                    }
+                }
+                #[cfg(not(target_os = "linux"))]
+                {
+                    let _ = win.hide();
+                }
             } else {
                 let _ = win.hide();
                 let maybe_ag = agent_close_cb.lock().unwrap().clone();
@@ -3112,7 +3157,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                     win.window().set_minimized(true);
                                                 }
                                                 "Minimise to tray" | "minimize_tray" => {
-                                                    let _ = win.hide();
+                                                    #[cfg(target_os = "linux")]
+                                                    {
+                                                        if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+                                                            win.window().set_minimized(true);
+                                                        } else {
+                                                            let _ = win.hide();
+                                                        }
+                                                    }
+                                                    #[cfg(not(target_os = "linux"))]
+                                                    {
+                                                        let _ = win.hide();
+                                                    }
                                                 }
                                                 "Close" | "close" => {
                                                     let _ = win.hide();
@@ -4873,7 +4929,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 #[cfg(windows)]
                 let _ = std::process::Command::new("explorer").arg(&folder_path).spawn();
                 #[cfg(not(windows))]
-                let _ = std::process::Command::new("xdg-open").arg(&folder_path).spawn();
+                {
+                    let mut cmd = std::process::Command::new("xdg-open");
+                    cmd.arg(&folder_path);
+                    cmd.env_remove("LD_LIBRARY_PATH");
+                    cmd.env_remove("PYTHONPATH");
+                    cmd.env_remove("PYTHONHOME");
+                    cmd.env_remove("LD_PRELOAD");
+                    if let Ok(orig_ld) = std::env::var("LD_LIBRARY_PATH_ORIG") {
+                        cmd.env("LD_LIBRARY_PATH", orig_ld);
+                    }
+                    let _ = cmd.spawn();
+                }
             }
         });
     });
@@ -5171,7 +5238,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let ver = pack.version.clone().or_else(|| pack.mc_version.clone()).unwrap_or_else(|| "1.21.1".to_string());
                     let ldr = pack.loader.clone().unwrap_or_else(|| "Fabric".to_string());
 
-                    let pack_dir = paths::get_modpacks_dir().join(&pack.id).to_string_lossy().to_string();
+                    let pack_dir_path = paths::get_modpacks_dir().join(&pack.id);
+                    let pack_dir = pack_dir_path.to_string_lossy().to_string();
+                    let pack_icon = pack_dir_path.join("icon.png");
 
                     let mut payload = serde_json::json!({
                         "id": new_inst_id,
@@ -5182,6 +5251,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     });
                     if !pack_dir.is_empty() {
                         payload["game_directory"] = serde_json::Value::String(pack_dir);
+                    }
+                    if pack_icon.exists() {
+                        payload["icon"] = serde_json::Value::String(pack_icon.to_string_lossy().to_string());
                     }
                     let _ = agent.create_instance(payload).await;
                     let _ = agent.link_modpack(&pack.id, &new_inst_id).await;

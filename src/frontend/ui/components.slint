@@ -39,22 +39,7 @@ export component TitleBar {
         }
 
         // Window drag region (placed behind buttons so button touch areas take priority)
-        drag-touch := TouchArea {
-            property <length> start-x;
-            property <length> start-y;
-
-            pointer-event(event) => {
-                if (event.kind == PointerEventKind.down) {
-                    self.start-x = self.mouse-x;
-                    self.start-y = self.mouse-y;
-                }
-            }
-            moved => {
-                if (self.pressed) {
-                    root.move-window(self.mouse-x - self.start-x, self.mouse-y - self.start-y);
-                }
-            }
-        }
+        WindowMoveArea {}
 
         HorizontalLayout {
             padding-left: 12px;

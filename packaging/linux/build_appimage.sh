@@ -14,7 +14,7 @@ cd "$REPO_ROOT"
 
 APP_VERSION="$(cat VERSION 2>/dev/null || echo "4.0.0")"
 APP_VERSION="${APP_VERSION//[[:space:]]/}"
-APPIMAGE_OUT="${APP_NAME}-4.0.1-x86_64.AppImage"
+APPIMAGE_OUT="${APP_NAME}-${APP_VERSION}-x86_64.AppImage"
 APPIMAGE_OUT_ABS="$(pwd)/${APPIMAGE_OUT}"
 
 # 1. Cleanup
@@ -86,23 +86,34 @@ chmod +x "$APP_DIR/usr/bin/agent"
 # Copy icons
 echo "[*] Installing icons..."
 cp logo.png "$APP_DIR/logo.png"
+cp logo.png "$APP_DIR/nlc.png"
 cp logo.png "$APP_DIR/newlauncher.png"
-cp logo.png "$APP_DIR/usr/share/icons/hicolor/256x256/apps/newlauncher.png"
+cp logo.png "$APP_DIR/NewLauncher.png"
+cp logo.png "$APP_DIR/.DirIcon"
+for sz in 16x16 22x22 24x24 32x32 48x48 64x64 128x128 256x256 scalable; do
+    mkdir -p "$APP_DIR/usr/share/icons/hicolor/${sz}/apps"
+    cp logo.png "$APP_DIR/usr/share/icons/hicolor/${sz}/apps/nlc.png"
+    cp logo.png "$APP_DIR/usr/share/icons/hicolor/${sz}/apps/newlauncher.png"
+    cp logo.png "$APP_DIR/usr/share/icons/hicolor/${sz}/apps/NewLauncher.png"
+done
 
 # Copy Desktop File
 echo "[*] Installing desktop entry..."
 cp packaging/linux/NewLauncher.desktop "$APP_DIR/NewLauncher.desktop"
 sed -i 's/\r$//' "$APP_DIR/NewLauncher.desktop"
+cp "$APP_DIR/NewLauncher.desktop" "$APP_DIR/nlc.desktop"
 cp "$APP_DIR/NewLauncher.desktop" "$APP_DIR/usr/share/applications/NewLauncher.desktop"
+cp "$APP_DIR/NewLauncher.desktop" "$APP_DIR/usr/share/applications/nlc.desktop"
 
 # 6. Create AppRun launcher script
 echo "[*] Writing AppRun..."
 cat > "$APP_DIR/AppRun" <<EOF
 #!/bin/bash
+export APPIMAGELAUNCHER_DISABLE=1
 HERE="\$(dirname "\$(readlink -f "\${0}")")"
 export PATH="\${HERE}/usr/bin:\${PATH}"
 export LD_LIBRARY_PATH="\${HERE}/usr/lib:\${LD_LIBRARY_PATH}"
-exec "\${HERE}/usr/bin/$APP_NAME" "\$@"
+exec "\${HERE}/usr/bin/nlc" "\$@"
 EOF
 chmod +x "$APP_DIR/AppRun"
 

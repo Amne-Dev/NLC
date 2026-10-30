@@ -83,9 +83,9 @@ export component MainWindow inherits Window {
 
     title: "Ny-Luna";
 
-    in-out property <image> window-icon: @image-url("../../../logo.png");
+    icon: @image-url("../../../logo.png");
 
-    icon: root.window-icon;
+    in-out property <image> window-icon: root.icon;
 
     min-width: 960px;
 
