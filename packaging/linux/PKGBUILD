@@ -1,5 +1,5 @@
 pkgname=new-launcher
-pkgver=4.0.1
+pkgver=4.0.2
 pkgrel=1
 pkgdesc='Ny-Luna Core: High-performance Minecraft Java launcher with Slint UI and modular core'
 arch=('x86_64')
@@ -17,24 +17,35 @@ makedepends=(
   'cargo'
   'rust'
 )
-source=("https://github.com/Amne-Dev/NLC/archive/refs/tags/v${pkgver}.tar.gz")
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/Amne-Dev/NLC/archive/refs/tags/v${pkgver}.tar.gz")
 sha256sums=('SKIP')
 
+_get_srcdir() {
+  if [ -d "${srcdir}/NLC-${pkgver}" ]; then
+    echo "${srcdir}/NLC-${pkgver}"
+  elif [ -d "${srcdir}/New-launcher-${pkgver}" ]; then
+    echo "${srcdir}/New-launcher-${pkgver}"
+  else
+    find "${srcdir}" -maxdepth 1 -mindepth 1 -type d | head -n 1
+  fi
+}
+
 build() {
-  cd "${srcdir}/New-launcher-${pkgver}"
+  cd "$(_get_srcdir)"
   cargo build --release --manifest-path src/frontend/Cargo.toml
 }
 
 package() {
   local appdir="${pkgdir}/usr/lib/${pkgname}"
 
-  cd "${srcdir}/New-launcher-${pkgver}"
+  cd "$(_get_srcdir)"
 
   install -d "${appdir}"
   cp -a \
     main.py \
     VERSION \
     icons \
+    wallpapers \
     assets \
     logo.png \
     src \
