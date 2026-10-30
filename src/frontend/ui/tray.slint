@@ -1,0 +1,21 @@
+export component AppTray inherits SystemTrayIcon {
+    in-out property <image> tray-icon: @image-url("../../../logo.png");
+    icon: root.tray-icon;
+    tooltip: "Ny-Luna";
+
+    clicked => { root.show-window(); }
+
+    Menu {
+        MenuItem {
+            title: "Open Ny-Luna";
+            activated => { root.show-window(); }
+        }
+        MenuItem {
+            title: "Quit";
+            activated => { root.quit-app(); }
+        }
+    }
+
+    callback show-window();
+    callback quit-app();
+}

@@ -3557,15 +3557,41 @@ def handle_skin_render_frame(payload: Optional[Dict[str, Any]] = None) -> Dict[s
     }
 
 
-def _deduce_jvm_runtime_name(version: str) -> str:
+def _extract_base_mc_version(version: str) -> str:
     matches = re.findall(r"(\d+\.\d+(?:\.\d+)?)", version)
-    mc_ver = ""
     for m in reversed(matches):
         if m.startswith("1.") or m.startswith("2."):
-            mc_ver = m
-            break
-    if not mc_ver:
-        mc_ver = matches[-1] if matches else version
+            return m
+    return matches[-1] if matches else version
+
+
+def are_version_libraries_complete(version_id: str, mc_dir: str) -> bool:
+    try:
+        ver_dir = os.path.join(mc_dir, "versions", version_id)
+        ver_json = os.path.join(ver_dir, f"{version_id}.json")
+        if not os.path.isfile(ver_json):
+            return False
+        with open(ver_json, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        jar_name = data.get("jar", version_id)
+        client_jar = os.path.join(mc_dir, "versions", jar_name, f"{jar_name}.jar")
+        if not os.path.isfile(client_jar):
+            return False
+        libstr = minecraft_launcher_lib.command.get_libraries(data, mc_dir)
+        sep = os.pathsep
+        for lib in libstr.split(sep):
+            lib = lib.strip()
+            if lib and not os.path.isfile(lib) and not lib.endswith("jinput-platform-2.0.5.jar"):
+                logger.info("Missing library detected for %s: %s", version_id, lib)
+                return False
+        return True
+    except Exception as e:
+        logger.debug("are_version_libraries_complete check failed for %s: %s", version_id, e)
+        return False
+
+
+def _deduce_jvm_runtime_name(version: str) -> str:
+    mc_ver = _extract_base_mc_version(version)
 
     m = re.search(r"(\d+)\.(\d+)(?:\.(\d+))?", mc_ver)
     if not m:
@@ -3860,12 +3886,10 @@ def handle_launch_game(payload: Dict[str, Any]) -> Dict[str, Any]:
                     actual_version = "1.20.4"
 
             # 1. Resolve and verify Java runtime (auto-downloading official Mojang runtime if missing)
-            java_exec = (
-                inst.get("java_executable")
-                or payload.get("custom_java")
-                or cfg.get("java_path")
-            )
-            if not java_exec or not os.path.isfile(java_exec):
+            custom_java = inst.get("java_executable") or payload.get("custom_java")
+            if custom_java and os.path.isfile(custom_java):
+                java_exec = custom_java
+            else:
                 try:
                     emit_event("launch_state_changed", {
                         "state": "downloading",
@@ -3876,7 +3900,7 @@ def handle_launch_game(payload: Dict[str, Any]) -> Dict[str, Any]:
                     java_exec = ensure_java_runtime(actual_version, mc_dir, launch_callbacks)
                 except Exception as e:
                     logger.warning("ensure_java_runtime failed: %s", e)
-                    java_exec = shutil.which("java") or "java"
+                    java_exec = cfg.get("java_path") or shutil.which("java") or "java"
 
             loader_clean = str(loader or "Vanilla").strip()
             loader_lower = loader_clean.lower()
@@ -3887,6 +3911,19 @@ def handle_launch_game(payload: Dict[str, Any]) -> Dict[str, Any]:
                 purge_version_directory(mc_dir, actual_version, loader_clean)
 
             installed_versions = [v["id"] for v in minecraft_launcher_lib.utils.get_installed_versions(mc_dir)]
+
+            # Verify that base Minecraft version libraries exist
+            base_mc_ver = _extract_base_mc_version(actual_version)
+            if base_mc_ver and (not are_version_libraries_complete(base_mc_ver, mc_dir) or force_update):
+                logger.info("Base Minecraft %s is missing libraries or files. Installing...", base_mc_ver)
+                emit_event("launch_state_changed", {
+                    "state": "downloading",
+                    "launch_id": launch_id,
+                    "progress": 8.0,
+                    "message": f"Verifying Minecraft {base_mc_ver} assets and libraries..."
+                })
+                minecraft_launcher_lib.install.install_minecraft_version(base_mc_ver, mc_dir, callback=launch_callbacks)
+                installed_versions = [v["id"] for v in minecraft_launcher_lib.utils.get_installed_versions(mc_dir)]
 
             if loader_lower == "fabric":
                 fabric_found = next((v for v in installed_versions if "fabric" in v.lower() and actual_version in v), None)
@@ -3962,7 +3999,7 @@ def handle_launch_game(payload: Dict[str, Any]) -> Dict[str, Any]:
                 else:
                     actual_version = neoforge_found
             elif loader_lower == "vanilla":
-                if actual_version not in installed_versions or force_update:
+                if actual_version not in installed_versions or not are_version_libraries_complete(actual_version, mc_dir) or force_update:
                     emit_event("launch_state_changed", {"state": "downloading", "launch_id": launch_id, "progress": 10.0, "message": f"Installing Vanilla {actual_version}..."})
                     minecraft_launcher_lib.install.install_minecraft_version(actual_version, mc_dir, callback=launch_callbacks)
 

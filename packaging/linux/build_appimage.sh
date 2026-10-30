@@ -97,6 +97,21 @@ for sz in 16x16 22x22 24x24 32x32 48x48 64x64 128x128 256x256 scalable; do
     cp logo.png "$APP_DIR/usr/share/icons/hicolor/${sz}/apps/NewLauncher.png"
 done
 
+# Copy launcher assets, icons, and wallpapers into AppDir
+echo "[*] Bundling launcher assets, icons, and wallpapers..."
+if [ -d "icons" ]; then
+    cp -r "icons" "$APP_DIR/icons"
+    cp -r "icons" "$APP_DIR/usr/bin/icons"
+fi
+if [ -d "wallpapers" ]; then
+    cp -r "wallpapers" "$APP_DIR/wallpapers"
+    cp -r "wallpapers" "$APP_DIR/usr/bin/wallpapers"
+fi
+if [ -d "assets" ]; then
+    cp -r "assets" "$APP_DIR/assets"
+    cp -r "assets" "$APP_DIR/usr/bin/assets"
+fi
+
 # Copy Desktop File
 echo "[*] Installing desktop entry..."
 cp packaging/linux/NewLauncher.desktop "$APP_DIR/NewLauncher.desktop"
@@ -111,6 +126,7 @@ cat > "$APP_DIR/AppRun" <<EOF
 #!/bin/bash
 export APPIMAGELAUNCHER_DISABLE=1
 HERE="\$(dirname "\$(readlink -f "\${0}")")"
+export APPDIR="\${HERE}"
 export PATH="\${HERE}/usr/bin:\${PATH}"
 export LD_LIBRARY_PATH="\${HERE}/usr/lib:\${LD_LIBRARY_PATH}"
 exec "\${HERE}/usr/bin/nlc" "\$@"

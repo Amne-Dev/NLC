@@ -1,6 +1,7 @@
 #![windows_subsystem = "windows"]
 
 slint::include_modules!();
+include!(concat!(env!("OUT_DIR"), "/tray.rs"));
 
 mod ipc;
 mod animations;
@@ -28,49 +29,92 @@ pub fn load_image_safely(path: &std::path::Path) -> Option<slint::Image> {
     Some(slint::Image::from_rgba8(buffer))
 }
 
-fn resolve_icon_path(icon_name: &str, project_root: &std::path::Path) -> std::path::PathBuf {
-    if icon_name.is_empty() {
-        return project_root.join("icons").join("2x").join("grass_block_side.png");
+fn get_icon_search_roots(project_root: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let mut roots = Vec::new();
+    roots.push(project_root.to_path_buf());
+    roots.push(project_root.join("icons"));
+    roots.push(project_root.join("usr").join("bin").join("icons"));
+    if let Ok(appdir) = std::env::var("APPDIR") {
+        let p = std::path::PathBuf::from(appdir);
+        roots.push(p.clone());
+        roots.push(p.join("icons"));
+        roots.push(p.join("usr").join("bin").join("icons"));
+        roots.push(p.join("usr").join("share").join("icons"));
     }
-    let p = std::path::Path::new(icon_name);
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(parent) = exe.parent() {
+            roots.push(parent.to_path_buf());
+            roots.push(parent.join("icons"));
+            if let Some(grandparent) = parent.parent() {
+                roots.push(grandparent.to_path_buf());
+                roots.push(grandparent.join("icons"));
+                roots.push(grandparent.join("share").join("icons"));
+            }
+        }
+    }
+    roots.push(paths::get_launcher_data_dir());
+    roots.push(paths::get_launcher_data_dir().join("icons"));
+    roots.push(std::path::PathBuf::from("/opt/new-launcher"));
+    roots.push(std::path::PathBuf::from("/opt/new-launcher/icons"));
+    roots.push(std::path::PathBuf::from("/usr/share/new-launcher/icons"));
+    roots
+}
+
+fn resolve_icon_path(icon_name: &str, project_root: &std::path::Path) -> std::path::PathBuf {
+    let raw = icon_name.trim();
+    let name = if raw.is_empty() {
+        "grass_block_side.png"
+    } else {
+        raw
+    };
+
+    let p = std::path::Path::new(name);
     if p.is_absolute() && p.exists() {
         return p.to_path_buf();
     }
-    let direct = project_root.join(icon_name);
-    if direct.exists() {
-        return direct;
-    }
-    let in_icons = project_root.join("icons").join(icon_name);
-    if in_icons.exists() {
-        return in_icons;
-    }
-    let in_2x = project_root.join("icons").join("2x").join(icon_name);
-    if in_2x.exists() {
-        return in_2x;
-    }
-    let with_png = project_root.join("icons").join(format!("{}.png", icon_name));
-    if with_png.exists() {
-        return with_png;
-    }
-    let with_png_2x = project_root.join("icons").join("2x").join(format!("{}.png", icon_name));
-    if with_png_2x.exists() {
-        return with_png_2x;
+
+    let candidate_names = if name.ends_with(".png") {
+        vec![name.to_string()]
+    } else {
+        vec![name.to_string(), format!("{}.png", name)]
+    };
+
+    let roots = get_icon_search_roots(project_root);
+    for root in &roots {
+        for cand in &candidate_names {
+            let direct = root.join(cand);
+            if direct.exists() {
+                return direct;
+            }
+            let in_2x = root.join("2x").join(cand);
+            if in_2x.exists() {
+                return in_2x;
+            }
+            let in_icons = root.join("icons").join(cand);
+            if in_icons.exists() {
+                return in_icons;
+            }
+            let in_icons_2x = root.join("icons").join("2x").join(cand);
+            if in_icons_2x.exists() {
+                return in_icons_2x;
+            }
+        }
     }
 
     let nlc_base = paths::get_launcher_data_dir();
-    let mp_path = nlc_base.join("modpacks").join(icon_name);
+    let mp_path = nlc_base.join("modpacks").join(name);
     if mp_path.exists() {
         return mp_path;
     }
-    let mp_icon = nlc_base.join("modpacks").join(icon_name).join("icon.png");
+    let mp_icon = nlc_base.join("modpacks").join(name).join("icon.png");
     if mp_icon.exists() {
         return mp_icon;
     }
-    let cache_icon = nlc_base.join("cache").join("icons").join(icon_name);
+    let cache_icon = nlc_base.join("cache").join("icons").join(name);
     if cache_icon.exists() {
         return cache_icon;
     }
-    let cache_icon_png = nlc_base.join("cache").join("icons").join(format!("{}.png", icon_name));
+    let cache_icon_png = nlc_base.join("cache").join("icons").join(format!("{}.png", name));
     if cache_icon_png.exists() {
         return cache_icon_png;
     }
@@ -93,7 +137,7 @@ fn prompt_open_folder() -> Option<String> {
 fn map_installation(item: &ipc::InstallationItem, root_dir: &std::path::Path) -> InstallationData {
     let mut resolved_path: Option<std::path::PathBuf> = None;
     if let Some(ref icon_raw) = item.icon {
-        if !icon_raw.is_empty() && !icon_raw.contains("grass_block") {
+        if !icon_raw.trim().is_empty() {
             let p = resolve_icon_path(icon_raw, root_dir);
             if p.exists() {
                 resolved_path = Some(p);
