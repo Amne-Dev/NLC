@@ -2435,6 +2435,61 @@ pub fn normalize_launch_progress(raw: f32) -> f32 {
     p.clamp(0.0, 1.0)
 }
 
+#[cfg(unix)]
+mod single_instance {
+    use slint::ComponentHandle;
+    use std::io::{Read, Write};
+    use std::os::unix::net::{UnixListener, UnixStream};
+    use std::path::PathBuf;
+
+    fn socket_path() -> PathBuf {
+        let dir = crate::paths::get_launcher_data_dir();
+        let _ = std::fs::create_dir_all(&dir);
+        dir.join("nlc_single_instance.sock")
+    }
+
+    pub enum InstanceCheck {
+        Primary(UnixListener),
+        Secondary,
+    }
+
+    pub fn check() -> InstanceCheck {
+        let path = socket_path();
+        if let Ok(mut stream) = UnixStream::connect(&path) {
+            let _ = stream.write_all(b"show\n");
+            return InstanceCheck::Secondary;
+        }
+        let _ = std::fs::remove_file(&path);
+        match UnixListener::bind(&path) {
+            Ok(listener) => InstanceCheck::Primary(listener),
+            Err(_) => InstanceCheck::Secondary,
+        }
+    }
+
+    pub fn start_listener(listener: UnixListener, win_weak: slint::Weak<crate::MainWindow>) {
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                if let Ok(mut s) = stream {
+                    let mut buf = [0u8; 16];
+                    let _ = s.read(&mut buf);
+                    let w_weak = win_weak.clone();
+                    let _ = slint::invoke_from_event_loop(move || {
+                        if let Some(win) = w_weak.upgrade() {
+                            let _ = win.show();
+                            win.window().set_minimized(false);
+                        }
+                    });
+                }
+            }
+        });
+    }
+
+    pub fn cleanup() {
+        let path = socket_path();
+        let _ = std::fs::remove_file(&path);
+    }
+}
+
 fn restore_and_refocus_window(win: &MainWindow) {
     let _ = win.show();
     win.window().set_minimized(false);
@@ -2444,6 +2499,21 @@ fn restore_and_refocus_window(win: &MainWindow) {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args: Vec<String> = std::env::args().collect();
+    let is_snapshot = args.iter().any(|a| a == "--snapshot-tab");
+
+    #[cfg(unix)]
+    let _instance_listener = if !is_snapshot {
+        match single_instance::check() {
+            single_instance::InstanceCheck::Secondary => {
+                println!("[NLC-Rust] Existing Ny-Luna instance detected. Signaled to focus and exiting.");
+                return Ok(());
+            }
+            single_instance::InstanceCheck::Primary(listener) => Some(listener),
+        }
+    } else {
+        None
+    };
     // 1. Locate repository / app root dynamically
     let project_root = {
         let mut r = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
@@ -2490,6 +2560,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (init_ram_mb, init_ram_str) = detect_system_ram();
     main_window.set_total_system_ram_mb(init_ram_mb);
     main_window.set_total_system_ram_str(init_ram_str.into());
+
+    #[cfg(unix)]
+    if let Some(listener) = _instance_listener {
+        single_instance::start_listener(listener, main_window.as_weak());
+    }
 
     // Support snapshot mode for automated verification
     let args: Vec<String> = std::env::args().collect();
@@ -2869,6 +2944,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if let Some(win) = win_weak_quit.upgrade() {
                     let _ = win.hide();
                 }
+                #[cfg(unix)]
+                single_instance::cleanup();
                 let maybe_ag = agent_quit_cb.lock().unwrap().clone();
                 if let Some(agent) = maybe_ag {
                     tokio::spawn(async move {
@@ -2916,20 +2993,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     main_window.on_close_window(move || {
         if let Some(win) = win_weak_close.upgrade() {
             if win.get_minimize_to_tray() {
-                #[cfg(target_os = "linux")]
-                {
-                    if std::env::var_os("WAYLAND_DISPLAY").is_some() {
-                        win.window().set_minimized(true);
-                    } else {
-                        let _ = win.hide();
-                    }
-                }
-                #[cfg(not(target_os = "linux"))]
-                {
-                    let _ = win.hide();
-                }
+                let _ = win.hide();
             } else {
                 let _ = win.hide();
+                #[cfg(unix)]
+                single_instance::cleanup();
                 let maybe_ag = agent_close_cb.lock().unwrap().clone();
                 if let Some(agent) = maybe_ag {
                     tokio::spawn(async move {
@@ -3157,18 +3225,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                     win.window().set_minimized(true);
                                                 }
                                                 "Minimise to tray" | "minimize_tray" => {
-                                                    #[cfg(target_os = "linux")]
-                                                    {
-                                                        if std::env::var_os("WAYLAND_DISPLAY").is_some() {
-                                                            win.window().set_minimized(true);
-                                                        } else {
-                                                            let _ = win.hide();
-                                                        }
-                                                    }
-                                                    #[cfg(not(target_os = "linux"))]
-                                                    {
-                                                        let _ = win.hide();
-                                                    }
+                                                    let _ = win.hide();
                                                 }
                                                 "Close" | "close" => {
                                                     let _ = win.hide();
