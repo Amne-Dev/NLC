@@ -84,8 +84,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || true)"
-REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." 2>/dev/null && pwd || true)"
+REPO_ROOT=""
+if [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
+  CANDIDATE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd || true)"
+  if [ -f "${CANDIDATE}/VERSION" ] && [ -d "${CANDIDATE}/src/frontend" ]; then
+    REPO_ROOT="${CANDIDATE}"
+  fi
+fi
 
 find_local_appimage() {
   if [ -n "${REPO_ROOT}" ] && [ -d "${REPO_ROOT}" ]; then
@@ -108,17 +113,18 @@ if [ -z "${APPIMAGE_SRC}" ]; then
   TEMP_DIR="$(mktemp -d)"
   DOWNLOAD_FILE="${TEMP_DIR}/NewLauncher.AppImage"
 
-  LATEST_JSON="$(curl -fsSL "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" 2>/dev/null || true)"
-  DOWNLOAD_URL="$(echo "${LATEST_JSON}" | grep -o 'https://[^"]*NewLauncher-[^"]*-x86_64\.AppImage' | head -n1 || true)"
+  # Query releases (including pre-releases) to find the newest release with a Linux AppImage asset
+  RELEASES_JSON="$(curl -fsSL "https://api.github.com/repos/${GITHUB_REPO}/releases" 2>/dev/null || true)"
+  DOWNLOAD_URL="$(echo "${RELEASES_JSON}" | grep -o 'https://[^"]*NewLauncher-[^"]*-x86_64\.AppImage' | head -n1 || true)"
 
   if [ -z "${DOWNLOAD_URL}" ]; then
-    # Fallback to direct redirect URL
-    DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/latest/download/NewLauncher-4.0.1-x86_64.AppImage"
+    LATEST_TAG="$(echo "${RELEASES_JSON}" | grep -o '"tag_name": *"[^"]*"' | head -n1 | cut -d'"' -f4 || echo "v4.0.1")"
+    DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/download/${LATEST_TAG}/NewLauncher-${LATEST_TAG#v}-x86_64.AppImage"
   fi
 
   log "Downloading from: ${DOWNLOAD_URL}..."
   if ! curl -fSL --progress-bar "${DOWNLOAD_URL}" -o "${DOWNLOAD_FILE}"; then
-    die "Failed to download AppImage from ${DOWNLOAD_URL}. Check your internet connection or supply a local file path."
+    die "Failed to download AppImage from ${DOWNLOAD_URL}. Check your internet connection, release assets on GitHub, or supply a local file path: install.sh <path-to-appimage>"
   fi
   APPIMAGE_SRC="${DOWNLOAD_FILE}"
 fi
