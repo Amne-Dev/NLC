@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-FALLBACK_VERSION = "3.0.6"
+FALLBACK_VERSION = "4.0.2"
 
 
 def find_repo_root() -> Path:

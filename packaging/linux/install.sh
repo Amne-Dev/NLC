@@ -118,7 +118,7 @@ if [ -z "${APPIMAGE_SRC}" ]; then
   DOWNLOAD_URL="$(echo "${RELEASES_JSON}" | grep -o 'https://[^"]*NewLauncher-[^"]*-x86_64\.AppImage' | head -n1 || true)"
 
   if [ -z "${DOWNLOAD_URL}" ]; then
-    LATEST_TAG="$(echo "${RELEASES_JSON}" | grep -o '"tag_name": *"[^"]*"' | head -n1 | cut -d'"' -f4 || echo "v4.0.1")"
+    LATEST_TAG="$(echo "${RELEASES_JSON}" | grep -o '"tag_name": *"[^"]*"' | head -n1 | cut -d'"' -f4 || echo "v4.0.2")"
     DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/download/${LATEST_TAG}/NewLauncher-${LATEST_TAG#v}-x86_64.AppImage"
   fi
 

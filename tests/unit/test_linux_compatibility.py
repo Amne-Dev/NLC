@@ -17,7 +17,7 @@ def test_update_manifest_accepts_linux_platform(tmp_path):
         "formatVersion": 1,
         "platform": "linux",
         "baseVersion": "4.0.0",
-        "targetVersion": "4.0.1",
+        "targetVersion": "4.0.2",
         "files": [],
         "delete": [],
     }
@@ -27,7 +27,7 @@ def test_update_manifest_accepts_linux_platform(tmp_path):
 
     loaded = load_patch_manifest(zip_path)
     assert loaded["platform"] == "linux"
-    assert loaded["targetVersion"] == "4.0.1"
+    assert loaded["targetVersion"] == "4.0.2"
 
 
 def test_posix_paths_resolution(monkeypatch, tmp_path):

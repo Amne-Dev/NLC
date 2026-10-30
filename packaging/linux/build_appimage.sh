@@ -12,7 +12,7 @@ APP_DIR="AppDir"
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 
-APP_VERSION="$(cat VERSION 2>/dev/null || echo "4.0.0")"
+APP_VERSION="$(cat VERSION 2>/dev/null || echo "4.0.2")"
 APP_VERSION="${APP_VERSION//[[:space:]]/}"
 APPIMAGE_OUT="${APP_NAME}-${APP_VERSION}-x86_64.AppImage"
 APPIMAGE_OUT_ABS="$(pwd)/${APPIMAGE_OUT}"
