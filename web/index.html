@@ -6,27 +6,68 @@
     <title>Ny-Luna Core — The Modern, Lightweight Minecraft Launcher</title>
     
     <!-- SEO Meta Tags -->
-    <meta name="description" content="A modern, blazing fast, and ad-free Minecraft launcher featuring 3D skin customization, 1-click Modrinth modpacks, local skin injection, and zero telemetry.">
-    <meta name="keywords" content="Minecraft Launcher, Modrinth, Modded Minecraft, 3D Skin Locker, Fabric, Forge, NeoForge, Open Source Launcher, NLC">
+    <meta name="description" content="Ny-Luna Core is a modern, blazing-fast, and open-source Minecraft Java Edition launcher featuring 3D skin wardrobe customization, offline skin injection, 1-click Modrinth modpacks, and native Rust Slint UI.">
+    <meta name="keywords" content="Minecraft Launcher, Ny-Luna Core, NLC, Modrinth, Modded Minecraft, 3D Skin Wardrobe, Fabric, Forge, NeoForge, Quilt, Linux Minecraft Launcher, Open Source Launcher">
     <meta name="author" content="Amne-Dev">
     <meta name="theme-color" content="#1E2025">
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+    <meta name="google-site-verification" content="googlec069c3aece145355">
+    <link rel="canonical" href="https://web.get-nlc.tech/">
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://amne-dev.github.io/NLC/">
-    <meta property="og:title" content="Ny-Luna - The Modern Minecraft Launcher">
-    <meta property="og:description" content="Blazing fast, 100% ad-free Minecraft launcher with 3D skin wardrobe, 1-click Modrinth modpacks, and offline skin injection.">
-    <meta property="og:image" content="https://raw.githubusercontent.com/Amne-Dev/NLC/main/preview.png">
+    <meta property="og:site_name" content="Ny-Luna Core">
+    <meta property="og:url" content="https://web.get-nlc.tech/">
+    <meta property="og:title" content="Ny-Luna Core — The Modern, Lightweight Minecraft Launcher">
+    <meta property="og:description" content="Blazing-fast, open-source Minecraft launcher with 3D skin wardrobe, 1-click Modrinth modpacks, and offline skin injection.">
+    <meta property="og:image" content="https://web.get-nlc.tech/preview.png">
 
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://amne-dev.github.io/NLC/">
-    <meta property="twitter:title" content="Ny-Luna - The Modern Minecraft Launcher">
-    <meta property="twitter:description" content="Blazing fast, 100% ad-free Minecraft launcher with 3D skin wardrobe, 1-click Modrinth modpacks, and offline skin injection.">
-    <meta property="twitter:image" content="https://raw.githubusercontent.com/Amne-Dev/NLC/main/preview.png">
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:site" content="@amne_dev">
+    <meta name="twitter:url" content="https://web.get-nlc.tech/">
+    <meta name="twitter:title" content="Ny-Luna Core — The Modern, Lightweight Minecraft Launcher">
+    <meta name="twitter:description" content="Blazing-fast, open-source Minecraft launcher with 3D skin wardrobe, 1-click Modrinth modpacks, and offline skin injection.">
+    <meta name="twitter:image" content="https://web.get-nlc.tech/preview.png">
 
-    <!-- Favicon -->
+    <!-- Favicon & PWA -->
     <link rel="icon" type="image/png" href="logo.png">
+    <link rel="apple-touch-icon" href="logo.png">
+    <link rel="manifest" href="site.webmanifest">
+
+    <!-- JSON-LD Structured Data for Google Rich Results -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "SoftwareApplication",
+          "name": "Ny-Luna Core",
+          "alternateName": ["NLC", "New Launcher", "Ny-Luna"],
+          "operatingSystem": "Windows 10, Windows 11, Linux (Arch Linux, Ubuntu, Debian, Fedora)",
+          "applicationCategory": "GameApplication",
+          "applicationSubCategory": "Minecraft Launcher",
+          "softwareVersion": "4.0.4",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+          },
+          "description": "High-performance open-source Minecraft Java Edition launcher with native Rust Slint UI, 3D skin wardrobe with offline injection, 1-click Modrinth modpacks, and zero telemetry.",
+          "downloadUrl": "https://github.com/Amne-Dev/NLC/releases/latest",
+          "image": "https://web.get-nlc.tech/preview.png",
+          "screenshot": "https://web.get-nlc.tech/preview.png",
+          "license": "https://github.com/Amne-Dev/NLC/blob/main/LICENSE"
+        },
+        {
+          "@type": "WebSite",
+          "url": "https://web.get-nlc.tech/",
+          "name": "Ny-Luna Core",
+          "description": "The Modern, Lightweight Minecraft Java Edition Launcher"
+        }
+      ]
+    }
+    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -140,7 +181,7 @@
                     <div class="window-title">Ny-Luna — Minecraft Java Edition</div>
                     <div style="width: 40px;"></div>
                 </div>
-                <img src="../preview.png" alt="Ny-Luna Java Edition Interface" class="window-img" fetchpriority="high" loading="eager" width="1920" height="1080">
+                <img src="preview.png" alt="Ny-Luna Java Edition Interface" class="window-img" fetchpriority="high" loading="eager" width="1920" height="1080">
             </div>
         </div>
     </header>

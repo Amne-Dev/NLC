@@ -3,8 +3,79 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>FAQ — Ny-Luna Core</title>
+  <title>Frequently Asked Questions (FAQ) — Ny-Luna Core Minecraft Launcher</title>
+  <meta name="description" content="Frequently asked questions about Ny-Luna Core: Minecraft Java Edition system requirements, Microsoft & offline accounts, 3D skin wardrobe, and modpack management.">
+  <meta name="keywords" content="Ny-Luna FAQ, Minecraft Launcher FAQ, Offline Minecraft Skins, Modrinth Modpacks, Minecraft Launcher Requirements">
+  <meta name="theme-color" content="#1E2025">
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+  <link rel="canonical" href="https://web.get-nlc.tech/faq.html">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="Ny-Luna Core">
+  <meta property="og:url" content="https://web.get-nlc.tech/faq.html">
+  <meta property="og:title" content="Frequently Asked Questions (FAQ) — Ny-Luna Core">
+  <meta property="og:description" content="Frequently asked questions about Ny-Luna Core: accounts, modpacks, skin injection, and Linux support.">
+  <meta property="og:image" content="https://web.get-nlc.tech/preview.png">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://web.get-nlc.tech/faq.html">
+  <meta name="twitter:title" content="Frequently Asked Questions (FAQ) — Ny-Luna Core">
+  <meta name="twitter:description" content="Frequently asked questions about Ny-Luna Core: accounts, modpacks, skin injection, and Linux support.">
+  <meta name="twitter:image" content="https://web.get-nlc.tech/preview.png">
+
   <link rel="icon" type="image/png" href="logo.png">
+  <link rel="apple-touch-icon" href="logo.png">
+  <link rel="manifest" href="site.webmanifest">
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Where do I download the Ny-Luna Core launcher?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Official installers are published on the GitHub Releases page: https://github.com/Amne-Dev/NLC/releases. For Windows, download NLCSetup.exe. For Linux, download the universal AppImage (NewLauncher-x86_64.AppImage) or install via the Arch Linux PKGBUILD."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What are the system requirements for Ny-Luna Core?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Recommended: Windows 10/11 (x64) or modern 64-bit Linux distribution (Ubuntu 22.04+, Debian 12+, Arch, Fedora) with FUSE/AppImage support. Java 17 or newer is supported, with automatic Java provisioning."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I add a Minecraft profile or account?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Open the launcher UI, navigate to the Accounts / Profiles menu, click Add Account, and select either Microsoft Account or Offline Account. Profiles and custom skins are stored safely in local configuration."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is Ny-Luna Core open-source and ad-free?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, Ny-Luna Core is 100% open-source under the BSD-3-Clause license, completely ad-free, and contains zero tracking or telemetry."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How does offline skin injection work?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Ny-Luna Core includes an integrated 3D skin wardrobe that injects custom skins directly into your Minecraft game client at launch, enabling full skin customization on singleplayer and offline servers without third-party authentication services."
+          }
+        }
+      ]
+    }
+    </script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -42,12 +113,12 @@
 
         <section>
             <h2>Q: Where do I download the launcher?</h2>
-            <p>A: Official installers are published on the GitHub Releases page: <a href="https://github.com/Amne-Dev/NLC/releases" target="_blank">Releases</a>. The Windows installer filename is <code>NLCSetup.exe</code>.</p>
+            <p>A: Official installers are published on the GitHub Releases page: <a href="https://github.com/Amne-Dev/NLC/releases" target="_blank">Releases</a>. The Windows installer filename is <code>NLCSetup.exe</code>, and Linux users can download <code>NewLauncher-4.0.4-x86_64.AppImage</code> or install via the Arch Linux PKGBUILD.</p>
         </section>
 
         <section>
             <h2>Q: What are the system requirements?</h2>
-            <p>A: Recommended: Windows 10/11 (x64), Java 17 or newer (the installer may bundle Java), and at least 200 MB free disk space for the launcher plus additional space for game installations and mods.</p>
+            <p>A: Recommended: Windows 10/11 (x64) or Linux x64 (AppImage / Arch AUR), Java 17 or newer (the installer may bundle Java), and at least 200 MB free disk space for the launcher plus additional space for game installations and mods.</p>
         </section>
 
         <section>

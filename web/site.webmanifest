@@ -1,0 +1,18 @@
+{
+  "name": "Ny-Luna Core — Minecraft Launcher",
+  "short_name": "Ny-Luna",
+  "description": "High-performance open-source Minecraft Java Edition launcher with 3D skin wardrobe, Modrinth modpacks, and native Rust Slint UI.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F1012",
+  "theme_color": "#1E2025",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "utilities"]
+}
