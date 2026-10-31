@@ -968,67 +968,80 @@ impl AgentClient {
         let is_alive_reader = is_alive.clone();
         tokio::spawn(async move {
             let mut reader = BufReader::new(stdout).lines();
-            while let Ok(Some(line)) = reader.next_line().await {
-                let trimmed = line.trim();
-                // Filter non-JSON startup banners or empty lines
-                if trimmed.is_empty() || !trimmed.starts_with('{') {
-                    continue;
-                }
+            loop {
+                match reader.next_line().await {
+                    Ok(Some(line)) => {
+                        let trimmed = line.trim();
+                        // Filter non-JSON startup banners or empty lines
+                        if trimmed.is_empty() || !trimmed.starts_with('{') {
+                            continue;
+                        }
 
-                if let Ok(msg) = serde_json::from_str::<RpcWireMessage>(trimmed) {
-                    // Branch A: Correlated RPC Response
-                    if let Some(id) = msg.id {
-                        if let Some(sender) = pending_for_reader.lock().await.remove(&id) {
-                            if let Some(err_val) = msg.error {
-                                let err_msg = err_val
-                                    .get("message")
-                                    .and_then(|m| m.as_str())
-                                    .or_else(|| err_val.as_str())
-                                    .unwrap_or("RPC Error")
-                                    .to_string();
-                                let code = err_val
-                                    .get("code")
-                                    .and_then(|c| c.as_str())
-                                    .unwrap_or("ERR_RPC")
-                                    .to_string();
-                                let _ = sender.send(Err(IpcError::ServerError {
-                                    code,
-                                    message: err_msg,
-                                    details: None,
-                                }));
-                            } else if let Some(res) = msg.result {
-                                if res.get("status").and_then(|s| s.as_str()) == Some("error") {
-                                    let code = res
-                                        .get("code")
-                                        .and_then(|c| c.as_str())
-                                        .unwrap_or("ERR_BACKEND")
-                                        .to_string();
-                                    let message = res
-                                        .get("msg")
-                                        .and_then(|m| m.as_str())
-                                        .unwrap_or("Backend error")
-                                        .to_string();
-                                    let details = res.get("details").cloned();
-                                    let _ = sender.send(Err(IpcError::ServerError {
-                                        code,
-                                        message,
-                                        details,
-                                    }));
-                                } else {
-                                    let _ = sender.send(Ok(res));
+                        if let Ok(msg) = serde_json::from_str::<RpcWireMessage>(trimmed) {
+                            // Branch A: Correlated RPC Response
+                            if let Some(id) = msg.id {
+                                if let Some(sender) = pending_for_reader.lock().await.remove(&id) {
+                                    if let Some(err_val) = msg.error {
+                                        let err_msg = err_val
+                                            .get("message")
+                                            .and_then(|m| m.as_str())
+                                            .or_else(|| err_val.as_str())
+                                            .unwrap_or("RPC Error")
+                                            .to_string();
+                                        let code = err_val
+                                            .get("code")
+                                            .and_then(|c| c.as_str())
+                                            .unwrap_or("ERR_RPC")
+                                            .to_string();
+                                        let _ = sender.send(Err(IpcError::ServerError {
+                                            code,
+                                            message: err_msg,
+                                            details: None,
+                                        }));
+                                    } else if let Some(res) = msg.result {
+                                        if res.get("status").and_then(|s| s.as_str()) == Some("error") {
+                                            let code = res
+                                                .get("code")
+                                                .and_then(|c| c.as_str())
+                                                .unwrap_or("ERR_BACKEND")
+                                                .to_string();
+                                            let message = res
+                                                .get("msg")
+                                                .and_then(|m| m.as_str())
+                                                .unwrap_or("Backend error")
+                                                .to_string();
+                                            let details = res.get("details").cloned();
+                                            let _ = sender.send(Err(IpcError::ServerError {
+                                                code,
+                                                message,
+                                                details,
+                                            }));
+                                        } else {
+                                            let _ = sender.send(Ok(res));
+                                        }
+                                    } else {
+                                        let _ = sender.send(Ok(Value::Null));
+                                    }
                                 }
-                            } else {
-                                let _ = sender.send(Ok(Value::Null));
+                            }
+                            // Branch B: Unsolicited Push Event
+                            else if let Some(event_name) = msg.event {
+                                let payload = msg.payload.unwrap_or(Value::Null);
+                                let _ = event_broadcaster.send(RpcEvent {
+                                    event: event_name,
+                                    payload,
+                                });
                             }
                         }
                     }
-                    // Branch B: Unsolicited Push Event
-                    else if let Some(event_name) = msg.event {
-                        let payload = msg.payload.unwrap_or(Value::Null);
-                        let _ = event_broadcaster.send(RpcEvent {
-                            event: event_name,
-                            payload,
-                        });
+                    Ok(None) => {
+                        // EOF reached: agent process closed its stdout stream
+                        eprintln!("[NLC-Rust] Agent stdout closed (EOF reached)");
+                        break;
+                    }
+                    Err(e) => {
+                        eprintln!("[NLC-Rust] Warning reading agent stdout line: {}. Continuing reader loop...", e);
+                        continue;
                     }
                 }
             }

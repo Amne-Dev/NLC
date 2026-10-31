@@ -28,14 +28,6 @@ pub fn get_launcher_data_dir() -> PathBuf {
             }
         }
     }
-    #[cfg(not(windows))]
-    {
-        if let Ok(xdg) = std::env::var("XDG_DATA_HOME") {
-            if !xdg.is_empty() {
-                return PathBuf::from(xdg).join("nlc");
-            }
-        }
-    }
     get_user_home().join(".nlc")
 }
 

@@ -396,18 +396,16 @@ export component SettingsScreen {
 
     in-out property <int> ram-allocation-mb: 4096;
 
-    in-out property <string> java-executable: "System Default (java)";
+    in-out property <string> java-executable: "System Default (Auto-detect)";
     in-out property <[string]> available-java-paths: [
-        "System Default (Auto-detect)",
-        "C:\\Users\\Ev\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-delta\\windows-x64\\java-runtime-delta\\bin\\javaw.exe",
-        "C:\\Users\\Ev\\AppData\\Roaming\\.minecraft\\runtime\\java-runtime-epsilon\\windows-x64\\java-runtime-epsilon\\bin\\javaw.exe"
+        "System Default (Auto-detect)"
     ];
     in-out property <bool> java-dropdown-open: false;
     callback deselect-java();
 
     in-out property <string> jvm-arguments: "";
 
-    in-out property <string> minecraft-directory: "C:\\Users\\Ev\\AppData\\Roaming\\.minecraft";
+    in-out property <string> minecraft-directory: "Default (.minecraft)";
 
     in-out property <int> max-modpack-downloads: 1;
 

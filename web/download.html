@@ -34,9 +34,12 @@
 
         <section>
             <h2>Checksums</h2>
-            <p>We provide SHA256 checksums for installers on each release. After downloading, verify with:</p>
+            <p>We provide SHA256 checksums for installers and AppImages on each release. After downloading, verify with:</p>
+            <p><strong>Windows:</strong></p>
             <pre>certutil -hashfile NLCSetup.exe SHA256</pre>
-            <p>Compare the output with the checksum listed on the release.</p>
+            <p><strong>Linux:</strong></p>
+            <pre>sha256sum NewLauncher-*-x86_64.AppImage</pre>
+            <p>Compare the output with the checksum listed on the release notes.</p>
         </section>
 
         <section>

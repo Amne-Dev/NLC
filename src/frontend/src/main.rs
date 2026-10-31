@@ -2534,6 +2534,51 @@ mod single_instance {
     }
 }
 
+pub fn open_directory_in_desktop(path: &std::path::Path) {
+    let _ = std::fs::create_dir_all(path);
+    #[cfg(windows)]
+    {
+        let _ = std::process::Command::new("explorer").arg(path).spawn();
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("open").arg(path).spawn();
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
+    {
+        let mut cmd = std::process::Command::new("xdg-open");
+        cmd.arg(path);
+        cmd.env_remove("LD_LIBRARY_PATH");
+        cmd.env_remove("PYTHONPATH");
+        cmd.env_remove("PYTHONHOME");
+        cmd.env_remove("LD_PRELOAD");
+        let _ = cmd.spawn();
+    }
+}
+
+pub fn open_url_in_browser(url: &str) {
+    #[cfg(windows)]
+    {
+        let _ = std::process::Command::new("cmd")
+            .args(["/c", "start", "", url])
+            .spawn();
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("open").arg(url).spawn();
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
+    {
+        let mut cmd = std::process::Command::new("xdg-open");
+        cmd.arg(url);
+        cmd.env_remove("LD_LIBRARY_PATH");
+        cmd.env_remove("PYTHONPATH");
+        cmd.env_remove("PYTHONHOME");
+        cmd.env_remove("LD_PRELOAD");
+        let _ = cmd.spawn();
+    }
+}
+
 fn restore_and_refocus_window(win: &MainWindow) {
     let _ = win.show();
     win.window().set_minimized(false);
@@ -4417,11 +4462,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     main_window.on_open_skins_folder(move || {
         let path = paths::get_launcher_data_dir().join("skins");
-        let _ = std::fs::create_dir_all(&path);
-        #[cfg(windows)]
-        let _ = std::process::Command::new("explorer").arg(&path).spawn();
-        #[cfg(not(windows))]
-        let _ = std::process::Command::new("xdg-open").arg(&path).spawn();
+        open_directory_in_desktop(&path);
     });
 
     // 5b. Wire Wallpapers Studio Handlers
@@ -5000,10 +5041,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("[NLC-Rust] Dock item clicked: {}", item);
         match item.as_str() {
             "github" => {
-                #[cfg(windows)]
-                let _ = std::process::Command::new("cmd")
-                    .args(["/c", "start", "https://github.com/Amne-Dev/NLC"])
-                    .spawn();
+                open_url_in_browser("https://github.com/Amne-Dev/NLC");
             }
             "screenshots" => {
                 let agent = agent_client_dock.clone();
@@ -5038,21 +5076,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     target_id => paths::get_modpacks_dir().join(target_id),
                 };
                 let _ = std::fs::create_dir_all(&folder_path);
-                #[cfg(windows)]
-                let _ = std::process::Command::new("explorer").arg(&folder_path).spawn();
-                #[cfg(not(windows))]
-                {
-                    let mut cmd = std::process::Command::new("xdg-open");
-                    cmd.arg(&folder_path);
-                    cmd.env_remove("LD_LIBRARY_PATH");
-                    cmd.env_remove("PYTHONPATH");
-                    cmd.env_remove("PYTHONHOME");
-                    cmd.env_remove("LD_PRELOAD");
-                    if let Ok(orig_ld) = std::env::var("LD_LIBRARY_PATH_ORIG") {
-                        cmd.env("LD_LIBRARY_PATH", orig_ld);
-                    }
-                    let _ = cmd.spawn();
-                }
+                open_directory_in_desktop(&folder_path);
             }
         });
     });
@@ -5790,9 +5814,9 @@ fn apply_mod_filter(
         let agent = agent_client_b_java.clone();
         rt_b_java.spawn(async move {
             let filter = if cfg!(windows) {
-                "Java Executable (javaw.exe;java.exe)|javaw.exe;java.exe|All Executables (*.exe)|*.exe"
+                "Java Executable (javaw.exe;java.exe)|exe|All Files (*.*)|*"
             } else {
-                "Java Executable (java)|java|All files (*)|*"
+                "All Files (*)|*"
             };
             if let Some(path) = prompt_open_file(filter) {
                 if !path.is_empty() && std::path::Path::new(&path).exists() {
@@ -6007,14 +6031,7 @@ fn apply_mod_filter(
                     let _ = std::fs::create_dir_all(&target_path);
                 }
 
-                #[cfg(windows)]
-                {
-                    let _ = std::process::Command::new("explorer").arg(&target).spawn();
-                }
-                #[cfg(not(windows))]
-                {
-                    let _ = std::process::Command::new("xdg-open").arg(&target).spawn();
-                }
+                open_directory_in_desktop(&target_path);
                 if let Some(ref a) = agent {
                     let _ = a.open_folder(&target).await;
                 }
@@ -6097,18 +6114,7 @@ fn apply_mod_filter(
         move || {
             println!("[NLC-Rust] Submit Addon PR requested - opening browser");
             let pr_url = "https://github.com/Amne-Dev/Community-addons-nlc/pulls";
-            #[cfg(windows)]
-            {
-                let _ = std::process::Command::new("cmd")
-                    .args(["/c", "start", "", pr_url])
-                    .spawn();
-            }
-            #[cfg(not(windows))]
-            {
-                let _ = std::process::Command::new("xdg-open")
-                    .arg(pr_url)
-                    .spawn();
-            }
+            open_url_in_browser(pr_url);
         }
     });
 

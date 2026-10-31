@@ -5193,12 +5193,23 @@ def handle_system_check_updates(payload: Optional[Dict[str, Any]] = None) -> Dic
 
             installer_url = ""
             cdc_url = ""
+            is_linux = sys.platform.startswith("linux")
+
             for a in assets:
                 name = a.get("name", "").lower()
-                if name in ("nlcsetup.exe", "nlcsetup-web.exe", "setup.exe"):
-                    installer_url = a.get("browser_download_url", "")
-                elif name.endswith(".cdc.json"):
-                    cdc_url = a.get("browser_download_url", "")
+                if is_linux:
+                    if name.endswith(".appimage") and "appimagetool" not in name:
+                        installer_url = a.get("browser_download_url", "")
+                else:
+                    if name in ("nlcsetup.exe", "nlcsetup-web.exe", "setup.exe"):
+                        installer_url = a.get("browser_download_url", "")
+                    elif name.endswith(".cdc.json"):
+                        cdc_url = a.get("browser_download_url", "")
+
+            # If no platform-specific direct binary was found, fallback to release tag url
+            default_download = installer_url or (
+                f"https://github.com/{repo}/releases/tag/v{tag}" if tag else f"https://github.com/{repo}/releases/latest"
+            )
 
             return {
                 "status": "success",
@@ -5206,8 +5217,9 @@ def handle_system_check_updates(payload: Optional[Dict[str, Any]] = None) -> Dic
                 "current_version": current_version,
                 "latest_version": tag or current_version,
                 "release_notes": body,
-                "download_url": installer_url or f"https://github.com/{repo}/releases/latest",
+                "download_url": default_download,
                 "cdc_url": cdc_url,
+                "platform": "linux" if is_linux else "windows",
             }
     except Exception as e:
         logger.info("System check updates: %s", e)
@@ -5219,12 +5231,92 @@ def handle_system_check_updates(payload: Optional[Dict[str, Any]] = None) -> Dic
             "release_notes": "Up to date",
             "download_url": "",
             "cdc_url": "",
+            "platform": "linux" if sys.platform.startswith("linux") else "windows",
         }
 
 
 def handle_system_apply_update(payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     try:
         launcher_dir = get_launcher_dir()
+
+        # 1. Linux AppImage self-update flow
+        if sys.platform.startswith("linux"):
+            appimage_target = os.environ.get("APPIMAGE")
+            if not appimage_target or not os.path.isfile(appimage_target):
+                candidates = [
+                    "/opt/new-launcher/NewLauncher.AppImage",
+                    os.path.join(launcher_dir, "NewLauncher.AppImage"),
+                ]
+                appimage_target = next((c for c in candidates if os.path.isfile(c)), None)
+
+            download_url = (payload or {}).get("download_url") or (payload or {}).get("url")
+            if not download_url:
+                # Query releases for the latest AppImage asset URL
+                check_res = handle_system_check_updates()
+                download_url = check_res.get("download_url")
+
+            if appimage_target and download_url and download_url.endswith(".AppImage"):
+                logger.info("Starting Linux AppImage update: %s -> %s", download_url, appimage_target)
+                target_path = Path(appimage_target)
+                target_dir = target_path.parent
+                tmp_new_path = target_dir / f"{target_path.name}.update_tmp"
+
+                emit_event("download_progress", {
+                    "filename": target_path.name,
+                    "title": "Updating Ny-Luna Launcher",
+                    "percentage": 5.0,
+                    "status": "downloading",
+                    "detail": "Downloading updated AppImage binary...",
+                })
+
+                with requests.get(download_url, stream=True, timeout=120) as resp:
+                    resp.raise_for_status()
+                    total_size = int(resp.headers.get("content-length", 0))
+                    downloaded = 0
+                    with open(tmp_new_path, "wb") as f_out:
+                        for chunk in resp.iter_content(chunk_size=1024 * 512):
+                            if chunk:
+                                f_out.write(chunk)
+                                downloaded += len(chunk)
+                                if total_size > 0:
+                                    pct = min(95.0, 5.0 + (downloaded / total_size) * 90.0)
+                                    emit_event("download_progress", {
+                                        "filename": target_path.name,
+                                        "title": "Updating Ny-Luna Launcher",
+                                        "percentage": pct,
+                                        "status": "downloading",
+                                        "detail": f"{downloaded // (1024 * 1024)}MB / {total_size // (1024 * 1024)}MB",
+                                    })
+
+                # Validate downloaded ELF header and make executable
+                if tmp_new_path.stat().st_size < 1024 * 1024:
+                    tmp_new_path.unlink(missing_ok=True)
+                    raise ValueError("Downloaded update payload is suspiciously small or corrupted.")
+
+                os.chmod(tmp_new_path, 0o755)
+
+                # Swap update atomically
+                os.replace(tmp_new_path, target_path)
+                emit_event("download_progress", {
+                    "filename": target_path.name,
+                    "title": "Updating Ny-Luna Launcher",
+                    "percentage": 100.0,
+                    "status": "completed",
+                    "detail": "Update applied successfully. Restarting launcher...",
+                })
+
+                # Relaunch new AppImage in new session
+                subprocess.Popen([str(target_path)], start_new_session=True)
+                return {"status": "success", "message": "AppImage updated and restarted"}
+
+            # If not installed as an AppImage, guide user to package manager or install script
+            return {
+                "status": "success",
+                "message": "To complete update on Linux, please run:\ncurl -fsSL https://raw.githubusercontent.com/Amne-Dev/NLC/main/packaging/linux/install.sh | bash",
+                "manual_command": "curl -fsSL https://raw.githubusercontent.com/Amne-Dev/NLC/main/packaging/linux/install.sh | bash"
+            }
+
+        # 2. Windows Updater / Setup flow
         candidates = [
             os.path.join(launcher_dir, "NLCSetup.exe"),
             os.path.join(launcher_dir, "NLCUpdater.exe"),
