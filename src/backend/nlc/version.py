@@ -89,7 +89,7 @@ def get_managed_file_rules(v: str) -> List[Dict[str, Any]]:
         {
             "path": "packaging/linux/build_appimage.sh",
             "patterns": [
-                (r'APPIMAGE_OUT="\$\{APP_NAME\}-[^-]+-x86_64\.AppImage"', f'APPIMAGE_OUT="${{APP_NAME}}-{v}-x86_64.AppImage"'),
+                (r'APP_VERSION="\$\(cat VERSION 2>/dev/null \|\| echo "[^"]+"\)"', f'APP_VERSION="$(cat VERSION 2>/dev/null || echo "{v}")"'),
             ],
         },
         {

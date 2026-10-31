@@ -2480,6 +2480,39 @@ pub fn normalize_launch_progress(raw: f32) -> f32 {
     p.clamp(0.0, 1.0)
 }
 
+#[cfg(target_os = "windows")]
+mod single_instance_windows {
+    use std::os::windows::ffi::OsStrExt;
+
+    pub enum InstanceCheck {
+        Primary,
+        Secondary,
+    }
+
+    type HANDLE = *mut std::ffi::c_void;
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn CreateMutexW(lpMutexAttributes: *mut std::ffi::c_void, bInitialOwner: i32, lpName: *const u16) -> HANDLE;
+        fn GetLastError() -> u32;
+        fn CloseHandle(hObject: HANDLE) -> i32;
+    }
+
+    pub fn check() -> InstanceCheck {
+        let name: Vec<u16> = std::ffi::OsStr::new("Local\\NyLuna_SingleInstance_Mutex\0").encode_wide().collect();
+        unsafe {
+            let handle = CreateMutexW(std::ptr::null_mut(), 1, name.as_ptr());
+            const ERROR_ALREADY_EXISTS: u32 = 183;
+            if !handle.is_null() && GetLastError() == ERROR_ALREADY_EXISTS {
+                CloseHandle(handle);
+                InstanceCheck::Secondary
+            } else {
+                InstanceCheck::Primary
+            }
+        }
+    }
+}
+
 #[cfg(unix)]
 mod single_instance {
     use slint::ComponentHandle;
@@ -2628,6 +2661,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         None
     };
+
+    #[cfg(windows)]
+    if !is_snapshot {
+        if let single_instance_windows::InstanceCheck::Secondary = single_instance_windows::check() {
+            println!("[NLC-Rust] Existing Ny-Luna instance detected. Refocusing window and exiting.");
+            win32::refocus_window("Ny-Luna");
+            win32::refocus_window("New Launcher");
+            return Ok(());
+        }
+    }
     // 1. Locate repository / app root dynamically
     let project_root = {
         let mut r = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));

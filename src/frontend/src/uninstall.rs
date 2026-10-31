@@ -1,4 +1,6 @@
+#[cfg(target_os = "linux")]
 use std::io::{self, Write};
+#[cfg(target_os = "linux")]
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -7,12 +9,51 @@ pub fn handle_uninstall_cli() {
     {
         run_linux_uninstall();
     }
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "windows")]
     {
-        println!("The --uninstall command is only supported on Linux.");
-        println!("On Windows, please use 'Add or remove programs' or run the uninstaller in the installation directory.");
+        run_windows_uninstall();
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+    {
+        println!("The --uninstall command is only supported on Linux and Windows.");
         std::process::exit(1);
     }
+}
+
+#[cfg(target_os = "windows")]
+fn run_windows_uninstall() {
+    println!("============================================================");
+    println!("          Ny-Luna Core (NLC) - Windows Uninstaller          ");
+    println!("============================================================");
+    println!();
+
+    let exe_dir = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.to_path_buf()));
+
+    if let Some(dir) = exe_dir {
+        let uninst_exe = dir.join("uninstall.exe");
+        if uninst_exe.exists() {
+            println!("Launching dedicated Windows uninstaller: {:?}", uninst_exe);
+            let status = Command::new(&uninst_exe)
+                .arg("--uninstall")
+                .arg("--target")
+                .arg(&dir)
+                .status();
+            match status {
+                Ok(s) => std::process::exit(s.code().unwrap_or(0)),
+                Err(e) => {
+                    eprintln!("Failed to launch uninstaller: {}", e);
+                }
+            }
+        }
+    }
+
+    println!("To uninstall Ny-Luna on Windows:");
+    println!("  • Open Windows Settings -> Installed apps -> Search 'Ny-Luna' -> Uninstall");
+    println!("  • Or run 'uninstall.exe' in your installation folder.");
+    println!();
+    std::process::exit(0);
 }
 
 #[cfg(target_os = "linux")]
