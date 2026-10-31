@@ -224,6 +224,6 @@ log "Launch from terminal:   ${BIN_NAME} (or ${LEGACY_BIN_NAME})"
 log "Launch from menu:       Application Menu -> Games -> Ny-Luna"
 log ""
 log "To uninstall, run:"
-log "  ${SUDO} rm -f '${BIN_LINK}' '${LEGACY_BIN_LINK}' '${DESKTOP_FILE}' '/usr/share/applications/NewLauncher.desktop' /usr/share/icons/hicolor/256x256/apps/{nlc,newlauncher,NewLauncher}.png /usr/share/pixmaps/{nlc,newlauncher,NewLauncher}.png && ${SUDO} rm -rf '${INSTALL_DIR}'"
+log "  ${BIN_NAME} --uninstall"
 log "================================================================="
 

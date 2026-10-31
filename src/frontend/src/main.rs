@@ -7,6 +7,7 @@ mod ipc;
 mod animations;
 mod paths;
 mod dialogs;
+mod uninstall;
 
 use ipc::AgentClient;
 use slint::{ComponentHandle, Model};
@@ -2589,6 +2590,30 @@ fn restore_and_refocus_window(win: &MainWindow) {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
+
+    if args.iter().any(|a| a == "--uninstall" || a == "uninstall") {
+        uninstall::handle_uninstall_cli();
+        return Ok(());
+    }
+
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        println!("Ny-Luna Core (NLC) v{}", env!("CARGO_PKG_VERSION"));
+        println!();
+        println!("Usage: nlc [OPTIONS]");
+        println!();
+        println!("Options:");
+        println!("  --uninstall        Uninstall Ny-Luna Core and remove desktop integrations");
+        println!("  --help, -h         Print help information");
+        println!("  --version, -v      Print version information");
+        println!("  --snapshot-tab     Headless snapshot mode for automated UI tests");
+        return Ok(());
+    }
+
+    if args.iter().any(|a| a == "--version" || a == "-v") {
+        println!("Ny-Luna Core (NLC) v{}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+
     let is_snapshot = args.iter().any(|a| a == "--snapshot-tab");
 
     #[cfg(unix)]
