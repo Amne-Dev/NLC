@@ -28,15 +28,29 @@
     <div class="docs-layout-container">
         <main class="docs-main-content terms-container" style="max-width: none; margin: 0; padding: 0;">
             <h1>Ny-Luna Core — Architecture &amp; Technical Wiki</h1>
-            <p class="last-updated">Last Updated: 2026-10-29 | Launcher Version: v4.0.2</p>
+            <p class="last-updated">Last Updated: 2026-10-31 | Launcher Version: v4.0.2 | License: BSD-3-Clause</p>
 
+            <!-- 1. Overview & Quick Start -->
             <section id="overview">
                 <h2>1. Overview &amp; System Architecture</h2>
                 <p><strong>Ny-Luna Core (NLC)</strong> is a high-performance, open-source Minecraft Java Edition launcher designed for Windows and Linux. Built with a modern decoupled topology, Ny-Luna separates presentation from heavy computing to deliver native GPU-accelerated rendering and robust process isolation.</p>
 
                 <div class="callout callout-info">
-                    <strong>Architecture Milestone:</strong> As of v4.0.0, Ny-Luna Core transitioned from monolithic scripts to a decoupled architecture consisting of a native Rust Slint frontend, a multi-threaded Python background agent, and a standalone elevated patch supervisor.
+                    <strong>What this means for players:</strong> The user interface is written in native Rust with Slint UI, completely isolated from downloads, modpacks, and Java game execution. Even when extracting a 5 GB modpack or loading heavy shaderpacks, the launcher window never stutters, freezes, or spikes your CPU. There is zero Electron or Chromium overhead.
                 </div>
+
+                <h3 id="quick-start" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 24px;">Player Quick Start: Zero to In-Game</h3>
+                <ol style="margin-left: 20px; line-height: 1.8;">
+                    <li><strong>Launch Ny-Luna:</strong> Open the AppImage on Linux or the executable on Windows.</li>
+                    <li><strong>Set Up an Account:</strong> Click your avatar in the upper right or go to <strong>Accounts</strong>:
+                        <ul>
+                            <li><strong>Microsoft Account:</strong> Complete the one-click official browser device code flow.</li>
+                            <li><strong>Offline Account:</strong> Type any username (e.g. <code>Alex</code>) and hit enter.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Select an Installation:</strong> On the <strong>Play</strong> screen, pick an existing version or click <strong>Installations</strong> &rarr; <strong>New Installation</strong> to choose any release, snapshot, or modloader (Fabric, Forge, NeoForge, Quilt).</li>
+                    <li><strong>Hit Play:</strong> Ny-Luna automatically retrieves libraries, applies tuned Java arguments, and boots your game!</li>
+                </ol>
 
                 <h3 id="architecture-topology" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 24px;">Process Topology</h3>
                 <p>The launcher coordinates across three isolated operating system processes:</p>
@@ -58,7 +72,7 @@
                         </tr>
                         <tr>
                             <td><strong>Daemon Agent</strong></td>
-                            <td><code>agent.py</code> / <code>agent.exe</code></td>
+                            <td><code>agent.py</code> / <code>agent</code> / <code>agent.exe</code></td>
                             <td>Python 3.12+ (Daemon)</td>
                             <td>Game launches, OAuth2 &amp; Ely.by authentication, local skin proxy, Modrinth/CurseForge APIs, Discord RPC.</td>
                         </tr>
@@ -70,21 +84,69 @@
                         </tr>
                     </tbody>
                 </table>
+            </section>
 
-                <h3 id="architecture-ipc" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 24px;">IPC Protocol (GUI &lt;—&gt; Agent)</h3>
+            <!-- 2. IPC & Process Model -->
+            <section id="ipc-process-model">
+                <h2>2. Process Model, IPC Protocol &amp; Lifecycle</h2>
                 <p>The GUI and the background agent communicate over standard input and standard output (<code>stdin</code> / <code>stdout</code>) using line-buffered UTF-8 JSON. Every request carries a client-generated UUID for correlation:</p>
                 <pre><code>// Client Request (GUI -> Agent)
 {"id": "7c8d9e2a-1b4f-4a88-8cf9-123456789abc", "action": "search_mods", "payload": {"query": "sodium", "loader": "fabric", "version": "1.21.1"}}
 
 // Agent Response (Agent -> GUI)
-{"id": "7c8d9e2a-1b4f-4a88-8cf9-123456789abc", "result": {"status": "success", "data": [{"id": "AANobbMI", "title": "Sodium"}]}}</code></pre>
-                <p>Unsolicited push events (such as download progress, Discord Rich Presence updates, and game exit statuses) stream asynchronously using the event envelope:</p>
+{"id": "7c8d9e2a-1b4f-4a88-8cf9-123456789abc", "result": {"status": "success", "data": [{"id": "AANobbMI", "title": "Sodium"}]}, "error": null}</code></pre>
+                <p>Unsolicited push events stream asynchronously using the event envelope:</p>
                 <pre><code>{"event": "download_progress", "payload": {"file": "minecraft.jar", "current": 14200000, "total": 28400000, "percent": 50.0}}</code></pre>
+
+                <h3 id="ipc-actions-table" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 24px;">IPC Action Catalog</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Action</th>
+                            <th>Description</th>
+                            <th>Key Parameters</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>launch_game</code></td><td>Boots Minecraft with selected modloader and JVM flags</td><td><code>instance_id</code>, <code>account</code>, <code>offline_name</code></td></tr>
+                        <tr><td><code>accounts_list</code></td><td>Lists all stored Microsoft, Ely.by, and offline accounts</td><td><code>{}</code></td></tr>
+                        <tr><td><code>accounts_select</code></td><td>Sets active profile index or UUID</td><td><code>id</code>, <code>index</code>, <code>username</code></td></tr>
+                        <tr><td><code>accounts_auth_offline</code></td><td>Creates or updates an offline profile</td><td><code>username</code>, <code>skin_model</code></td></tr>
+                        <tr><td><code>accounts_remove</code></td><td>Deletes a stored account and purges tokens</td><td><code>uuid</code>, <code>username</code>, <code>index</code></td></tr>
+                        <tr><td><code>accounts_ms_start</code></td><td>Requests Microsoft OAuth2 Device Code grant</td><td><code>{}</code></td></tr>
+                        <tr><td><code>accounts_ms_poll</code></td><td>Polls Microsoft Identity token endpoint for completion</td><td><code>device_code</code></td></tr>
+                        <tr><td><code>config_get</code></td><td>Fetches active launcher settings</td><td><code>{}</code></td></tr>
+                        <tr><td><code>config_set</code></td><td>Updates launcher configuration attributes</td><td><code>{ key: value, ... }</code></td></tr>
+                        <tr><td><code>mods_list_installed</code></td><td>Enumerates mods in an instance directory</td><td><code>instance_id</code></td></tr>
+                        <tr><td><code>mods_toggle_enabled</code></td><td>Toggles mod <code>.jar</code> vs <code>.jar.disabled</code> state</td><td><code>instance_id</code>, <code>filename</code>, <code>enabled</code></td></tr>
+                        <tr><td><code>modrinth_search</code></td><td>Queries Modrinth API for mods, packs, and shaders</td><td><code>query</code>, <code>project_type</code>, <code>loader</code>, <code>version</code></td></tr>
+                        <tr><td><code>skin_get_current</code></td><td>Reads active player skin and cape file paths</td><td><code>{}</code></td></tr>
+                        <tr><td><code>skin_set_custom</code></td><td>Assigns custom skin PNG file to profile</td><td><code>path</code>, <code>skin_model</code></td></tr>
+                        <tr><td><code>capes_list</code></td><td>Fetches owned official and third-party capes</td><td><code>{}</code></td></tr>
+                        <tr><td><code>capes_select</code></td><td>Equips or unequips a cape</td><td><code>cape_id</code>, <code>active</code></td></tr>
+                        <tr><td><code>get_discord_status</code></td><td>Returns Discord Rich Presence connection state</td><td><code>{}</code></td></tr>
+                        <tr><td><code>ping</code></td><td>Heartbeat check returning pong</td><td><code>{}</code></td></tr>
+                        <tr><td><code>agent_shutdown</code></td><td>Gracefully closes connections and shuts down workers</td><td><code>{}</code></td></tr>
+                    </tbody>
+                </table>
+
+                <h3 id="lifecycle-supervision" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 24px;">Process Supervision &amp; Watchdog</h3>
+                <div class="callout callout-info">
+                    <strong>Crash Safety Guarantee:</strong> If the launcher window ever closes unexpectedly, background tasks and helper workers terminate automatically without leaving zombie processes draining your CPU or RAM.
+                </div>
+                <ul>
+                    <li><strong>Stdin EOF Monitoring:</strong> The main dispatch loop blocks on <code>sys.stdin.readline()</code>. When the parent GUI exits, the pipe closes, yielding an empty string and triggering immediate graceful worker pool shutdown.</li>
+                    <li><strong>Orphan PID Watchdog (Linux):</strong> If the parent process crashes abruptly without closing pipes, a background thread checks if <code>os.getppid() == 1</code> and terminates the agent.</li>
+                    <li><strong>Windows Job Objects:</strong> On Windows, child processes are attached to a Job Object configured with <code>JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE</code>.</li>
+                </ul>
             </section>
 
+            <!-- 3. Authentication & Vault -->
             <section id="account-management">
-                <h2>2. Authentication Engines &amp; Credential Vault</h2>
-                <p>Ny-Luna supports official and third-party identity providers without compromising security or session data:</p>
+                <h2>3. Authentication Engines &amp; Credential Vault</h2>
+                <div class="callout callout-info">
+                    <strong>Player Security Guarantee:</strong> Ny-Luna Core never asks for or stores your Microsoft password. Logins happen entirely inside your official web browser via Microsoft OAuth 2.0 Device Flow. All tokens are encrypted on disk using system-level hardware encryption.
+                </div>
 
                 <h3 id="auth-microsoft" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Microsoft / Mojang (Official OAuth 2.0)</h3>
                 <ol>
@@ -97,305 +159,251 @@
                 <h3 id="auth-elyby" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Ely.by Account Integration</h3>
                 <p>Integrates directly with Ely.by's open skin and auth architecture. The launcher authenticates against <code>https://authserver.ely.by/auth/authenticate</code>, retrieves an access token and profile ID, and launches Minecraft using <code>authlib-injector</code> directed to Ely.by servers.</p>
 
-                <h3 id="auth-offline" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Offline (Local) Profiles</h3>
-                <p>Generates an offline UUID deterministically according to official Minecraft Java server specifications using MD5 version-3 namespacing:</p>
-                <pre><code>uuid.uuid3(uuid.NAMESPACE_DNS, f"OfflinePlayer:{player_name}")</code></pre>
-                <p>Offline profiles support custom skins and custom capes via the internal ephemeral proxy.</p>
+                <h3 id="auth-offline" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Offline (Local) Profiles &amp; Multiplayer Realities</h3>
+                <p>Offline profiles allow instant gameplay without logging into Microsoft:</p>
+                <ul>
+                    <li><strong>Single-Player:</strong> 100% functional with local saves and custom offline skins.</li>
+                    <li><strong>LAN Multiplayer:</strong> You can play with friends on your local home Wi-Fi network without requiring internet access.</li>
+                    <li><strong>Online Community Servers:</strong> You can join dedicated community servers configured with <code>online-mode=false</code> (cracked/offline servers). You cannot join official Mojang servers like Hypixel.</li>
+                    <li><strong>Deterministic UUID:</strong> Generated via standard Minecraft algorithm <code>uuid.uuid3(uuid.NAMESPACE_DNS, "OfflinePlayer:" + player_name)</code>.</li>
+                </ul>
+
+                <div class="callout callout-warning">
+                    <strong>UUID Notice for Singleplayer Saves:</strong> In Minecraft, single-player inventories, advancements, and tamed pets are saved under your player UUID. If you create a single-player world in Offline mode and later switch to a Microsoft account, your inventory will not transfer automatically because the Microsoft UUID is different.
+                </div>
 
                 <h3 id="credential-vault" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Credential Vault</h3>
-                <p>All sensitive authentication tokens and refresh tokens are protected at rest inside <code>launcher_config.json</code> using an encryption vault (AES-GCM / system DPAPI keying). Plaintext secrets are never logged to disk.</p>
+                <p>All sensitive tokens are stored inside encrypted blocks in <code>launcher_config.json</code>:</p>
+                <ul>
+                    <li><strong>Windows:</strong> Protected with Windows Data Protection API (DPAPI via <code>CryptProtectData</code>), tying decryption strictly to the logged-in Windows user account.</li>
+                    <li><strong>Linux:</strong> Protected with AES-256-GCM. The key is derived via PBKDF2 from the machine's hardware ID (<code>/etc/machine-id</code> or <code>/var/lib/dbus/machine-id</code>) combined with the POSIX user ID and a cryptographic salt.</li>
+                </ul>
             </section>
 
+            <!-- 4. Installations & Modloaders -->
             <section id="installations-modloaders">
-                <h2>3. Installations &amp; Modloader Engine</h2>
-                <p>Ny-Luna gives players total control over their game installations with clean isolation and automated modloader setup.</p>
+                <h2>4. Installations, Modloaders &amp; JVM Architecture</h2>
+                <p>Ny-Luna enables complete management of game installations with automated modloader bootstrap:</p>
 
                 <h3 id="modloader-matrix" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Supported Modloaders</h3>
                 <table>
                     <thead>
                         <tr>
                             <th>Modloader</th>
-                            <th>Supported Minecraft Versions</th>
-                            <th>Setup Method</th>
-                            <th>Recommended Use</th>
+                            <th>Resolution Method</th>
+                            <th>Notes</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td><strong>Vanilla</strong></td>
-                            <td>All (Release &amp; Snapshots)</td>
-                            <td>Mojang Version Manifest API</td>
-                            <td>Pure vanilla Minecraft gameplay.</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Fabric</strong></td>
-                            <td>1.14 - 1.21.x+</td>
-                            <td>Fabric Meta API (Automatic)</td>
-                            <td>Modern performance mods (Sodium, Lithium, Iris).</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Forge</strong></td>
-                            <td>1.7.10 - 1.21.x</td>
-                            <td>Forge Maven + Installer Processor</td>
-                            <td>Classic modpacks and legacy overhaul mods.</td>
-                        </tr>
-                        <tr>
-                            <td><strong>NeoForge</strong></td>
-                            <td>1.20.2+</td>
-                            <td>NeoForged Maven (Automatic)</td>
-                            <td>Modern Forge-ecosystem modpacks.</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Quilt</strong></td>
-                            <td>1.18 - 1.21.x</td>
-                            <td>Quilt Meta API</td>
-                            <td>Fabric-compatible alternative ecosystem.</td>
-                        </tr>
-                        <tr>
-                            <td><strong>BatMod / LabyMod / Lunar</strong></td>
-                            <td>Selected PvP Versions (1.8.9, 1.12.2, 1.16)</td>
-                            <td>Direct Client Hooks</td>
-                            <td>Competitive PvP and FPS optimization.</td>
-                        </tr>
+                        <tr><td><strong>Vanilla</strong></td><td>Mojang Official Manifest</td><td>Automated asset, library, and client jar download from <code>launchermeta.mojang.com</code>.</td></tr>
+                        <tr><td><strong>Fabric</strong></td><td>Fabric Meta API</td><td>Direct Maven library resolution via <code>meta.fabricmc.net</code>.</td></tr>
+                        <tr><td><strong>Forge</strong></td><td>Forge Installer Pipeline</td><td>Full support for legacy (1.7.10/1.12.2) and modern (1.20+) Forge processor pipelines.</td></tr>
+                        <tr><td><strong>NeoForge</strong></td><td>NeoForged Maven API</td><td>Modern NeoForged installer and bootstrap runtime.</td></tr>
+                        <tr><td><strong>Quilt</strong></td><td>Quilt Meta API</td><td>Fabric-compatible loader with native Quilt standard libraries.</td></tr>
                     </tbody>
                 </table>
 
-                <h3 id="instance-isolation" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 24px;">Instance Isolation &amp; NTFS Junctions</h3>
-                <p>Installations can be completely isolated inside their own subfolder (<code>instances/&lt;id&gt;/</code>). To avoid duplicating massive asset directories (sound libraries, textures, shader packs, and common saves), Ny-Luna uses native filesystem directory links:</p>
+                <h3 id="instance-isolation" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 24px;">Instance Isolation &amp; Junctions</h3>
+                <p>Each profile can be isolated into its own directory (<code>instances/&lt;id&gt;/</code>). To avoid duplicating shared game assets across multiple installations, Ny-Luna creates filesystem reparse points:</p>
                 <ul>
-                    <li><strong>Windows:</strong> NTFS directory junctions via <code>_winapi.CreateJunction()</code>. These require no Administrator privileges or Windows Developer Mode.</li>
-                    <li><strong>Linux / POSIX:</strong> Standard symbolic links via <code>os.symlink()</code>.</li>
+                    <li><strong>Windows:</strong> NTFS Directory Junctions via <code>_winapi.CreateJunction</code> (operates without Administrator privileges or Developer Mode).</li>
+                    <li><strong>Linux:</strong> POSIX symbolic links (<code>os.symlink</code>).</li>
                 </ul>
 
-                <h3 id="java-runtime" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 24px;">Java Runtime Selection &amp; JVM Tuning</h3>
-                <p>Ny-Luna auto-detects system Java installations and enforces version compatibility:</p>
-                <ul>
-                    <li><strong>Java 8:</strong> Required for Minecraft 1.16.5 and older (especially 1.7.10 / 1.12.2).</li>
-                    <li><strong>Java 17:</strong> Required for Minecraft 1.17 through 1.20.4.</li>
-                    <li><strong>Java 21+:</strong> Required for Minecraft 1.20.5 and newer.</li>
-                </ul>
-                <p>The launcher includes pre-tuned Aiken G1GC arguments designed to prevent micro-stuttering during garbage collection pauses:</p>
-                <pre><code>-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1</code></pre>
-            </section>
-
-            <section id="skin-system">
-                <h2>4. Skin System, Authlib Injection &amp; 3D Renderer</h2>
-                <p>One of Ny-Luna Core's signature features is its complete skin injection pipeline, allowing offline and Ely.by players to enjoy high-resolution custom skins and capes without patching or modifying game JARs.</p>
-
-                <h3 id="skin-injection-model" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">JVM Injection Pipeline</h3>
-                <p>Minecraft queries Mojang's session servers (<code>sessionserver.mojang.com</code>) at runtime via <code>com.mojang.authlib</code> to fetch player skin textures. Ny-Luna redirects these requests at the JVM level using <code>yushijinhun/authlib-injector</code>:</p>
-                <pre><code>-javaagent:/path/to/authlib-injector.jar=http://127.0.0.1:54321</code></pre>
-
-                <h3 id="skin-server-protocol" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 24px;">Ephemeral Local Skin Proxy (`LocalSkinServer`)</h3>
-                <p>When an offline profile with a custom skin launches, Ny-Luna spawns an internal HTTP server (<code>socketserver.ThreadingTCPServer</code>) on a dynamic loopback port (<code>127.0.0.1:0</code>). The server implements the Yggdrasil API protocol:</p>
-                <ul>
-                    <li><code>GET /</code>: Handshake verification. Responds <code>200 OK</code> with the mandatory HTTP header:
-                        <pre><code>X-Authlib-Injector-API-Location: /</code></pre>
-                    </li>
-                    <li><code>POST /api/profiles/minecraft</code>: Returns the player's offline UUID and username.</li>
-                    <li><code>GET /sessionserver/session/minecraft/profile/&lt;uuid&gt;</code>: Serves a base64-encoded Yggdrasil profile payload specifying the local texture URL and skin model (<code>classic</code> / 4px arm or <code>slim</code> / 3px arm).</li>
-                    <li><code>GET /textures/skin.png</code>: Streams the user's local skin PNG directly from disk into the running game client.</li>
-                </ul>
-
-                <h3 id="skin-3d-renderer" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 24px;">Software 3D Skin Preview Engine</h3>
-                <p>Ny-Luna includes a software rasterizer built on Pillow and NumPy that renders interactive 3D character previews in the Locker without requiring an OpenGL context or GPU driver allocation:</p>
-                <ul>
-                    <li>Converts legacy 64x32 skin sheets to modern 64x64 format with second-layer alpha overlays.</li>
-                    <li>Applies real-time pitch and yaw rotation matrices: <code>R_cam = R_pitch &times; R_yaw</code>.</li>
-                    <li>Animates walking limb swings (<code>&theta;_leg = 26&deg; &times; sin(&omega;)</code>) and cape flutter (<code>6&deg; + 6&deg; &times; |sin(&omega;)|</code>).</li>
-                    <li>Computes surface normal vectors (<code>N_cam</code>) and eliminates back-facing polygons before rendering with directional sun lighting.</li>
-                </ul>
-            </section>
-
-            <section id="modpacks-management">
-                <h2>5. Modpacks, Mods &amp; Modrinth Integration</h2>
-                <p>Ny-Luna offers integrated mod management with support for both the open-source <strong>Modrinth</strong> ecosystem and <strong>CurseForge</strong> modpack archives.</p>
-
-                <h3 id="modrinth-engine" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Modrinth Browser &amp; `.mrpack` Engine</h3>
-                <p>Search, filter, and install mods, resource packs, and shader packs directly from Modrinth:</p>
-                <ul>
-                    <li><strong>Index Parsing:</strong> Extracts <code>modrinth.index.json</code>, validating Minecraft and modloader compatibility.</li>
-                    <li><strong>Cryptographic Verification:</strong> Downloads mod binaries in parallel, validating every file against SHA-1 and SHA-512 hashes from the index.</li>
-                    <li><strong>Override Extraction:</strong> Unpacks <code>overrides/</code> and <code>client-overrides/</code> safely into the instance root with directory-traversal (Zip Slip) guards.</li>
-                </ul>
-
-                <h3 id="curseforge-import" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 24px;">CurseForge Modpack Importer</h3>
-                <p>Import standard CurseForge <code>.zip</code> exports. Ny-Luna reads <code>manifest.json</code>, resolves project IDs and file IDs via the CurseForge API, and automates downloads. A custom API key can be supplied in Settings for restricted third-party packs.</p>
-
-                <h3 id="mod-toggle" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 24px;">Non-Destructive Mod Toggling</h3>
-                <p>Disable individual mods without deleting files or losing configurations. Ny-Luna renames inactive mods with a <code>.disabled</code> suffix (e.g., <code>sodium-0.5.jar.disabled</code>), causing Minecraft modloaders to bypass them during initialization.</p>
-            </section>
-
-            <section id="addons-ecosystem">
-                <h2>6. Addons &amp; Extensibility Ecosystem</h2>
-                <p>Ny-Luna includes an extensible addon system allowing community developers to add new features via decoupled Python workers without modifying the core launcher binary.</p>
-
-                <h3 id="addon-structure" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Addon Manifest &amp; Structure</h3>
-                <p>Addons reside in <code>%APPDATA%/.nlc/addons/&lt;addon_id&gt;/</code> (Windows) or <code>~/.nlc/addons/&lt;addon_id&gt;/</code> (Linux):</p>
-                <pre><code>my_addon/
-├── addon.json       # Manifest declaring metadata and actions
-└── main.py          # Entry point handling action dispatches</code></pre>
-                <p>Example <code>addon.json</code>:</p>
-                <pre><code>{
-    "id": "quick_backup",
-    "name": "World Quick Backup",
-    "version": "1.0.0",
-    "author": "Community",
-    "description": "Creates timestamped ZIP backups of your Minecraft saves folder.",
-    "actions": [
-        {
-            "id": "create_backup",
-            "name": "Backup Active World",
-            "inputs": [{"name": "world_name", "type": "string"}]
-        }
-    ]
-}</code></pre>
-
-                <h3 id="builtin-addons" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 24px;">Built-in Addon Features</h3>
-                <ul>
-                    <li><strong>Streamer Mode:</strong> Conceals private data on screen, including Minecraft usernames, UUIDs, auth tokens, and local file paths.</li>
-                    <li><strong>Server Monitor:</strong> Live TCP pings, MOTD parsing, online player counters, and real-time server latency meters.</li>
-                    <li><strong>Playtime Tracker:</strong> Tracks active game runtime per installation and account across offline and online sessions.</li>
-                    <li><strong>Screenshot Gallery:</strong> In-launcher viewer to inspect, open, copy, and delete full-resolution in-game screenshots.</li>
-                </ul>
-            </section>
-
-            <section id="differential-updater">
-                <h2>7. Differential FastCDC Updates &amp; Security</h2>
-                <p>Ny-Luna implements differential updates powered by <strong>FastCDC</strong> (Content-Defined Chunking) and Ed25519 cryptographic signatures, shrinking multi-megabyte app updates to tiny delta patches.</p>
-
-                <h3 id="fastcdc-algorithm" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Gear Rolling Hash Algorithm</h3>
-                <p>Unlike fixed-size chunking (which breaks completely upon a single byte insertion), FastCDC slides a 32-bit Gear lookup table over the binary stream to determine natural chunk boundaries:</p>
-                <ul>
-                    <li><strong>Min Chunk:</strong> 16 KB (prevents micro-fragmentation).</li>
-                    <li><strong>Avg Chunk:</strong> 64 KB (optimal bandwidth-to-overhead ratio).</li>
-                    <li><strong>Max Chunk:</strong> 256 KB (caps maximum chunk size).</li>
-                    <li><strong>Boundary Mask:</strong> <code>fp &amp; 0x0000FFFF == 0</code> triggers a chunk cut.</li>
-                </ul>
-
-                <h3 id="patch-pipeline" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 24px;">Range Coalescing &amp; Cryptographic Signatures</h3>
-                <ol>
-                    <li><strong>Ed25519 Verification:</strong> The launcher fetches the update manifest (<code>newlauncher.exe.cdc.json</code>) and verifies its Ed25519 signature before reading any data.</li>
-                    <li><strong>Local Chunk Deduplication:</strong> Existing local binary chunks are indexed by SHA-256 and copied directly into a temporary <code>.part</code> file with zero network usage.</li>
-                    <li><strong>HTTP Range Coalescing:</strong> Missing chunk gaps smaller than 32 KB are merged into single HTTP Range requests, eliminating redundant TLS handshakes.</li>
-                    <li><strong>Atomic Binary Promotion:</strong> The full target binary is verified against the signed whole-file SHA-256 before swapping into place.</li>
-                </ol>
-            </section>
-
-            <section id="file-layout-storage">
-                <h2>8. File System Layout &amp; Configuration</h2>
-                <p>All persistent files, settings, and cache directories follow strict cross-platform conventions:</p>
-
-                <h3 id="directory-locations" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Directory Locations</h3>
+                <h3 id="java-runtime" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 24px;">Java Version Matrix &amp; Pre-Tuned GC</h3>
+                <div class="callout callout-info">
+                    <strong>Zero Manual Flag Setup:</strong> Ny-Luna automatically detects your installed Java runtime and injects optimized Aiken G1GC arguments to eliminate Java stutter and garbage collection spikes. You do not need to configure command-line flags manually.
+                </div>
                 <table>
                     <thead>
                         <tr>
-                            <th>Operating System</th>
-                            <th>Launcher Data Root</th>
-                            <th>Game Directory (Default)</th>
-                            <th>Installation Dir</th>
+                            <th>Minecraft Version</th>
+                            <th>Required Java Runtime</th>
+                            <th>Recommended RAM Allocation</th>
                         </tr>
                     </thead>
                     <tbody>
+                        <tr><td>1.7.10 — 1.16.5</td><td>Java 8 (OpenJDK / Temurin)</td><td>3 GB – 4 GB</td></tr>
+                        <tr><td>1.17 — 1.20.4</td><td>Java 17</td><td>4 GB – 6 GB</td></tr>
+                        <tr><td>1.20.5 — 1.21.x+</td><td>Java 21+</td><td>4 GB – 8 GB (Heavy Modpacks)</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- 5. Skin & 3D Engine -->
+            <section id="skin-system">
+                <h2>5. Skin System, Wardrobe &amp; 3D Engine</h2>
+                <h3 id="how-to-set-skin" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">How to Set Your Skin in the Launcher</h3>
+                <ol style="margin-left: 20px; line-height: 1.8;">
+                    <li>Navigate to the <strong>Locker / Wardrobe</strong> tab on the left sidebar.</li>
+                    <li>Select your model: <strong>Classic (Steve - 4px arm)</strong> or <strong>Slim (Alex - 3px arm)</strong>.</li>
+                    <li>Click <strong>Upload Custom Skin</strong> and choose any standard <code>64x64</code> or legacy <code>64x32</code> PNG skin file.</li>
+                    <li>Click and drag the 3D viewport to inspect your character in real-time with walk and cape flutter animations!</li>
+                </ol>
+
+                <h3 id="skin-injection-model" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 24px;">JVM Injection Model</h3>
+                <p>During launch, the launcher injects <code>authlib-injector</code> via standard Java agent flags without modifying the game JAR:</p>
+                <pre><code>-javaagent:{minecraft_dir}/authlib-injector.jar=http://127.0.0.1:{port}</code></pre>
+
+                <h3 id="skin-server-protocol" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Ephemeral Local Yggdrasil Proxy</h3>
+                <p>When an offline account has a custom skin configured:</p>
+                <ol>
+                    <li><code>LocalSkinServer</code> binds to <code>127.0.0.1</code> on an ephemeral random port (port 0).</li>
+                    <li><code>GET /</code> returns HTTP 200 with header <code>X-Authlib-Injector-API-Location: /</code>.</li>
+                    <li>Intercepts session requests at <code>/sessionserver/session/minecraft/profile/{uuid}</code> and streams the local PNG texture directly from disk.</li>
+                </ol>
+
+                <h3 id="skin-3d-renderer" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Software 3D Skin Preview Engine (Engine Details)</h3>
+                <p>The Wardrobe Locker renders interactive 3D skin models via a software rasterizer built in Pillow and NumPy, featuring legacy 64x32 to 64x64 normalization, Euler camera rotation matrices, backface polygon culling, directional sun lighting, and real-time walk/flutter animations.</p>
+            </section>
+
+            <!-- 6. Modpacks & Modrinth -->
+            <section id="modpacks-management">
+                <h2>6. Modpacks, Mods &amp; Content Delivery</h2>
+                <h3 id="modrinth-engine" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Modrinth API Integration</h3>
+                <p>Directly search, filter, and install mods, resource packs, modpacks, and shaderpacks from the <strong>Modrinth</strong> tab. Downloads <code>.mrpack</code> archives, extracts index files, and validates SHA-1/SHA-512 hashes across concurrent network streams.</p>
+
+                <h3 id="curseforge-import" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">CurseForge Importer</h3>
+                <p>Extracts CurseForge ZIP packages, resolves <code>projectID</code> and <code>fileID</code> manifests, and pulls dependencies. Includes Zip Slip directory traversal defenses.</p>
+
+                <h3 id="mod-toggle" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Non-Destructive Mod Toggling</h3>
+                <p>Disabling a mod in the UI renames the file to <code>*.jar.disabled</code>, preventing loaders from mounting the JAR while preserving configs, version info, and download cache.</p>
+            </section>
+
+            <!-- 7. Addons Framework -->
+            <section id="addons-ecosystem">
+                <h2>7. Addons Framework &amp; Ecosystem</h2>
+                <h3 id="addon-structure" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Addon Structure</h3>
+                <p>Addons are modular Python packages residing in <code>~/.nlc/addons/&lt;addon_id&gt;/</code> containing an <code>addon.json</code> manifest and a <code>main.py</code> entrypoint.</p>
+                <pre><code>{
+  "id": "server_backup",
+  "name": "World Backup Helper",
+  "version": "1.0.0",
+  "author": "Community",
+  "entrypoint": "main.py",
+  "actions": [
+    {
+      "id": "backup_active_world",
+      "name": "Backup Active World",
+      "inputs": [{"name": "world_name", "type": "string"}]
+    }
+  ]
+}</code></pre>
+
+                <h3 id="builtin-addons" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Built-in Features</h3>
+                <ul>
+                    <li><strong>Streamer Mode:</strong> Masks sensitive tokens, player IDs, and filesystem paths in the UI.</li>
+                    <li><strong>Server Monitor:</strong> Live TCP pings against server IPs displaying ping latency, MOTD, and player counts.</li>
+                    <li><strong>Playtime Tracker:</strong> Persists and calculates total playtime per game installation.</li>
+                </ul>
+            </section>
+
+            <!-- 8. FastCDC Differential Updater -->
+            <section id="differential-updater">
+                <h2>8. FastCDC Differential Binary Updater</h2>
+                <div class="callout callout-info">
+                    <strong>Lightning-Fast Delta Updates:</strong> When an update drops, FastCDC downloads only the changed chunks (typically 2–5 MB) instead of re-downloading the entire 100 MB launcher. All updates are cryptographically signed with Ed25519 to prevent tampering.
+                </div>
+
+                <h3 id="fastcdc-algorithm" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">FastCDC Gear Rolling Hash</h3>
+                <p>Dynamic chunk boundaries are calculated using a 256-entry 32-bit Gear lookup table:</p>
+                <ul>
+                    <li><strong>Min Chunk Size:</strong> 16 KB (prevents fragment explosion).</li>
+                    <li><strong>Average Chunk Size:</strong> 64 KB (optimal bandwidth efficiency).</li>
+                    <li><strong>Max Chunk Size:</strong> 256 KB (upper bound).</li>
+                    <li><strong>Boundary Condition:</strong> <code>(fp &amp; 0x0000FFFF) == 0</code>.</li>
+                </ul>
+
+                <h3 id="patch-pipeline" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Patch Verification &amp; Atomic Assembly</h3>
+                <p>The update manifest (<code>newlauncher.exe.cdc.json</code>) is signed with an Ed25519 key. Chunks already present locally are reused with zero network transfer. Missing contiguous chunks under 32 KB are coalesced into single HTTP range requests. After SHA-256 verification, the new binary is promoted atomically via <code>os.replace</code> (Linux) or elevated <code>NLCUpdater.exe</code> (Windows).</p>
+            </section>
+
+            <!-- 9. Storage & File Layout -->
+            <section id="file-layout-storage">
+                <h2>9. Storage Layout, File Locations &amp; Atomic I/O</h2>
+                <h3 id="directory-locations" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Filesystem Locations</h3>
+                <table>
+                    <thead>
                         <tr>
-                            <td><strong>Windows</strong></td>
-                            <td><code>%APPDATA%\.nlc</code></td>
-                            <td><code>%APPDATA%\.minecraft</code></td>
-                            <td><code>%LOCALAPPDATA%\Programs\Ny-Luna</code></td>
+                            <th>Content</th>
+                            <th>Windows Path</th>
+                            <th>Linux Path</th>
                         </tr>
-                        <tr>
-                            <td><strong>Linux</strong></td>
-                            <td><code>~/.nlc</code></td>
-                            <td><code>~/.minecraft</code></td>
-                            <td><code>/opt/new-launcher</code></td>
-                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Launcher Data Root</td><td><code>%APPDATA%\.nlc</code></td><td><code>~/.nlc</code></td></tr>
+                        <tr><td>Configuration File</td><td><code>%APPDATA%\.nlc\launcher_config.json</code></td><td><code>~/.nlc/launcher_config.json</code></td></tr>
+                        <tr><td>Single-Instance Lock</td><td><code>%APPDATA%\.nlc\launcher.lock</code></td><td><code>@nlc-single-instance-lock</code> (Abstract Socket)</td></tr>
+                        <tr><td>Logs &amp; Crashes</td><td><code>%APPDATA%\.nlc\logs\</code></td><td><code>~/.nlc/logs/</code></td></tr>
+                        <tr><td>Default Game Dir</td><td><code>%APPDATA%\.minecraft</code></td><td><code>~/.minecraft</code></td></tr>
+                        <tr><td>System Installation</td><td><code>%LOCALAPPDATA%\Programs\Ny-Luna</code></td><td><code>/opt/new-launcher</code></td></tr>
+                        <tr><td>System Symlinks</td><td>None</td><td><code>/usr/local/bin/nlc</code>, <code>/usr/local/bin/newlauncher</code></td></tr>
+                        <tr><td>Desktop Entries</td><td>Desktop Shortcut, Start Menu</td><td><code>/usr/share/applications/nlc.desktop</code></td></tr>
                     </tbody>
                 </table>
 
-                <h3 id="atomic-persistence" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 24px;">Atomic Persistence Protocol</h3>
-                <p>To eliminate configuration corruption caused by sudden system shutdowns or power loss, <code>ConfigManager</code> executes atomic writes:</p>
-                <pre><code>1. Create temp file `nlc_cfg_*.tmp` strictly inside the config parent directory.
-2. Write UTF-8 JSON payload, flush user-space buffers, and call `os.fsync()`.
-3. Create a backup copy of the existing configuration as `launcher_config.json.bak`.
-4. Atomically promote temp file to `launcher_config.json` via `os.replace()`.</code></pre>
+                <h3 id="atomic-persistence" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Atomic Persistence Protocol</h3>
+                <p>To prevent configuration loss during system crashes, writes follow an atomic four-step protocol: create temporary file <code>nlc_cfg_*.tmp</code>, flush with <code>os.fsync</code>, create backup copy <code>launcher_config.json.bak</code>, and atomically rename over destination with <code>os.replace</code>.</p>
             </section>
 
+            <!-- 10. CLI Reference -->
             <section id="cli-reference">
-                <h2>9. Command-Line Interface (CLI Reference)</h2>
-                <p>Ny-Luna can be executed from terminal scripts, desktop shortcuts, and automation tools using the <code>nlc</code> binary command (or legacy <code>newlauncher</code> alias).</p>
-
+                <h2>10. Command-Line Interface (CLI Reference)</h2>
+                <h3 id="player-cli-commands" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Player &amp; Automation Shortcuts</h3>
                 <pre><code># Launch standard GUI
 nlc
 
-# Launch in headless daemon mode
-nlc --agent
+# Print version information
+nlc --version
 
-# Launch directly into a specific installation
-nlc --instance "Survival 1.21" --account "Steve"
+# Print command-line help
+nlc --help
 
-# Launch with verbose debug logging
-nlc --debug</code></pre>
+# Launch directly into an instance (bypasses main menu)
+nlc --instance "Fabric 1.21" --account "MyUsername"
 
-                <h3 id="cli-options-table" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 24px;">CLI Arguments Matrix</h3>
+# Launch in offline mode immediately
+nlc --offline-user "Alex"
+
+# Store/load game data from a secondary drive or custom directory
+nlc --dir "/mnt/games/minecraft"
+
+# Launch with verbose debug logging in terminal
+nlc --debug
+
+# Interactive uninstaller on Linux (asks confirmation)
+nlc --uninstall</code></pre>
+
+                <h3 id="cli-options-table" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 24px;">CLI Argument Matrix</h3>
                 <table>
                     <thead>
                         <tr>
                             <th>Flag</th>
-                            <th>Parameters</th>
+                            <th>Short</th>
+                            <th>Scope</th>
                             <th>Description</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td><code>--help</code>, <code>-h</code></td>
-                            <td>None</td>
-                            <td>Print complete command-line syntax and exit.</td>
-                        </tr>
-                        <tr>
-                            <td><code>--version</code>, <code>-v</code></td>
-                            <td>None</td>
-                            <td>Display the installed launcher version.</td>
-                        </tr>
-                        <tr>
-                            <td><code>--agent</code>, <code>--backend</code></td>
-                            <td>None</td>
-                            <td>Run the headless background Python agent directly.</td>
-                        </tr>
-                        <tr>
-                            <td><code>--instance</code></td>
-                            <td><code>&lt;id&gt;</code></td>
-                            <td>Directly launch a specified Minecraft installation.</td>
-                        </tr>
-                        <tr>
-                            <td><code>--account</code></td>
-                            <td><code>&lt;username&gt;</code></td>
-                            <td>Select the active account for direct launch.</td>
-                        </tr>
-                        <tr>
-                            <td><code>--offline-user</code></td>
-                            <td><code>&lt;name&gt;</code></td>
-                            <td>Launch immediately with an offline username profile.</td>
-                        </tr>
-                        <tr>
-                            <td><code>--dir</code></td>
-                            <td><code>&lt;path&gt;</code></td>
-                            <td>Override the root Minecraft directory.</td>
-                        </tr>
-                        <tr>
-                            <td><code>--debug</code></td>
-                            <td>None</td>
-                            <td>Enable verbose debug output to terminal and log files.</td>
-                        </tr>
+                        <tr><td><code>--help</code></td><td><code>-h</code></td><td>Player</td><td>Prints complete syntax guide and exits immediately.</td></tr>
+                        <tr><td><code>--version</code></td><td><code>-v</code></td><td>Player</td><td>Displays current launcher release version and exits.</td></tr>
+                        <tr><td><code>--uninstall</code></td><td>None</td><td>Admin</td><td>Launches interactive Linux uninstaller with confirmation prompt.</td></tr>
+                        <tr><td><code>--instance</code></td><td>None</td><td>Player</td><td>Boots directly into the specified Minecraft instance.</td></tr>
+                        <tr><td><code>--account</code></td><td>None</td><td>Player</td><td>Specifies account to use for game launch.</td></tr>
+                        <tr><td><code>--offline-user</code></td><td>None</td><td>Player</td><td>Launches an offline game session directly.</td></tr>
+                        <tr><td><code>--dir</code></td><td>None</td><td>Player</td><td>Overrides the root <code>.minecraft</code> storage directory.</td></tr>
+                        <tr><td><code>--debug</code></td><td>None</td><td>Player</td><td>Enables verbose debug logging in console and logs directory.</td></tr>
+                        <tr><td><code>--snapshot-tab</code></td><td>None</td><td>Dev / CI</td><td>Renders a headless visual snapshot of a specific tab without opening a window (automated test suite).</td></tr>
+                        <tr><td><code>--agent</code>, <code>--backend</code></td><td>None</td><td>Dev</td><td>Boots headless Python daemon agent on stdio without starting the GUI.</td></tr>
                     </tbody>
                 </table>
             </section>
 
+            <!-- 11. Troubleshooting -->
             <section id="troubleshooting-faq">
-                <h2>10. Diagnostics &amp; Troubleshooting Guide</h2>
-                <p>Common troubleshooting scenarios and solutions:</p>
-
-                <h3 id="troubleshoot-fuse" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Linux: AppImage FUSE Library Missing</h3>
-                <p>AppImages require the user-space FUSE runtime. If launching the AppImage yields an error like <code>dlopen(): error loading libfuse.so.2</code>:</p>
+                <h2>11. Diagnostics, Exit Codes &amp; Troubleshooting</h2>
+                <h3 id="troubleshoot-fuse" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Linux FUSE Requirements (AppImage)</h3>
+                <p>If the AppImage outputs <code>dlopen(): error loading libfuse.so.2</code>, install FUSE 2:</p>
                 <ul>
                     <li><strong>Ubuntu 22.04 LTS &amp; Debian 12:</strong> <code>sudo apt install -y libfuse2</code></li>
                     <li><strong>Ubuntu 24.04 LTS &amp; Newer:</strong> <code>sudo apt install -y libfuse2t64</code></li>
@@ -413,35 +421,56 @@ nlc --debug</code></pre>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td><code>Exit 0</code></td>
-                            <td>Clean shutdown or manual quit.</td>
-                            <td>Normal behavior.</td>
-                        </tr>
-                        <tr>
-                            <td><code>Exit 1</code></td>
-                            <td>Mod conflict, missing dependency, or invalid Java argument.</td>
-                            <td>Check <code>latest.log</code>. Check that mod versions match your loader. Remove recently added mods one by one.</td>
-                        </tr>
-                        <tr>
-                            <td><code>Exit -1073740791</code><br><code>(0xC0000409)</code></td>
-                            <td>GPU driver crash or incompatible overlay (RivaTuner, GeForce Experience, Discord overlay).</td>
-                            <td>Update graphics drivers (NVIDIA / AMD / Intel) and disable third-party in-game overlays.</td>
-                        </tr>
-                        <tr>
-                            <td><code>Exit 137</code></td>
-                            <td>Linux Out-of-Memory (OOM) killer terminated the JVM.</td>
-                            <td>Increase RAM allocation in Settings or close heavy background applications.</td>
-                        </tr>
+                        <tr><td><code>Exit 0</code></td><td>Clean shutdown or manual quit.</td><td>Normal behavior.</td></tr>
+                        <tr><td><code>Exit 1</code></td><td>Mod conflict, missing dependency, or invalid Java argument.</td><td>Check <code>latest.log</code>. Check that mod versions match your loader. Remove recently added mods one by one.</td></tr>
+                        <tr><td><code>Exit -1073740791</code><br><code>(0xC0000409)</code></td><td>GPU driver crash or incompatible overlay (RivaTuner, GeForce Experience, Discord overlay).</td><td>Update graphics drivers (NVIDIA / AMD / Intel) and disable third-party in-game overlays.</td></tr>
+                        <tr><td><code>Exit 137</code></td><td>Linux Out-of-Memory (OOM) killer terminated the JVM.</td><td>Increase RAM allocation in Settings &rarr; Java & Memory.</td></tr>
                     </tbody>
                 </table>
 
-                <h3 id="troubleshoot-logs" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 24px;">Where to Find Log Files</h3>
+                <h3 id="troubleshoot-wayland" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 24px;">Wayland &amp; KDE Plasma Diagnostics</h3>
+                <p>Slint automatically uses Wayland when available. If your compositor has window title or scaling glitches, force XWayland via:</p>
+                <pre><code>WINIT_UNIX_BACKEND=x11 nlc</code></pre>
+
+                <h3 id="troubleshoot-uninstall" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 24px;">Linux Uninstallation</h3>
+                <p>To completely uninstall Ny-Luna Core and clean up desktop entries:</p>
+                <pre><code>nlc --uninstall
+# Or run standalone uninstaller:
+./packaging/linux/uninstall.sh</code></pre>
+            </section>
+
+            <!-- 12. Development & Licensing -->
+            <section id="dev-licensing">
+                <h2>12. Development, Build &amp; Licensing</h2>
+                <h3 id="dev-prerequisites" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Local Build Requirements</h3>
                 <ul>
-                    <li><strong>Launcher Crash Logs:</strong> <code>%APPDATA%\.nlc\logs\crash.log</code> (Windows) or <code>~/.nlc/logs/crash.log</code> (Linux).</li>
-                    <li><strong>Background Agent Logs:</strong> <code>%APPDATA%\.nlc\logs\agent.log</code> (Windows) or <code>~/.nlc/logs/agent.log</code> (Linux).</li>
-                    <li><strong>Minecraft Game Logs:</strong> <code>.minecraft/logs/latest.log</code> or <code>instances/&lt;id&gt;/.minecraft/logs/latest.log</code>.</li>
+                    <li><strong>Python 3.12+:</strong> with <code>pip</code> and <code>virtualenv</code></li>
+                    <li><strong>Rust &amp; Cargo:</strong> Stable toolchain 1.80+</li>
+                    <li><strong>Linux Packages:</strong> <code>libfuse2</code> (or <code>libfuse2t64</code>), <code>gcc</code>, <code>make</code>, <code>pkg-config</code>, <code>libfontconfig-dev</code></li>
                 </ul>
+
+                <h3 id="dev-building" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Building from Source</h3>
+                <pre><code># 1. Clone repository
+git clone https://github.com/Amne-Dev/NLC.git
+cd NLC
+
+# 2. Set up Python virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+
+# 3. Build & Run native Slint UI
+cargo run --manifest-path src/frontend/Cargo.toml</code></pre>
+
+                <h3 id="dev-packaging" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">Packaging Releases</h3>
+                <ul>
+                    <li><strong>Linux AppImage:</strong> <code>./packaging/linux/build_appimage.sh</code></li>
+                    <li><strong>Arch Linux PKGBUILD:</strong> <code>cd packaging/linux &amp;&amp; makepkg -si</code></li>
+                    <li><strong>Windows Installer:</strong> PyInstaller &amp; InnoSetup scripts in <code>packaging/windows/</code></li>
+                </ul>
+
+                <h3 id="dev-license" style="color: #FFFFFF; font-size: 1.15rem; margin-top: 20px;">License Notice</h3>
+                <p>Ny-Luna Core is released under the <a href="https://github.com/Amne-Dev/NLC#BSD-3-Clause-1-ov-file" target="_blank" style="color: var(--accent-light); text-decoration: underline;">BSD-3-Clause License</a>.</p>
             </section>
         </main>
 
@@ -452,23 +481,30 @@ nlc --debug</code></pre>
             </div>
             <ol>
                 <li>
-                    <a href="#overview">1. Overview &amp; Architecture</a>
+                    <a href="#overview">1. Overview &amp; Quick Start</a>
                     <ol>
+                        <li><a href="#quick-start">Player Quick Start</a></li>
                         <li><a href="#architecture-topology">Process Topology</a></li>
-                        <li><a href="#architecture-ipc">IPC Protocol</a></li>
                     </ol>
                 </li>
                 <li>
-                    <a href="#account-management">2. Authentication Engines</a>
+                    <a href="#ipc-process-model">2. IPC Protocol &amp; Lifecycle</a>
+                    <ol>
+                        <li><a href="#ipc-actions-table">IPC Action Catalog</a></li>
+                        <li><a href="#lifecycle-supervision">Supervision &amp; Watchdog</a></li>
+                    </ol>
+                </li>
+                <li>
+                    <a href="#account-management">3. Authentication Engines</a>
                     <ol>
                         <li><a href="#auth-microsoft">Microsoft OAuth 2.0</a></li>
                         <li><a href="#auth-elyby">Ely.by Service</a></li>
-                        <li><a href="#auth-offline">Offline Mode</a></li>
+                        <li><a href="#auth-offline">Offline &amp; Multiplayer</a></li>
                         <li><a href="#credential-vault">Credential Vault</a></li>
                     </ol>
                 </li>
                 <li>
-                    <a href="#installations-modloaders">3. Installations &amp; Loaders</a>
+                    <a href="#installations-modloaders">4. Installations &amp; Loaders</a>
                     <ol>
                         <li><a href="#modloader-matrix">Supported Modloaders</a></li>
                         <li><a href="#instance-isolation">Instance Isolation</a></li>
@@ -476,15 +512,16 @@ nlc --debug</code></pre>
                     </ol>
                 </li>
                 <li>
-                    <a href="#skin-system">4. Skin &amp; 3D Engine</a>
+                    <a href="#skin-system">5. Skin &amp; 3D Engine</a>
                     <ol>
+                        <li><a href="#how-to-set-skin">Changing Your Skin</a></li>
                         <li><a href="#skin-injection-model">Authlib Injection</a></li>
                         <li><a href="#skin-server-protocol">Local Skin Proxy</a></li>
                         <li><a href="#skin-3d-renderer">Software 3D Engine</a></li>
                     </ol>
                 </li>
                 <li>
-                    <a href="#modpacks-management">5. Modpacks &amp; Modrinth</a>
+                    <a href="#modpacks-management">6. Modpacks &amp; Modrinth</a>
                     <ol>
                         <li><a href="#modrinth-engine">Modrinth Engine</a></li>
                         <li><a href="#curseforge-import">CurseForge Importer</a></li>
@@ -492,38 +529,49 @@ nlc --debug</code></pre>
                     </ol>
                 </li>
                 <li>
-                    <a href="#addons-ecosystem">6. Addons Ecosystem</a>
+                    <a href="#addons-ecosystem">7. Addons Framework</a>
                     <ol>
                         <li><a href="#addon-structure">Addon Manifest</a></li>
                         <li><a href="#builtin-addons">Built-in Features</a></li>
                     </ol>
                 </li>
                 <li>
-                    <a href="#differential-updater">7. Differential Updater</a>
+                    <a href="#differential-updater">8. Differential Updater</a>
                     <ol>
                         <li><a href="#fastcdc-algorithm">FastCDC Gear Hash</a></li>
                         <li><a href="#patch-pipeline">Patch Assembly</a></li>
                     </ol>
                 </li>
                 <li>
-                    <a href="#file-layout-storage">8. Files &amp; Storage</a>
+                    <a href="#file-layout-storage">9. Storage &amp; Files</a>
                     <ol>
                         <li><a href="#directory-locations">Directory Locations</a></li>
                         <li><a href="#atomic-persistence">Atomic Persistence</a></li>
                     </ol>
                 </li>
                 <li>
-                    <a href="#cli-reference">9. CLI Reference</a>
+                    <a href="#cli-reference">10. CLI Reference</a>
                     <ol>
+                        <li><a href="#player-cli-commands">Player Commands</a></li>
                         <li><a href="#cli-options-table">Arguments Matrix</a></li>
                     </ol>
                 </li>
                 <li>
-                    <a href="#troubleshooting-faq">10. Troubleshooting</a>
+                    <a href="#troubleshooting-faq">11. Diagnostics &amp; Issues</a>
                     <ol>
                         <li><a href="#troubleshoot-fuse">Linux FUSE Issues</a></li>
-                        <li><a href="#troubleshoot-exit-codes">Exit Codes</a></li>
-                        <li><a href="#troubleshoot-logs">Log Locations</a></li>
+                        <li><a href="#troubleshoot-exit-codes">Minecraft Exit Codes</a></li>
+                        <li><a href="#troubleshoot-wayland">Wayland &amp; KDE Plasma</a></li>
+                        <li><a href="#troubleshoot-uninstall">Linux Uninstallation</a></li>
+                    </ol>
+                </li>
+                <li>
+                    <a href="#dev-licensing">12. Development &amp; License</a>
+                    <ol>
+                        <li><a href="#dev-prerequisites">Build Requirements</a></li>
+                        <li><a href="#dev-building">Building from Source</a></li>
+                        <li><a href="#dev-packaging">Packaging Releases</a></li>
+                        <li><a href="#dev-license">BSD-3-Clause License</a></li>
                     </ol>
                 </li>
             </ol>
