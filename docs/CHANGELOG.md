@@ -2,6 +2,52 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.0.3] - 2026-10-31
+
+### Added
+
+- **Official Linux Distribution & AppImage Packaging**:
+  - Universal portable Linux AppImage (`NewLauncher-4.0.3-x86_64.AppImage`) supporting Arch Linux, Debian, Ubuntu 22.04/24.04, Fedora, and modern distributions.
+  - One-line quick installer script via `curl -fsSL https://raw.githubusercontent.com/Amne-Dev/NLC/main/packaging/linux/install.sh | bash` with desktop menu entry, MIME associations, and path registration.
+  - Native Arch Linux `PKGBUILD` and `.SRCINFO` package manifests.
+  - Built-in uninstall mechanism: `nlc --uninstall` CLI flag with interactive user confirmation and standalone `uninstall.sh` script.
+- **Cross-Platform Secret Vault**:
+  - Secure AES-256-GCM encrypted vault fallback with PBKDF2 key derivation for Linux environments where Windows DPAPI is unavailable.
+- **Website Markdown & Interactive Changelog**:
+  - Dynamic GitHub Flavored Markdown (GFM) parsing on [`web/changelog.html`](https://web.get-nlc.tech/changelog.html) with DOMPurify sanitization and offline fallback rendering.
+  - Native support for GitHub alert callouts (`> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`).
+  - Automatic autolinking for issue/PR references (`#123`) and contributor handles (`@user`).
+  - Search filter bar, release type chips (`All`, `Stable`, `Pre-release`), and downloadable asset cards with live download counts and file sizes.
+- **Community & Support Integration**:
+  - Official Discord Support Server integration (`https://discord.gg/2CSGqYz9ms`) across all website navigation bars, footers, support guides, and FAQs.
+  - Unified responsive navbar and footer layout across all 12 website documentation and legal pages.
+
+### Changed
+
+- **Process Lifecycle & IPC Hardening**:
+  - Linux agent child processes are now bound via `PR_SET_PDEATHSIG` (SIGTERM on parent death), guaranteeing zero orphaned Python daemon processes on window exit.
+  - Single-instance enforcement on Linux now uses POSIX domain sockets (`/tmp/nlc-<uid>.sock`).
+  - Hardened asynchronous JSON-RPC IPC reader loop against blocking pipe reads and buffer starvation across platform boundaries.
+- **Hardware & Memory Detection**:
+  - Replaced Windows-only `GlobalMemoryStatusEx` with POSIX `/proc/meminfo` and `sysconf(_SC_PHYS_PAGES)` for accurate Linux RAM allocation cards.
+- **Documentation Overhaul**:
+  - Restructured [`docs/WIKI.md`](WIKI.md) and [`web/wiki.html`](../web/wiki.html) into a unified 12-chapter technical and practical player manual.
+  - Consolidated SHA-256 checksums and binary verification guides into the Getting Started page, retiring obsolete standalone download pages.
+
+### Fixed
+
+- **License Attribution**:
+  - Corrected the Settings screen About section from MIT to the project's official **BSD-3-Clause** license.
+- **Wayland & Linux Window Management**:
+  - Fixed duplicate window rendering and taskbar ghosting on KDE Plasma and GNOME Wayland sessions by correctly configuring `StartupWMClass=nlc-ui`.
+  - Added native window icon bundling into AppDir root (`/usr/share/icons/hicolor/scalable/apps/nlc.svg`).
+- **Cross-Platform OS Integrations**:
+  - Replaced hardcoded `cmd.exe /c start` explorer calls with cross-platform `xdg-open` on Linux and `open` on macOS.
+  - Guarded Windows `winreg` imports to ensure clean test suite execution on non-Windows environments.
+- **Website Navigation & Links**:
+  - Fixed legacy broken link to `CREDITS.md` on the FAQ page (redirected to `credits.html`).
+  - Added hash detection (`index.html#download`) to smoothly open the version selector modal when clicking "Download" from subpages.
+
 ## [4.0.0] - 2026-10-28
 
 ### Added
