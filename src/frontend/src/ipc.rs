@@ -828,16 +828,34 @@ impl AgentClient {
             .and_then(|p| p.parent().map(|p| p.to_path_buf()))
             .unwrap_or_else(|| project_root.clone());
 
-        let agent_candidates = [
+        let mut agent_candidates = vec![
             exe_dir.join("agent.exe"),
             exe_dir.join("agent"),
             exe_dir.join("bin").join("agent"),
+            project_root.join("agent.exe"),
+            project_root.join("agent"),
+            project_root.join("usr").join("bin").join("agent"),
+            project_root.join("bin").join("agent"),
+            project_root.join("dist_linux").join("agent"),
         ];
+
+        if let Some(appdir) = std::env::var_os("APPDIR").map(PathBuf::from) {
+            agent_candidates.push(appdir.join("usr").join("bin").join("agent"));
+            agent_candidates.push(appdir.join("agent"));
+        }
+
+        if let Some(parent) = exe_dir.parent() {
+            agent_candidates.push(parent.join("agent"));
+            agent_candidates.push(parent.join("agent.exe"));
+        }
+
         let found_agent = agent_candidates.into_iter().find(|p| p.is_file());
 
         let mut child: Child = if let Some(ref agent_bin) = found_agent {
+            println!("[NLC-Rust] Spawning packaged agent backend at: {:?}", agent_bin);
             let mut cmd = Command::new(agent_bin);
-            cmd.stdin(Stdio::piped())
+            cmd.current_dir(&project_root)
+                .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped());
             #[cfg(windows)]
@@ -869,6 +887,12 @@ impl AgentClient {
             } else {
                 resolved_root.join("agent.py")
             };
+            if !agent_py.is_file() {
+                return Err(IpcError::AgentDisconnected(format!(
+                    "Agent backend not found. Searched for native binary and python script in {:?}",
+                    project_root
+                )));
+            }
             println!("[NLC-Rust] Launching agent backend at: {:?}", agent_py);
             let python_bin = if cfg!(windows) {
                 "python".to_string()
@@ -887,7 +911,7 @@ impl AgentClient {
                 .arg(&agent_py)
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
-                .stderr(Stdio::inherit());
+                .stderr(Stdio::piped());
             #[cfg(windows)]
             {
                 cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW

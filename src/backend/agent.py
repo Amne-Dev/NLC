@@ -237,35 +237,35 @@ def _start_parent_watchdog():
         except Exception as e:
             logger.debug("Could not start Windows parent watchdog: %s", e)
     elif sys.platform.startswith("linux"):
-        # 1. Ask Linux kernel to send SIGTERM to us when the parent process exits
-        try:
-            import ctypes
-            import signal
-            libc = ctypes.CDLL("libc.so.6")
-            PR_SET_PDEATHSIG = 1
-            libc.prctl(PR_SET_PDEATHSIG, signal.SIGTERM)
-        except Exception:
-            pass
-
-        # 2. Daemon thread polling ppid in case PR_SET_PDEATHSIG is unavailable
+        # On Linux, primary lifecycle is driven by stdin EOF in main loop.
+        # Fallback watchdog thread detects if process becomes orphaned (ppid == 1).
+        # Note: PR_SET_PDEATHSIG is intentionally avoided because in multithreaded
+        # parents (such as Rust Tokio), PDEATHSIG is delivered when the spawning worker
+        # thread terminates, not when the overall process terminates.
         try:
             orig_ppid = os.getppid()
             if orig_ppid > 1:
                 def _linux_watch():
                     import time
+                    orphan_count = 0
                     while True:
-                        time.sleep(1.0)
-                        if os.getppid() != orig_ppid or os.getppid() == 1:
-                            try:
-                                _WORKER_POOL.shutdown(wait=False, cancel_futures=True)
-                            except Exception:
-                                pass
-                            try:
-                                if _discord_rpc_manager:
-                                    _discord_rpc_manager.stop()
-                            except Exception:
-                                pass
-                            os._exit(0)
+                        time.sleep(1.5)
+                        current_ppid = os.getppid()
+                        if current_ppid == 1:
+                            orphan_count += 1
+                            if orphan_count >= 2:
+                                try:
+                                    _WORKER_POOL.shutdown(wait=False, cancel_futures=True)
+                                except Exception:
+                                    pass
+                                try:
+                                    if _discord_rpc_manager:
+                                        _discord_rpc_manager.stop()
+                                except Exception:
+                                    pass
+                                os._exit(0)
+                        else:
+                            orphan_count = 0
 
                 threading.Thread(target=_linux_watch, daemon=True, name="parent-watchdog-linux").start()
         except Exception as e:

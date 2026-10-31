@@ -2561,24 +2561,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 1. Locate repository / app root dynamically
     let project_root = {
         let mut r = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-        if let Ok(exe) = std::env::current_exe() {
+        if let Some(appdir) = std::env::var_os("APPDIR").map(PathBuf::from) {
+            if appdir.join("agent").exists() || appdir.join("usr/bin/agent").exists() || appdir.join("assets").exists() {
+                r = appdir;
+            }
+        } else if let Ok(exe) = std::env::current_exe() {
             if let Some(parent) = exe.parent() {
-                if parent.join("agent.exe").exists() || parent.join("assets").exists() {
+                if parent.join("agent.exe").exists() || parent.join("agent").exists() || parent.join("assets").exists() {
                     r = parent.to_path_buf();
                 }
             }
         }
-        if !r.join("agent.exe").exists() && !r.join("agent.py").exists() && !r.join("src").join("backend").join("agent.py").exists() {
+        let has_backend = |p: &std::path::Path| {
+            p.join("agent").exists()
+                || p.join("agent.exe").exists()
+                || p.join("agent.py").exists()
+                || p.join("src").join("backend").join("agent.py").exists()
+                || p.join("usr").join("bin").join("agent").exists()
+        };
+        if !has_backend(&r) {
             if let Some(p) = r.parent() {
-                if p.join("agent.py").exists() || p.join("src").join("backend").join("agent.py").exists() {
+                if has_backend(p) {
                     r = p.to_path_buf();
                 }
             }
         }
-        if !r.join("agent.exe").exists() && !r.join("agent.py").exists() && !r.join("src").join("backend").join("agent.py").exists() {
+        if !has_backend(&r) {
             if let Ok(exe) = std::env::current_exe() {
                 for anc in exe.ancestors() {
-                    if anc.join("agent.exe").exists() || anc.join("agent.py").exists() || anc.join("src").join("backend").join("agent.py").exists() {
+                    if has_backend(anc) {
                         r = anc.to_path_buf();
                         break;
                     }

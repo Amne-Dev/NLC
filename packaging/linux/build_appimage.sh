@@ -82,6 +82,14 @@ chmod +x "$APP_DIR/usr/bin/nlc-ui"
 
 cp "$DIST_DIR/agent" "$APP_DIR/usr/bin/agent"
 chmod +x "$APP_DIR/usr/bin/agent"
+cp "$DIST_DIR/agent" "$APP_DIR/agent"
+chmod +x "$APP_DIR/agent"
+
+# Copy VERSION metadata
+if [ -f "VERSION" ]; then
+    cp VERSION "$APP_DIR/VERSION"
+    cp VERSION "$APP_DIR/usr/bin/VERSION"
+fi
 
 # Copy icons
 echo "[*] Installing icons..."
