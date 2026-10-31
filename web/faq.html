@@ -28,58 +28,161 @@
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="apple-touch-icon" href="logo.png">
   <link rel="manifest" href="site.webmanifest">
-    <script type="application/ld+json">
+
+  <!-- Google Rich Results: FAQPage Schema -->
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
     {
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      "mainEntity": [
-        {
-          "@type": "Question",
-          "name": "Where do I download the Ny-Luna Core launcher?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Official installers are published on the GitHub Releases page: https://github.com/Amne-Dev/NLC/releases. For Windows, download NLCSetup.exe. For Linux, download the universal AppImage (NewLauncher-x86_64.AppImage) or install via the Arch Linux PKGBUILD."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "What are the system requirements for Ny-Luna Core?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Recommended: Windows 10/11 (x64) or modern 64-bit Linux distribution (Ubuntu 22.04+, Debian 12+, Arch, Fedora) with FUSE/AppImage support. Java 17 or newer is supported, with automatic Java provisioning."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "How do I add a Minecraft profile or account?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Open the launcher UI, navigate to the Accounts / Profiles menu, click Add Account, and select either Microsoft Account or Offline Account. Profiles and custom skins are stored safely in local configuration."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Is Ny-Luna Core open-source and ad-free?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Yes, Ny-Luna Core is 100% open-source under the BSD-3-Clause license, completely ad-free, and contains zero tracking or telemetry."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "How does offline skin injection work?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Ny-Luna Core includes an integrated 3D skin wardrobe that injects custom skins directly into your Minecraft game client at launch, enabling full skin customization on singleplayer and offline servers without third-party authentication services."
-          }
-        }
-      ]
+      "@type": "Question",
+      "name": "Where do I download the official Ny-Luna Core launcher?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Official installers are published on the GitHub Releases page: https://github.com/Amne-Dev/NLC/releases. For Windows, download NLCSetup.exe or NLCSetup-Offline.exe. For Linux, download the universal AppImage (NewLauncher-4.0.4-x86_64.AppImage), use the one-line curl installer script, or install via the Arch Linux PKGBUILD."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What are the minimum and recommended system requirements?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Supported OS: 64-bit Windows 10/11 or modern Linux desktop (Ubuntu 22.04+, Debian 12+, Arch, Fedora). Minimum 2 GB RAM (4-8 GB recommended for modpacks). ~200 MB disk space for the launcher plus game installations. Java 17 or newer is supported with automatic Java provisioning."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is Ny-Luna Core completely free, open-source, and ad-free?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, 100%. Ny-Luna Core is free and open-source software distributed under the permissive BSD-3-Clause license. It has zero advertisements, zero paywalls, zero telemetry, and full public source code on GitHub."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I use both official Microsoft accounts and offline accounts?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Ny-Luna supports official Microsoft OAuth authentication for full online multiplayer on premium servers, as well as local offline accounts for singleplayer, LAN parties, and offline-mode servers."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I play on official multiplayer servers like Hypixel?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. When logged into your official Microsoft account, Ny-Luna establishes legitimate session authentication tokens identical to the vanilla Minecraft launcher, allowing you to join all official multiplayer servers like Hypixel."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How does Ny-Luna protect my Microsoft account credentials?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Account tokens are never sent to third-party servers. On Windows, credentials are encrypted using hardware-backed Windows DPAPI (CryptProtectData). On Linux, credentials are secured in an AES-256-GCM encrypted vault with PBKDF2 key derivation."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How does offline skin injection work?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Ny-Luna Core features an integrated 3D skin wardrobe that injects custom skins directly into your Minecraft game client at launch, enabling full skin customization on singleplayer and offline servers without third-party authentication services."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do other players see my custom skin in multiplayer?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "On official Microsoft-authenticated servers, other players see your official Mojang skin. When using offline mode or custom local skins, the skin renders locally in your client across all singleplayer worlds. For shared multiplayer visibility with friends, standard skin plugins or mods can be used."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I import standard 64x64, HD, and legacy 64x32 skins?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. The wardrobe natively supports modern 64x64 dual-layer skins, HD skins, and legacy 64x32 formats with automatic geometry conversion and live 3D preview."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Which mod loaders are supported?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Ny-Luna natively supports Fabric, Forge, NeoForge, and Quilt across all Minecraft versions, from modern 1.21+ releases back to legacy versions."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I install Modrinth modpacks with one click?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. The launcher integrates directly with the Modrinth API. You can search, browse, and 1-click install thousands of popular modpacks and individual mods directly inside the client without manual file management."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Are my instances, worlds, and modpacks isolated from each other?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Every instance and modpack runs in its own isolated directory structure. Worlds, options, keybinds, mods, and resource packs never collide or overwrite each other."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why is Ny-Luna so much faster and lighter than other launchers?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Ny-Luna Core is engineered with a pure native Rust frontend powered by Slint communicating asynchronously with a lightweight Python backend daemon over JSON-RPC IPC. It has zero heavy Chromium/Electron overhead, sub-millisecond tab switching, instant launch speeds, and minimal idle RAM usage (~30-50 MB)."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is FastCDC and how do launcher updates work?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "FastCDC (Fast Content-Defined Chunking) breaks update payloads into small cryptographic chunks. When a new version is released, the launcher downloads only the specific chunks that changed rather than re-downloading entire 50+ MB binaries, saving up to 90% of bandwidth and enabling near-instant updates."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "The game crashed or won't start \u2014 where can I find the crash logs?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Logs are stored in your user configuration folder: %APPDATA%\\.nlc\\logs on Windows, or ~/.local/share/nlc/logs on Linux. You can also view live console output directly in the launcher UI under Settings."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I report bugs or submit feature requests?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "You can report issues directly on GitHub Issues: https://github.com/Amne-Dev/NLC/issues. Please include your OS version, launcher version, Minecraft version, and relevant crash logs."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Where can I get real-time help and chat with other players?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Join the Official Ny-Luna Discord Server (https://discord.gg/2CSGqYz9ms) to chat with maintainers, ask questions, share skin presets, and get troubleshooting support."
+      }
     }
-    </script>
+  ]
+}
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-        <nav>
+    <nav>
         <div class="logo">
             <a href="index.html" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 10px;">
                 <img src="logo.png" alt="Ny-Luna Logo" class="logo-icon-img">
@@ -98,7 +201,7 @@
             <a href="index.html">Home</a>
             <a href="getting-started.html">Getting Started</a>
             <a href="wiki.html">Wiki</a>
-            <a href="faq.html">FAQ</a>
+            <a href="faq.html" class="active">FAQ</a>
             <a href="changelog.html">Changelog</a>
             <a href="support.html">Support</a>
             <a href="https://discord.gg/2CSGqYz9ms" target="_blank" rel="noopener">Discord</a>
@@ -107,48 +210,506 @@
         </div>
     </nav>
 
-    <main class="terms-container">
-        <h1>FAQ</h1>
-        <p class="last-updated">Last Updated: 2026-01-20</p>
+    <main class="faq-page-container">
+        <!-- Hero Header -->
+        <header class="faq-hero">
+            <div class="faq-hero-badge"><i class="ri-questionnaire-line"></i> Support Knowledge Base</div>
+            <h1>Frequently Asked Questions</h1>
+            <p class="faq-hero-subtitle">Everything you need to know about Ny-Luna Core accounts, 3D skin customization, modpacks, performance, and cross-platform installation.</p>
+        </header>
 
-        <section>
-            <h2>Q: Where do I download the launcher?</h2>
-            <p>A: Official installers are published on the GitHub Releases page: <a href="https://github.com/Amne-Dev/NLC/releases" target="_blank">Releases</a>. The Windows installer filename is <code>NLCSetup.exe</code>, and Linux users can download <code>NewLauncher-4.0.4-x86_64.AppImage</code> or install via the Arch Linux PKGBUILD.</p>
+        <!-- Controls: Search & Category Chips -->
+        <section class="faq-controls" aria-label="FAQ Filters">
+            <div class="faq-search-wrap">
+                <i class="ri-search-line faq-search-icon"></i>
+                <input type="text" id="faq-search" class="faq-search-input" placeholder="Search questions (e.g., skins, modpacks, Linux, Hypixel, Java)..." autocomplete="off" spellcheck="false">
+                <button type="button" id="faq-search-clear" class="faq-search-clear" style="display: none;" title="Clear search" aria-label="Clear search input">
+                    <i class="ri-close-line"></i>
+                </button>
+            </div>
+
+            <div class="faq-chips-container" role="tablist" aria-label="Categories">
+                <button type="button" class="faq-chip active" data-filter="all" role="tab" aria-selected="true">
+                    <i class="ri-apps-2-line"></i> All
+                </button>
+                <button type="button" class="faq-chip" data-filter="general" role="tab" aria-selected="false">
+                    <i class="ri-download-2-line"></i> General &amp; Setup
+                </button>
+                <button type="button" class="faq-chip" data-filter="accounts" role="tab" aria-selected="false">
+                    <i class="ri-user-shared-line"></i> Accounts &amp; Servers
+                </button>
+                <button type="button" class="faq-chip" data-filter="skins" role="tab" aria-selected="false">
+                    <i class="ri-shirt-line"></i> 3D Skin Wardrobe
+                </button>
+                <button type="button" class="faq-chip" data-filter="modpacks" role="tab" aria-selected="false">
+                    <i class="ri-box-3-line"></i> Modpacks &amp; Loaders
+                </button>
+                <button type="button" class="faq-chip" data-filter="tech" role="tab" aria-selected="false">
+                    <i class="ri-cpu-line"></i> Performance &amp; Tech
+                </button>
+                <button type="button" class="faq-chip" data-filter="troubleshooting" role="tab" aria-selected="false">
+                    <i class="ri-tools-line"></i> Troubleshooting
+                </button>
+            </div>
         </section>
 
-        <section>
-            <h2>Q: What are the system requirements?</h2>
-            <p>A: Recommended: Windows 10/11 (x64) or Linux x64 (AppImage / Arch AUR), Java 17 or newer (the installer may bundle Java), and at least 200 MB free disk space for the launcher plus additional space for game installations and mods.</p>
-        </section>
+        <!-- Toolbar: Counter & Expand/Collapse -->
+        <div class="faq-toolbar">
+            <span id="faq-counter" class="faq-counter">17 of 17 questions</span>
+            <button type="button" id="faq-toggle-all" class="faq-toggle-all-btn">
+                <i class="ri-expand-up-down-line"></i> Expand All
+            </button>
+        </div>
 
-        <section>
-            <h2>Q: How do I add a profile?</h2>
-            <p>A: Open the launcher UI, go to the sidebar Profiles menu, click Add or Edit, enter a profile name and optionally account details (offline accounts are supported). Profiles and skins are stored locally in the launcher config directory.</p>
-        </section>
+        <!-- Accordion Questions List -->
+        <div class="faq-list">
+        <details class="faq-card" id="where-to-download" data-category="general" open>
+          <summary class="faq-summary">
+            <div class="faq-q-content">
+              <div class="faq-q-header">
+                <span class="faq-category-badge">General & Downloads</span>
+              </div>
+              <h2 class="faq-q-title">Where do I download the official Ny-Luna Core launcher?</h2>
+            </div>
+            <div class="faq-summary-actions">
+              <button type="button" class="faq-copy-anchor" title="Copy link to this answer" aria-label="Copy direct link to question">
+                <i class="ri-link-m"></i>
+              </button>
+              <span class="faq-chevron"><i class="ri-arrow-down-s-line"></i></span>
+            </div>
+          </summary>
+          <div class="faq-body">
+            <p>Official installers are published directly on our website Download section and GitHub Releases: <a href="https://github.com/Amne-Dev/NLC/releases" target="_blank" rel="noopener">GitHub Releases</a>.</p>
+<ul>
+  <li><strong>Windows:</strong> Download <code>NLCSetup.exe</code> (Web Installer with FastCDC streaming) or <code>NLCSetup-Offline.exe</code> (Standalone Offline Installer).</li>
+  <li><strong>Linux:</strong> Download the universal portable AppImage <code>NewLauncher-4.0.4-x86_64.AppImage</code>, run the one-line curl install script, or install via the Arch Linux PKGBUILD / AUR.</li>
+</ul>
+<p>Always verify SHA-256 checksums on the <a href="getting-started.html">Getting Started</a> page before running binaries.</p>
+          </div>
+        </details>
 
-        <section>
-            <h2>Q: Is the launcher open-source?</h2>
-            <p>A: Yes. The source code is available on GitHub: <a href="https://github.com/Amne-Dev/NLC" target="_blank">Repository</a>. See <a href="credits.html">Credits</a> for libraries and acknowledgements.</p>
-        </section>
+        <details class="faq-card" id="system-requirements" data-category="general" open>
+          <summary class="faq-summary">
+            <div class="faq-q-content">
+              <div class="faq-q-header">
+                <span class="faq-category-badge">General & Downloads</span>
+              </div>
+              <h2 class="faq-q-title">What are the minimum and recommended system requirements?</h2>
+            </div>
+            <div class="faq-summary-actions">
+              <button type="button" class="faq-copy-anchor" title="Copy link to this answer" aria-label="Copy direct link to question">
+                <i class="ri-link-m"></i>
+              </button>
+              <span class="faq-chevron"><i class="ri-arrow-down-s-line"></i></span>
+            </div>
+          </summary>
+          <div class="faq-body">
+            <p>Ny-Luna Core is engineered for low resource overhead and native performance:</p>
+<ul>
+  <li><strong>Supported Operating Systems:</strong> 64-bit Windows 10/11 or modern Linux desktop distributions (Ubuntu 22.04+, Debian 12+, Arch Linux, Fedora, Manjaro) on x86_64.</li>
+  <li><strong>Memory (RAM):</strong> Minimum 2 GB system RAM (recommended 4 to 8 GB allocated for modern modded Minecraft).</li>
+  <li><strong>Disk Space:</strong> ~200 MB for launcher runtime plus storage for your instances, modpacks, and game assets.</li>
+  <li><strong>Java Runtime:</strong> Java 17 or newer. Ny-Luna automatically detects installed JDKs and seamlessly provisions isolated runtimes as required by different Minecraft versions.</li>
+  <li><strong>Graphics:</strong> Dedicated GPU or modern integrated graphics with OpenGL 3.3+ support.</li>
+</ul>
+          </div>
+        </details>
 
-        <section>
-            <h2>Q: Does the launcher collect my data?</h2>
-            <p>A: No. The launcher does not collect, aggregate, or transmit personal user data to the maintainers. Local configuration, profiles, and logs stay on your machine unless you explicitly upload or share them. See the <a href="privacy.html">Privacy Policy</a> for details.</p>
-        </section>
+        <details class="faq-card" id="open-source-license" data-category="general">
+          <summary class="faq-summary">
+            <div class="faq-q-content">
+              <div class="faq-q-header">
+                <span class="faq-category-badge">General & Downloads</span>
+              </div>
+              <h2 class="faq-q-title">Is Ny-Luna Core completely free, open-source, and ad-free?</h2>
+            </div>
+            <div class="faq-summary-actions">
+              <button type="button" class="faq-copy-anchor" title="Copy link to this answer" aria-label="Copy direct link to question">
+                <i class="ri-link-m"></i>
+              </button>
+              <span class="faq-chevron"><i class="ri-arrow-down-s-line"></i></span>
+            </div>
+          </summary>
+          <div class="faq-body">
+            <p><strong>Yes, 100%.</strong> Ny-Luna Core is free and open-source software distributed under the permissive <strong>BSD-3-Clause</strong> license.</p>
+<p>Unlike commercial launchers, Ny-Luna contains:</p>
+<ul>
+  <li><strong>Zero Advertisements:</strong> No banners, popups, sponsored links, or tracking pixels.</li>
+  <li><strong>Zero Telemetry:</strong> No usage metrics, user profiling, or background analytics.</li>
+  <li><strong>Full Source Transparency:</strong> All frontend and backend code is publicly audited on <a href="https://github.com/Amne-Dev/NLC" target="_blank" rel="noopener">GitHub</a>.</li>
+</ul>
+          </div>
+        </details>
 
-        <section>
-            <h2>Q: Where can I get live help or ask questions?</h2>
-            <p>A: Join the <a href="https://discord.gg/2CSGqYz9ms" target="_blank" rel="noopener">Official Ny-Luna Discord Server</a> to get real-time assistance from community members and maintainers, discuss modpacks, or share feedback.</p>
-        </section>
+        <details class="faq-card" id="account-types" data-category="accounts">
+          <summary class="faq-summary">
+            <div class="faq-q-content">
+              <div class="faq-q-header">
+                <span class="faq-category-badge">Accounts & Multiplayer</span>
+              </div>
+              <h2 class="faq-q-title">Can I use both official Microsoft accounts and offline accounts?</h2>
+            </div>
+            <div class="faq-summary-actions">
+              <button type="button" class="faq-copy-anchor" title="Copy link to this answer" aria-label="Copy direct link to question">
+                <i class="ri-link-m"></i>
+              </button>
+              <span class="faq-chevron"><i class="ri-arrow-down-s-line"></i></span>
+            </div>
+          </summary>
+          <div class="faq-body">
+            <p><strong>Yes.</strong> Ny-Luna Core offers full flexibility for account management:</p>
+<ul>
+  <li><strong>Microsoft Accounts:</strong> Secure OAuth authentication directly with Microsoft's official login service, enabling full multiplayer access on official servers (Hypixel, Mineplex, Realms, etc.).</li>
+  <li><strong>Offline Accounts:</strong> Create custom local profiles with custom usernames for singleplayer, LAN multiplayer, and offline-mode community servers without requiring an internet connection.</li>
+</ul>
+<p>You can easily switch between multiple accounts directly from the sidebar.</p>
+          </div>
+        </details>
 
-        <section>
-            <h2>Q: I have a crash or bug — how do I report it?</h2>
-            <p>A: Open a new issue on the GitHub issues page with a concise title, reproducible steps, and any relevant logs or screenshots: <a href="https://github.com/Amne-Dev/NLC/issues" target="_blank" rel="noopener">Project Issues</a>. If logs contain sensitive data, remove it before uploading.</p>
-        </section>
+        <details class="faq-card" id="official-multiplayer-servers" data-category="accounts">
+          <summary class="faq-summary">
+            <div class="faq-q-content">
+              <div class="faq-q-header">
+                <span class="faq-category-badge">Accounts & Multiplayer</span>
+              </div>
+              <h2 class="faq-q-title">Can I play on official multiplayer servers like Hypixel?</h2>
+            </div>
+            <div class="faq-summary-actions">
+              <button type="button" class="faq-copy-anchor" title="Copy link to this answer" aria-label="Copy direct link to question">
+                <i class="ri-link-m"></i>
+              </button>
+              <span class="faq-chevron"><i class="ri-arrow-down-s-line"></i></span>
+            </div>
+          </summary>
+          <div class="faq-body">
+            <p><strong>Yes.</strong> When logged into an official Microsoft account with a purchased Minecraft: Java Edition license, Ny-Luna establishes standard session authentication tokens identical to the vanilla Minecraft launcher.</p>
+<p>You can join Hypixel, 2b2t, private SMPs, Realms, and any public multiplayer server with zero restrictions or authentication errors.</p>
+          </div>
+        </details>
 
+        <details class="faq-card" id="credential-security" data-category="accounts">
+          <summary class="faq-summary">
+            <div class="faq-q-content">
+              <div class="faq-q-header">
+                <span class="faq-category-badge">Accounts & Multiplayer</span>
+              </div>
+              <h2 class="faq-q-title">How does Ny-Luna protect my Microsoft account credentials?</h2>
+            </div>
+            <div class="faq-summary-actions">
+              <button type="button" class="faq-copy-anchor" title="Copy link to this answer" aria-label="Copy direct link to question">
+                <i class="ri-link-m"></i>
+              </button>
+              <span class="faq-chevron"><i class="ri-arrow-down-s-line"></i></span>
+            </div>
+          </summary>
+          <div class="faq-body">
+            <p>Ny-Luna Core takes security seriously. Your account passwords are <strong>never seen or stored</strong> by the launcher; authentication happens via official Microsoft OAuth tokens.</p>
+<ul>
+  <li><strong>Windows:</strong> Tokens and refresh tokens are encrypted using hardware-backed <strong>Windows DPAPI</strong> (<code>CryptProtectData</code>), tying encryption keys directly to your Windows user logon session.</li>
+  <li><strong>Linux:</strong> Tokens are stored in a dedicated local vault encrypted with <strong>AES-256-GCM</strong> and PBKDF2 key derivation.</li>
+  <li><strong>Zero Cloud Transmission:</strong> Authentication tokens are stored strictly on your local disk and are never transmitted to any third-party server or maintainer.</li>
+</ul>
+          </div>
+        </details>
+
+        <details class="faq-card" id="offline-skin-injection" data-category="skins">
+          <summary class="faq-summary">
+            <div class="faq-q-content">
+              <div class="faq-q-header">
+                <span class="faq-category-badge">3D Skin Wardrobe</span>
+              </div>
+              <h2 class="faq-q-title">How does offline skin injection work?</h2>
+            </div>
+            <div class="faq-summary-actions">
+              <button type="button" class="faq-copy-anchor" title="Copy link to this answer" aria-label="Copy direct link to question">
+                <i class="ri-link-m"></i>
+              </button>
+              <span class="faq-chevron"><i class="ri-arrow-down-s-line"></i></span>
+            </div>
+          </summary>
+          <div class="faq-body">
+            <p>Ny-Luna includes an advanced local injection engine. When launching Minecraft, Ny-Luna's backend daemon applies your selected skin, cape, and arm model (Steve 4px or Alex 3px) directly into the game client runtime.</p>
+<p>This allows you to play with custom skins on singleplayer worlds, local LAN servers, and offline environments without needing active Mojang authentication servers or third-party skin mods.</p>
+          </div>
+        </details>
+
+        <details class="faq-card" id="skin-visibility-multiplayer" data-category="skins">
+          <summary class="faq-summary">
+            <div class="faq-q-content">
+              <div class="faq-q-header">
+                <span class="faq-category-badge">3D Skin Wardrobe</span>
+              </div>
+              <h2 class="faq-q-title">Do other players see my custom skin in multiplayer?</h2>
+            </div>
+            <div class="faq-summary-actions">
+              <button type="button" class="faq-copy-anchor" title="Copy link to this answer" aria-label="Copy direct link to question">
+                <i class="ri-link-m"></i>
+              </button>
+              <span class="faq-chevron"><i class="ri-arrow-down-s-line"></i></span>
+            </div>
+          </summary>
+          <div class="faq-body">
+            <p>Skin visibility depends on the server authentication type:</p>
+<ul>
+  <li><strong>Official Online Servers (e.g. Hypixel):</strong> Other players will see the official skin associated with your Mojang/Microsoft profile.</li>
+  <li><strong>Offline Mode / Singleplayer:</strong> Your custom skin renders locally for your client across all worlds.</li>
+  <li><strong>Shared Multiplayer Visibility:</strong> If playing on private offline servers with friends, standard skin-restorer plugins (like SkinsRestorer or CustomSkinLoader) allow all players to see each other's custom skins.</li>
+</ul>
+          </div>
+        </details>
+
+        <details class="faq-card" id="supported-skin-formats" data-category="skins">
+          <summary class="faq-summary">
+            <div class="faq-q-content">
+              <div class="faq-q-header">
+                <span class="faq-category-badge">3D Skin Wardrobe</span>
+              </div>
+              <h2 class="faq-q-title">Can I import standard 64x64, HD, and legacy 64x32 skins?</h2>
+            </div>
+            <div class="faq-summary-actions">
+              <button type="button" class="faq-copy-anchor" title="Copy link to this answer" aria-label="Copy direct link to question">
+                <i class="ri-link-m"></i>
+              </button>
+              <span class="faq-chevron"><i class="ri-arrow-down-s-line"></i></span>
+            </div>
+          </summary>
+          <div class="faq-body">
+            <p><strong>Yes.</strong> The Ny-Luna Wardrobe supports:</p>
+<ul>
+  <li>Standard modern <strong>64x64 PNG</strong> dual-layer skins.</li>
+  <li>High-definition <strong>128x128</strong> and HD skin textures.</li>
+  <li>Legacy <strong>64x32 PNG</strong> single-layer skins from classic Minecraft versions (automatically converted to dual-layer geometry).</li>
+  <li>Custom Elytra and cape textures.</li>
+</ul>
+<p>You can preview your skin with real-time 3D rotation, walking animations, and armor overlays before launching.</p>
+          </div>
+        </details>
+
+        <details class="faq-card" id="supported-mod-loaders" data-category="modpacks">
+          <summary class="faq-summary">
+            <div class="faq-q-content">
+              <div class="faq-q-header">
+                <span class="faq-category-badge">Modpacks & Loaders</span>
+              </div>
+              <h2 class="faq-q-title">Which mod loaders are supported?</h2>
+            </div>
+            <div class="faq-summary-actions">
+              <button type="button" class="faq-copy-anchor" title="Copy link to this answer" aria-label="Copy direct link to question">
+                <i class="ri-link-m"></i>
+              </button>
+              <span class="faq-chevron"><i class="ri-arrow-down-s-line"></i></span>
+            </div>
+          </summary>
+          <div class="faq-body">
+            <p>Ny-Luna Core provides native, out-of-the-box support for all major Minecraft mod loaders:</p>
+<ul>
+  <li><strong style="color: #FF85C0;">Fabric:</strong> Lightweight, modern modding framework with instant loading.</li>
+  <li><strong style="color: #54A0FF;">Forge:</strong> The classic modding standard supporting thousands of complex mods.</li>
+  <li><strong style="color: #00D2D3;">NeoForge:</strong> The next-generation fork of Forge for modern Minecraft versions.</li>
+  <li><strong style="color: #FECA57;">Quilt:</strong> The community-driven, modular mod loader compatible with Fabric mods.</li>
+  <li><strong>Vanilla:</strong> Pure unmodified Minecraft releases, snapshots, and historical legacy versions.</li>
+</ul>
+          </div>
+        </details>
+
+        <details class="faq-card" id="modrinth-1-click-modpacks" data-category="modpacks">
+          <summary class="faq-summary">
+            <div class="faq-q-content">
+              <div class="faq-q-header">
+                <span class="faq-category-badge">Modpacks & Loaders</span>
+              </div>
+              <h2 class="faq-q-title">Can I install Modrinth modpacks with one click?</h2>
+            </div>
+            <div class="faq-summary-actions">
+              <button type="button" class="faq-copy-anchor" title="Copy link to this answer" aria-label="Copy direct link to question">
+                <i class="ri-link-m"></i>
+              </button>
+              <span class="faq-chevron"><i class="ri-arrow-down-s-line"></i></span>
+            </div>
+          </summary>
+          <div class="faq-body">
+            <p><strong>Yes!</strong> Ny-Luna Core features a deeply integrated <strong>Modrinth Browser</strong> built directly into the client.</p>
+<p>You can search, browse by category (Optimization, Tech, Magic, Adventure), and install complete modpacks (such as Simply Optimized, Fabulously Optimized, or Better MC) with a single click. Dependencies, config files, and loaders are automatically resolved and downloaded.</p>
+          </div>
+        </details>
+
+        <details class="faq-card" id="instance-isolation" data-category="modpacks">
+          <summary class="faq-summary">
+            <div class="faq-q-content">
+              <div class="faq-q-header">
+                <span class="faq-category-badge">Modpacks & Loaders</span>
+              </div>
+              <h2 class="faq-q-title">Are my instances, worlds, and modpacks isolated from each other?</h2>
+            </div>
+            <div class="faq-summary-actions">
+              <button type="button" class="faq-copy-anchor" title="Copy link to this answer" aria-label="Copy direct link to question">
+                <i class="ri-link-m"></i>
+              </button>
+              <span class="faq-chevron"><i class="ri-arrow-down-s-line"></i></span>
+            </div>
+          </summary>
+          <div class="faq-body">
+            <p><strong>Yes.</strong> Every profile and modpack runs in a completely sandboxed instance folder:</p>
+<ul>
+  <li>Mods, config files, world saves, screenshots, resource packs, and shader packs are stored separately.</li>
+  <li>Installing a new modpack will <strong>never overwrite or corrupt</strong> your existing singleplayer worlds or settings from other versions.</li>
+</ul>
+          </div>
+        </details>
+
+        <details class="faq-card" id="performance-and-rust-ui" data-category="tech">
+          <summary class="faq-summary">
+            <div class="faq-q-content">
+              <div class="faq-q-header">
+                <span class="faq-category-badge">Performance & Tech</span>
+              </div>
+              <h2 class="faq-q-title">Why is Ny-Luna so much faster and lighter than other launchers?</h2>
+            </div>
+            <div class="faq-summary-actions">
+              <button type="button" class="faq-copy-anchor" title="Copy link to this answer" aria-label="Copy direct link to question">
+                <i class="ri-link-m"></i>
+              </button>
+              <span class="faq-chevron"><i class="ri-arrow-down-s-line"></i></span>
+            </div>
+          </summary>
+          <div class="faq-body">
+            <p>Most third-party launchers are built with Electron, Chromium, or bloated web runtimes that consume 300+ MB of RAM just sitting in the background.</p>
+<p>Ny-Luna Core is engineered from the ground up with a <strong>decoupled architecture</strong>:</p>
+<ul>
+  <li><strong>Pure Native Rust Frontend:</strong> Powered by the <a href="https://slint.dev" target="_blank" rel="noopener">Slint</a> GUI toolkit, rendering hardware-accelerated 60+ FPS graphics with direct GPU shaders.</li>
+  <li><strong>Sub-Millisecond Tab Switching:</strong> Zero DOM reflow lag or webview overhead.</li>
+  <li><strong>Ultra-Low Memory Footprint:</strong> Uses only ~30 to 50 MB of RAM while running.</li>
+  <li><strong>Clean Teardown:</strong> When Minecraft launches, the launcher can automatically minimize, hide to the system tray, or close completely to save 100% of your system resources for the game.</li>
+</ul>
+          </div>
+        </details>
+
+        <details class="faq-card" id="fastcdc-delta-updates" data-category="tech">
+          <summary class="faq-summary">
+            <div class="faq-q-content">
+              <div class="faq-q-header">
+                <span class="faq-category-badge">Performance & Tech</span>
+              </div>
+              <h2 class="faq-q-title">What is FastCDC and how do launcher updates work?</h2>
+            </div>
+            <div class="faq-summary-actions">
+              <button type="button" class="faq-copy-anchor" title="Copy link to this answer" aria-label="Copy direct link to question">
+                <i class="ri-link-m"></i>
+              </button>
+              <span class="faq-chevron"><i class="ri-arrow-down-s-line"></i></span>
+            </div>
+          </summary>
+          <div class="faq-body">
+            <p><strong>FastCDC (Fast Content-Defined Chunking)</strong> is our differential update protocol:</p>
+<p>Instead of forcing you to re-download 50+ MB binaries on every update, Ny-Luna's update engine analyzes binary file changes at the cryptographic chunk level. When a new version is released, the launcher downloads <em>only the changed blocks</em> (typically less than 2-3 MB), saving bandwidth and updating the client in seconds.</p>
+          </div>
+        </details>
+
+        <details class="faq-card" id="crash-logs-location" data-category="troubleshooting">
+          <summary class="faq-summary">
+            <div class="faq-q-content">
+              <div class="faq-q-header">
+                <span class="faq-category-badge">Troubleshooting</span>
+              </div>
+              <h2 class="faq-q-title">The game crashed or won't start — where can I find the crash logs?</h2>
+            </div>
+            <div class="faq-summary-actions">
+              <button type="button" class="faq-copy-anchor" title="Copy link to this answer" aria-label="Copy direct link to question">
+                <i class="ri-link-m"></i>
+              </button>
+              <span class="faq-chevron"><i class="ri-arrow-down-s-line"></i></span>
+            </div>
+          </summary>
+          <div class="faq-body">
+            <p>Logs and error diagnostics are stored in your user configuration directory:</p>
+<ul>
+  <li><strong>Windows:</strong> <code>%APPDATA%\.nlc\logs\</code> or <code>%LOCALAPPDATA%\NyLuna\logs\</code></li>
+  <li><strong>Linux:</strong> <code>~/.local/share/nlc/logs/</code> or <code>~/.config/nlc/logs/</code></li>
+  <li><strong>Game Crash Reports:</strong> Inside your specific instance folder under <code>instances/&lt;name&gt;/crash-reports/</code>.</li>
+</ul>
+<p>You can also view real-time launch logs directly within the launcher under <strong>Settings &rarr; Console Logs</strong>.</p>
+          </div>
+        </details>
+
+        <details class="faq-card" id="report-bugs" data-category="troubleshooting">
+          <summary class="faq-summary">
+            <div class="faq-q-content">
+              <div class="faq-q-header">
+                <span class="faq-category-badge">Troubleshooting</span>
+              </div>
+              <h2 class="faq-q-title">How do I report bugs or submit feature requests?</h2>
+            </div>
+            <div class="faq-summary-actions">
+              <button type="button" class="faq-copy-anchor" title="Copy link to this answer" aria-label="Copy direct link to question">
+                <i class="ri-link-m"></i>
+              </button>
+              <span class="faq-chevron"><i class="ri-arrow-down-s-line"></i></span>
+            </div>
+          </summary>
+          <div class="faq-body">
+            <p>We welcome bug reports, crash logs, and feature suggestions on our public tracker:</p>
+<p>Visit <a href="https://github.com/Amne-Dev/NLC/issues" target="_blank" rel="noopener">GitHub Issues</a> and click <strong>New Issue</strong>. Please include:</p>
+<ul>
+  <li>Your operating system (Windows 10/11, Ubuntu, Arch, etc.).</li>
+  <li>Ny-Luna version (e.g. v4.0.4).</li>
+  <li>The Minecraft version and mod loader you were running.</li>
+  <li>Relevant crash log excerpts (make sure to redact personal sensitive tokens).</li>
+</ul>
+          </div>
+        </details>
+
+        <details class="faq-card" id="discord-community-support" data-category="troubleshooting">
+          <summary class="faq-summary">
+            <div class="faq-q-content">
+              <div class="faq-q-header">
+                <span class="faq-category-badge">Troubleshooting</span>
+              </div>
+              <h2 class="faq-q-title">Where can I get real-time help and chat with other players?</h2>
+            </div>
+            <div class="faq-summary-actions">
+              <button type="button" class="faq-copy-anchor" title="Copy link to this answer" aria-label="Copy direct link to question">
+                <i class="ri-link-m"></i>
+              </button>
+              <span class="faq-chevron"><i class="ri-arrow-down-s-line"></i></span>
+            </div>
+          </summary>
+          <div class="faq-body">
+            <p>Join the <a href="https://discord.gg/2CSGqYz9ms" target="_blank" rel="noopener" style="font-weight: 700; color: #5865F2;">Official Ny-Luna Discord Server</a>!</p>
+<p>Our Discord community offers dedicated support channels, troubleshooting assistance from developers and moderators, modpack recommendations, skin sharing, and early previews of upcoming releases.</p>
+          </div>
+        </details>
+        </div>
+
+        <!-- Empty Search State -->
+        <div id="faq-empty-state" class="faq-empty-state">
+            <i class="ri-search-eye-line"></i>
+            <h3>No matching questions found</h3>
+            <p>Try searching for a different keyword or select another category above.</p>
+        </div>
+
+        <!-- Bottom Community Callout -->
+        <aside class="faq-callout-card">
+            <div class="faq-callout-info">
+                <h3>Still have questions?</h3>
+                <p>Join our friendly community on Discord or open an issue on GitHub for personalized assistance.</p>
+            </div>
+            <div class="faq-callout-actions">
+                <a href="https://discord.gg/2CSGqYz9ms" target="_blank" rel="noopener" class="btn-faq-discord">
+                    <i class="ri-discord-fill"></i> Join Discord Server
+                </a>
+                <a href="https://github.com/Amne-Dev/NLC/issues" target="_blank" rel="noopener" class="btn-faq-github">
+                    <i class="ri-github-fill"></i> GitHub Issues
+                </a>
+            </div>
+        </aside>
     </main>
 
-        <footer>
+    <!-- Link Copied Toast Notification -->
+    <div id="faq-toast" class="faq-toast">
+        <i class="ri-checkbox-circle-fill" style="color: var(--accent);"></i> Link copied to clipboard!
+    </div>
+
+    <footer>
         <p>&copy; 2026 Ny-Luna Project (NLC). Not affiliated with Mojang Studios or Microsoft. | <a href="terms.html">Terms of Service</a> | <a href="privacy.html">Privacy Policy</a></p>
         <div class="footer-links">
             <a href="index.html">Home</a>
@@ -161,6 +722,8 @@
             <a href="https://github.com/Amne-Dev/NLC" target="_blank" rel="noopener">GitHub</a>
         </div>
     </footer>
+
+    <script src="faq.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
