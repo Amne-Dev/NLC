@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.0.4] - 2026-10-31
+
+### Fixed
+
+- **Windows Setup Launch & Permission Resolution (`NyLuna.exe`)**:
+  - Resolved `Windows cannot access the specified device, path, or file. You may not have the appropriate permissions to access the item.` error when launching the client upon setup completion.
+  - Added automatic removal of NTFS `:Zone.Identifier` Alternate Data Streams (Mark of the Web) from internet-downloaded binaries to prevent Windows Attachment Manager / SmartScreen blocks.
+  - Implemented interactive UAC de-elevation via `explorer.exe` when installer runs with Administrator privileges, ensuring `NyLuna.exe` executes under the interactive user token (Medium Integrity).
+  - Added Windows Defender real-time scanning verification loop to prevent launch failures during file inspection locks.
+  - Fixed `_copy_with_progress` to explicitly grant execute (`0o755`) and standard read/write permissions rather than copying restrictive PyInstaller temporary attributes via `shutil.copystat`.
+
+- **PyInstaller Temporary Directory Cleanup (`_MEIxxxxxx`)**:
+  - Eliminated the popup warning dialog `Failed to remove temporary directory: C:\Users\...\AppData\Local\Temp\_MEIxxxxxx` on installer exit.
+  - Replaced PIL `Image.open` direct path loading with in-memory byte buffers (`io.BytesIO`) to guarantee zero open file handles to `_MEIPASS\logo.png`.
+  - Added explicit Win32 GDI icon handle cleanup (`root.iconbitmap("")`) on window closure.
+  - Isolated all subprocess invocations (`powershell`, `taskkill`, `tasklist`) with `cwd=target_dir`, `stdin=DEVNULL`, and `close_fds=True` to prevent handle inheritance.
+  - Replaced the race-prone 220ms timer with an event-driven `_on_install_completed` teardown synchronization callback.
+
+### Added
+
+- **Windows Single-Instance & Foreground Window Restoration**:
+  - Implemented Win32 named mutex (`Local\NyLuna_SingleInstance_Mutex`) in the Slint Rust frontend to restore and bring existing launcher windows to the foreground on duplicate launches on Windows, harmonizing with POSIX domain socket handling on Linux.
+- **Installer Test Suite**:
+  - Added unit test coverage for executable unblocking (`unblock_file`) and cross-integrity process launch dispatching (`launch_installed_app`) in `tests/unit/test_web_installer_assets.py`.
+
 ## [4.0.3-4.0.1] - 2026-10-31
 
 ### Added
