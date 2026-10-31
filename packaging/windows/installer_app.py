@@ -1,4 +1,6 @@
 import os
+import io
+import time
 from pathlib import Path
 from typing import Optional, Callable, Dict, Any
 import hashlib
@@ -114,7 +116,111 @@ def create_shortcut(link_path: str, target_path: str, working_dir: str, icon_pat
         check=True,
         capture_output=True,
         text=True,
+        cwd=working_dir if (working_dir and os.path.isdir(working_dir)) else None,
+        stdin=subprocess.DEVNULL,
+        close_fds=True,
     )
+
+def unblock_file(path: str) -> None:
+    """Removes NTFS Zone.Identifier Alternate Data Stream and ensures executable permissions."""
+    if not path or not os.path.exists(path):
+        return
+    if os.name == "nt":
+        zone_stream = path + ":Zone.Identifier"
+        if os.path.exists(zone_stream):
+            try:
+                os.remove(zone_stream)
+            except Exception:
+                pass
+        try:
+            ps_cmd = f"Unblock-File -LiteralPath '{_ps_quote(path)}' -ErrorAction SilentlyContinue"
+            subprocess.run(
+                ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_cmd],
+                capture_output=True,
+                check=False,
+                timeout=5,
+                stdin=subprocess.DEVNULL,
+                close_fds=True,
+                cwd=os.path.dirname(os.path.abspath(path)) or None,
+            )
+        except Exception:
+            pass
+    try:
+        os.chmod(path, 0o777)
+    except Exception:
+        pass
+
+
+def launch_installed_app(app_path: str, target_dir: str) -> bool:
+    """Safely launches NyLuna.exe detached from installer and PyInstaller MEIPASS."""
+    if not os.path.isfile(app_path):
+        return False
+
+    # 1. Unblock the main binary, backend daemon, and any sibling DLLs
+    unblock_file(app_path)
+    for sibling in (AGENT_EXE, "libunwind.dll"):
+        sib_path = os.path.join(target_dir, sibling)
+        if os.path.isfile(sib_path):
+            unblock_file(sib_path)
+
+    # 2. AV grace period / readability check
+    for _ in range(5):
+        try:
+            with open(app_path, "rb") as f:
+                if f.read(2) == b"MZ":
+                    break
+        except Exception:
+            time.sleep(0.1)
+
+    # 3. Launch process without inheriting installer handles or _MEIPASS cwd
+    if sys.platform == "win32":
+        # If installer was running with Administrator privileges, launch via explorer.exe
+        # so NyLuna.exe runs de-elevated under the interactive user token (Medium Integrity)
+        if is_user_admin():
+            try:
+                subprocess.Popen(
+                    ["explorer.exe", app_path],
+                    cwd=target_dir,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    close_fds=True,
+                )
+                return True
+            except Exception:
+                pass
+
+        # Standard non-elevated launch or fallback
+        creation_flags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        try:
+            subprocess.Popen(
+                [app_path],
+                cwd=target_dir,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                close_fds=True,
+                creationflags=creation_flags,
+            )
+            return True
+        except Exception as exc:
+            print(f"Failed to launch {app_path}: {exc}", file=sys.stderr)
+            return False
+    else:
+        try:
+            subprocess.Popen(
+                [app_path],
+                cwd=target_dir,
+                close_fds=True,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            return True
+        except Exception as exc:
+            print(f"Failed to launch {app_path}: {exc}", file=sys.stderr)
+            return False
+
 
 
 def _norm(path: str) -> str:
@@ -749,6 +855,8 @@ def run_silent_install(target_dir: str = "", mirror: str = "") -> int:
         except Exception:
             pass
 
+    unblock_file(os.path.join(target_dir, APP_EXE))
+    unblock_file(os.path.join(target_dir, AGENT_EXE))
     _create_start_menu_shortcut(target_dir)
     register_uninstall_entry(target_dir, setup_target)
     return 0
@@ -991,7 +1099,9 @@ class InstallerApp:
             try:
                 from PIL import Image, ImageTk  # local import to avoid hard dependency in launcher runtime
 
-                image = Image.open(logo_path).convert("RGBA").resize((110, 110), Image.Resampling.LANCZOS)
+                with open(logo_path, "rb") as f_img:
+                    img_bytes = f_img.read()
+                image = Image.open(io.BytesIO(img_bytes)).convert("RGBA").resize((110, 110), Image.Resampling.LANCZOS)
                 self.logo_photo = ImageTk.PhotoImage(image)
                 tk.Label(left, image=self.logo_photo, bg="#252526").pack(pady=(36, 14))
             except Exception:
@@ -1328,7 +1438,9 @@ class InstallerApp:
                 try:
                     from PIL import Image, ImageTk
 
-                    img = Image.open(logo_path).convert("RGBA").resize((88, 88), Image.Resampling.LANCZOS)
+                    with open(logo_path, "rb") as f_img:
+                        img_bytes = f_img.read()
+                    img = Image.open(io.BytesIO(img_bytes)).convert("RGBA").resize((88, 88), Image.Resampling.LANCZOS)
                     self._drag_preview_logo = ImageTk.PhotoImage(img)
                     tk.Label(center, image=self._drag_preview_logo, bg="#0f0f0f").pack(pady=(0, 14))
                 except Exception:
@@ -1437,7 +1549,14 @@ class InstallerApp:
 
     def _close_window(self) -> None:
         self._end_window_drag()
+        try:
+            self.root.iconbitmap("")
+        except Exception:
+            pass
         self.root.destroy()
+
+    def _on_install_completed(self) -> None:
+        self._close_window()
 
     def _append_log(self, text: str) -> None:
         self.log_box.config(state="normal")
@@ -1614,20 +1733,13 @@ class InstallerApp:
                 app_path = os.path.join(target_dir, APP_EXE)
                 if os.path.exists(app_path):
                     self.root.after(0, lambda: self._append_log(f"Launching {SHORTCUT_NAME}..."))
-                    if sys.platform == "win32":
-                        try:
-                            os.startfile(app_path)
-                        except Exception:
-                            subprocess.Popen(
-                                [app_path],
-                                cwd=target_dir,
-                                close_fds=True,
-                                creationflags=getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0),
-                            )
+                    launch_ok = launch_installed_app(app_path, target_dir)
+                    if launch_ok:
+                        self.root.after(0, lambda: self._append_log("Launched successfully."))
                     else:
-                        subprocess.Popen([app_path], cwd=target_dir, close_fds=True)
+                        self.root.after(0, lambda: self._append_log("Launch failed. You can launch Ny-Luna from the Start Menu or Desktop."))
 
-            self.root.after(220, self.root.destroy)
+            self.root.after(350, self._on_install_completed)
         except PermissionError:
             still_running = self._is_process_running(APP_EXE) or self._is_process_running(AGENT_EXE)
             reason = (
@@ -1670,7 +1782,16 @@ class InstallerApp:
                     break
                 fdst.write(chunk)
                 on_chunk(len(chunk))
-        shutil.copystat(src, dst)
+        try:
+            stat_res = os.stat(src)
+            os.utime(dst, (stat_res.st_atime, stat_res.st_mtime))
+        except Exception:
+            pass
+        try:
+            is_exec = dst.lower().endswith((".exe", ".dll"))
+            os.chmod(dst, 0o755 if is_exec else 0o644)
+        except Exception:
+            pass
 
     def _stop_running_instances(self) -> None:
         if os.name != "nt":
@@ -1683,6 +1804,9 @@ class InstallerApp:
                     text=True,
                     check=False,
                     timeout=8,
+                    stdin=subprocess.DEVNULL,
+                    close_fds=True,
+                    cwd=os.environ.get("SystemRoot", r"C:\Windows"),
                 )
                 if result.returncode == 0:
                     self.root.after(0, lambda p=proc_name: self._append_log(f"Stopped {p}."))
@@ -1702,6 +1826,9 @@ class InstallerApp:
                 text=True,
                 check=False,
                 timeout=5,
+                stdin=subprocess.DEVNULL,
+                close_fds=True,
+                cwd=os.environ.get("SystemRoot", r"C:\Windows"),
             )
             output = (result.stdout or "").lower()
             return proc_name.lower() in output

@@ -36,6 +36,8 @@ from generate_release_cdc import (
 from installer_app import (
     download_web_payload,
     install_payload_directories,
+    unblock_file,
+    launch_installed_app,
 )
 
 
@@ -225,4 +227,48 @@ def test_install_payload_directories_seeds_skins_from_target_dir(tmp_path: Path,
     assert (user_skins_dir / "steve.png").read_bytes() == b"STEVE_SKIN_BYTES"
     assert (user_skins_dir / "alex.png").read_bytes() == b"ALEX_SKIN_BYTES"
     assert any("Seeded default wardrobe skins" in msg for msg in logs)
+
+
+def test_unblock_file_non_existent():
+    # Should safely return without error on non-existent path
+    unblock_file("/non/existent/path/file.exe")
+
+
+def test_unblock_file_sets_mode(tmp_path: Path):
+    f = tmp_path / "test.exe"
+    f.write_text("MZmock", encoding="utf-8")
+    unblock_file(str(f))
+    assert f.is_file()
+
+
+def test_launch_installed_app_missing():
+    assert launch_installed_app("/missing/NyLuna.exe", "/missing") is False
+
+
+def test_launch_installed_app_mock_popen(tmp_path: Path):
+    app = tmp_path / "NyLuna.exe"
+    app.write_bytes(b"MZ\x90\x00")
+
+    with patch("subprocess.Popen") as mock_popen, patch("installer_app.is_user_admin", return_value=False):
+        mock_popen.return_value = None
+        res = launch_installed_app(str(app), str(tmp_path))
+        assert res is True
+        assert mock_popen.called
+        kwargs = mock_popen.call_args[1]
+        assert kwargs.get("cwd") == str(tmp_path)
+        assert kwargs.get("close_fds") is True
+
+
+def test_launch_installed_app_admin_launches_explorer(tmp_path: Path):
+    app = tmp_path / "NyLuna.exe"
+    app.write_bytes(b"MZ\x90\x00")
+
+    with patch("subprocess.Popen") as mock_popen, patch("installer_app.is_user_admin", return_value=True), patch("sys.platform", "win32"):
+        mock_popen.return_value = None
+        res = launch_installed_app(str(app), str(tmp_path))
+        assert res is True
+        assert mock_popen.called
+        args = mock_popen.call_args[0][0]
+        assert args[0] == "explorer.exe"
+        assert args[1] == str(app)
 
