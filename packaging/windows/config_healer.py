@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
-CURRENT_VERSION = "4.0.3"
+CURRENT_VERSION = "4.0.4"
 DEFAULT_RAM = 4096
 DEFAULT_USERNAME = "Steve"
 

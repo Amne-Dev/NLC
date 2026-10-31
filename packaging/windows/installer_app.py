@@ -31,7 +31,7 @@ from nlc.core.updater import apply_patch
 
 
 APP_NAME = "Ny-Luna Core"
-APP_VERSION = "4.0.3"
+APP_VERSION = "4.0.4"
 APP_PUBLISHER = "@amne-dev on github"
 APP_EXE = "NyLuna.exe"
 LEGACY_EXE = "NewLauncher.exe"

@@ -1,6 +1,6 @@
 pkgbase = new-launcher
 	pkgdesc = Ny-Luna Core: High-performance Minecraft Java launcher with Slint UI and modular core
-	pkgver = 4.0.3
+	pkgver = 4.0.4
 	pkgrel = 1
 	url = https://github.com/Amne-Dev/NLC
 	arch = x86_64

@@ -2973,7 +2973,7 @@ dependencies = [
 
 [[package]]
 name = "nlc-ui"
-version = "4.0.3"
+version = "4.0.4"
 dependencies = [
  "base64",
  "image",
