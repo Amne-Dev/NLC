@@ -142,6 +142,21 @@ cd NLC</code></pre>
                 <p>The compiled <code>NewLauncher-*-x86_64.AppImage</code> will be generated in the repository root directory.</p>
             </section>
 
+            <section id="checksums-verification">
+                <h2>Checksums & Verification</h2>
+                <p>We provide SHA256 checksums for all official installers and AppImages on each GitHub release. After downloading, verify your file integrity before launching:</p>
+
+                <h3 style="font-size: 1.15rem; color: #FFFFFF; margin: 20px 0 10px;">Windows (PowerShell / Command Prompt)</h3>
+                <pre><code>certutil -hashfile NLCSetup.exe SHA256</code></pre>
+
+                <h3 style="font-size: 1.15rem; color: #FFFFFF; margin: 20px 0 10px;">Linux (Terminal)</h3>
+                <pre><code>sha256sum NewLauncher-*-x86_64.AppImage</code></pre>
+                <p>Compare the resulting hash with the SHA256 checksum published on the official <a href="https://github.com/Amne-Dev/NLC/releases" target="_blank" rel="noopener">GitHub Releases</a> page.</p>
+
+                <h3 style="font-size: 1.15rem; color: #FFFFFF; margin: 20px 0 10px;">GPG Signatures</h3>
+                <p>When GPG signatures are provided with a release, verify them against the release public key using <code>gpg --verify &lt;signature-file&gt; &lt;binary-file&gt;</code>.</p>
+            </section>
+
             <section id="first-run">
                 <h2>First Run</h2>
                 <p>When you first run Ny-Luna, create a profile (Microsoft, Ely.by, or Offline) and select an installation. Configure RAM and Java arguments in Settings if needed.</p>
@@ -172,6 +187,7 @@ cd NLC</code></pre>
                     </ol>
                 </li>
                 <li><a href="#build-from-source">Build From Source</a></li>
+                <li><a href="#checksums-verification">Checksums & Verification</a></li>
                 <li><a href="#first-run">First Run</a></li>
             </ol>
         </aside>
@@ -179,7 +195,7 @@ cd NLC</code></pre>
 
     <footer>
         <p>&copy; 2026 Ny-Luna Project (NLC). | <a href="terms.html">Terms</a> | <a href="privacy.html">Privacy</a></p>
-        <p><strong>Docs:</strong> <a href="wiki.html">Wiki</a> · <a href="download.html">Download</a> · <a href="faq.html">FAQ</a> · <a href="support.html">Support</a></p>
+        <p><strong>Docs:</strong> <a href="wiki.html">Wiki</a> · <a href="getting-started.html">Getting Started</a> · <a href="faq.html">FAQ</a> · <a href="support.html">Support</a></p>
     </footer>
 
     <script src="script.js"></script>
