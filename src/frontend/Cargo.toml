@@ -1,6 +1,6 @@
 [package]
 name = "nlc-ui"
-version = "4.0.2"
+version = "4.0.3"
 edition = "2021"
 description = "High-performance GPU-rendered desktop user interface for Ny-Luna Core"
 authors = ["@amne-dev"]

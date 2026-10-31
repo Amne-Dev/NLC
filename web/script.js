@@ -238,6 +238,15 @@ function switchModrinthTab(tab) {
         });
     });
 
+    if (window.location.hash === "#download") {
+        setTimeout(openModal, 150);
+    }
+    window.addEventListener("hashchange", () => {
+        if (window.location.hash === "#download") {
+            openModal();
+        }
+    });
+
     if (closeBtn) {
         closeBtn.addEventListener("click", closeModal);
     }

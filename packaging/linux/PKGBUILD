@@ -1,5 +1,5 @@
 pkgname=new-launcher
-pkgver=4.0.2
+pkgver=4.0.3
 pkgrel=1
 pkgdesc='Ny-Luna Core: High-performance Minecraft Java launcher with Slint UI and modular core'
 arch=('x86_64')
