@@ -5514,7 +5514,15 @@ def handle_system_apply_update(payload: Optional[Dict[str, Any]] = None) -> Dict
             subprocess.Popen(cmd, **popen_kwargs)
             return {"status": "success", "message": "Updater launched"}
         else:
-            return {"status": "error", "error": "Updater executable not found in install directory"}
+            # Fallback for Windows portable / unpackaged / dev builds: open latest release in default browser
+            check_res = handle_system_check_updates()
+            target_url = (payload or {}).get("download_url") or check_res.get("download_url") or "https://github.com/Amne-Dev/NLC/releases/latest"
+            try:
+                import webbrowser
+                webbrowser.open(target_url)
+                return {"status": "success", "message": f"Opened download page: {target_url}", "browser": True}
+            except Exception as exc:
+                return {"status": "error", "error": f"Failed to open update url: {exc}"}
     except Exception as exc:
         return {"status": "error", "error": str(exc)}
 

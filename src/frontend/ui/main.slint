@@ -181,6 +181,7 @@ export component MainWindow inherits Window {
     callback pause-toast(string);
 
     callback resume-toast(string);
+    callback toast-action-clicked(string);
 
     callback terminate-game-session(string);
 
@@ -1770,6 +1771,12 @@ export component MainWindow inherits Window {
         resume-toast(id) => {
 
             root.resume-toast(id);
+
+        }
+
+        action-clicked(id) => {
+
+            root.toast-action-clicked(id);
 
         }
 

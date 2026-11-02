@@ -2174,6 +2174,8 @@ struct ToastItem {
     is_paused: bool,
     can_copy: bool,
     error_payload: String,
+    has_action: bool,
+    action_label: String,
 }
 
 static GLOBAL_TOAST_TRACKER: std::sync::OnceLock<Arc<std::sync::Mutex<Vec<ToastItem>>>> = std::sync::OnceLock::new();
@@ -2195,12 +2197,14 @@ fn sync_toasts_to_ui(win: &MainWindow, list: &[ToastItem]) {
             is_sticky: t.is_sticky,
             can_copy: t.can_copy,
             error_payload: t.error_payload.clone().into(),
+            has_action: t.has_action,
+            action_label: t.action_label.clone().into(),
         })
         .collect();
     win.set_active_toasts(std::rc::Rc::new(slint::VecModel::from(slint_items)).into());
 }
 
-fn show_toast_notification(
+fn show_toast_notification_with_action(
     win: &MainWindow,
     tracker: &std::sync::Mutex<Vec<ToastItem>>,
     id: &str,
@@ -2210,6 +2214,8 @@ fn show_toast_notification(
     progress: f32,
     is_sticky: bool,
     error_payload: &str,
+    has_action: bool,
+    action_label: &str,
 ) {
     if let Ok(mut list) = tracker.lock() {
         let total_ms = match status {
@@ -2233,6 +2239,8 @@ fn show_toast_notification(
             existing.is_sticky = is_sticky;
             existing.can_copy = can_copy;
             existing.error_payload = err_str;
+            existing.has_action = has_action;
+            existing.action_label = action_label.to_string();
             if !is_sticky {
                 existing.total_ms = total_ms;
                 existing.remaining_ms = total_ms;
@@ -2255,10 +2263,38 @@ fn show_toast_notification(
                 is_paused: false,
                 can_copy,
                 error_payload: err_str,
+                has_action,
+                action_label: action_label.to_string(),
             });
         }
         sync_toasts_to_ui(win, &list);
     }
+}
+
+fn show_toast_notification(
+    win: &MainWindow,
+    tracker: &std::sync::Mutex<Vec<ToastItem>>,
+    id: &str,
+    title: &str,
+    detail: &str,
+    status: &str,
+    progress: f32,
+    is_sticky: bool,
+    error_payload: &str,
+) {
+    show_toast_notification_with_action(
+        win,
+        tracker,
+        id,
+        title,
+        detail,
+        status,
+        progress,
+        is_sticky,
+        error_payload,
+        false,
+        "",
+    );
 }
 
 fn push_toast(
@@ -2282,6 +2318,30 @@ fn push_toast_with_progress(
     error_payload: &str,
 ) {
     show_toast_notification(win, &get_toast_tracker(), id, title, detail, status, progress, is_sticky, error_payload);
+}
+
+fn push_toast_with_action(
+    win: &MainWindow,
+    id: &str,
+    title: &str,
+    detail: &str,
+    status: &str,
+    action_label: &str,
+    is_sticky: bool,
+) {
+    show_toast_notification_with_action(
+        win,
+        &get_toast_tracker(),
+        id,
+        title,
+        detail,
+        status,
+        100.0,
+        is_sticky,
+        "",
+        true,
+        action_label,
+    );
 }
 
 fn map_modrinth_version(v: &serde_json::Value) -> ModrinthVersionData {
@@ -3891,6 +3951,48 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     });
                 }
             });
+
+            // 9. Startup Update Check (respects check_updates_startup setting, default true)
+            let check_up_enabled = cfg_res
+                .as_ref()
+                .ok()
+                .and_then(|c| c.extra.get("check_updates_startup").and_then(|v| v.as_bool()))
+                .unwrap_or(true);
+            if check_up_enabled {
+                let agent_up = agent_init.clone();
+                let win_weak_up = win_weak_init.clone();
+                tokio::spawn(async move {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(2500)).await;
+                    if let Ok(res) = agent_up.call::<serde_json::Value>("system_check_updates", serde_json::json!({})).await {
+                        let is_update = res.get("update_available").and_then(|v| v.as_bool()).unwrap_or(false);
+                        let latest_ver = res.get("latest_version").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        if is_update && !latest_ver.is_empty() {
+                            let _ = slint::invoke_from_event_loop(move || {
+                                if let Some(w) = win_weak_up.upgrade() {
+                                    push_toast_with_action(
+                                        &w,
+                                        "updater",
+                                        "Update Available!",
+                                        &format!("New version v{} is available.", latest_ver),
+                                        "info",
+                                        "Update",
+                                        true,
+                                    );
+                                    push_or_update_notification(
+                                        &w,
+                                        "updater",
+                                        "System",
+                                        "Update Available!",
+                                        &format!("New version v{} is available.", latest_ver),
+                                        "Just now",
+                                        false,
+                                    );
+                                }
+                            });
+                        }
+                    }
+                });
+            }
         });
     }
 
@@ -7031,7 +7133,8 @@ fn apply_mod_filter(
                         w.set_toast_title("Update Available!".into());
                         w.set_toast_detail(format!("New version v{} is available.", latest_ver).into());
                         w.set_toast_status("info".into());
-                        push_toast(&w, "updater", "Update Available!", &format!("New version v{} is available.", latest_ver), "info");
+                        push_toast_with_action(&w, "updater", "Update Available!", &format!("New version v{} is available.", latest_ver), "info", "Update", true);
+                        push_or_update_notification(&w, "updater", "System", "Update Available!", &format!("New version v{} is available.", latest_ver), "Just now", false);
                     } else {
                         w.set_toast_title("Launcher is Up to Date".into());
                         w.set_toast_detail(format!("Running latest version (v{}).", latest_ver).into());
@@ -7731,6 +7834,57 @@ fn apply_mod_filter(
             if let Some(t) = list.iter_mut().find(|t| t.id == id_str) {
                 t.is_paused = false;
             }
+        }
+    });
+
+    let agent_client_toast_action = agent_client.clone();
+    let win_weak_toast_action = main_window.as_weak();
+    let rt_toast_action = rt.clone();
+    main_window.on_toast_action_clicked(move |id| {
+        let id_str = id.to_string();
+        println!("[NLC-Rust] Toast action clicked for id: {}", id_str);
+        if id_str == "updater" || id_str.starts_with("updater") {
+            let win_weak = win_weak_toast_action.clone();
+            let agent = agent_client_toast_action.clone();
+            rt_toast_action.spawn(async move {
+                let _ = slint::invoke_from_event_loop({
+                    let w_opt = win_weak.clone();
+                    move || {
+                        if let Some(w) = w_opt.upgrade() {
+                            push_toast(&w, "updater", "Updating Launcher", "Initiating launcher update...", "info");
+                        }
+                    }
+                });
+                if let Some(ref a) = agent {
+                    match a.call::<serde_json::Value>("system_apply_update", serde_json::json!({})).await {
+                        Ok(res) => {
+                            let msg = res.get("message").and_then(|v| v.as_str()).unwrap_or("Update process launched.").to_string();
+                            let is_browser = res.get("browser").and_then(|v| v.as_bool()).unwrap_or(false);
+                            let is_success = res.get("status").and_then(|v| v.as_str()).unwrap_or("success") == "success";
+                            let win_weak_res = win_weak.clone();
+                            let _ = slint::invoke_from_event_loop(move || {
+                                if let Some(w) = win_weak_res.upgrade() {
+                                    if is_success {
+                                        let title = if is_browser { "Download Page Opened" } else { "Update In Progress" };
+                                        push_toast(&w, "updater", title, &msg, "completed");
+                                    } else {
+                                        push_toast(&w, "updater", "Update Failed", &msg, "warning");
+                                    }
+                                }
+                            });
+                        }
+                        Err(e) => {
+                            let win_weak_err = win_weak.clone();
+                            let err_str = e.to_string();
+                            let _ = slint::invoke_from_event_loop(move || {
+                                if let Some(w) = win_weak_err.upgrade() {
+                                    push_toast(&w, "updater", "Update Failed", &err_str, "error");
+                                }
+                            });
+                        }
+                    }
+                }
+            });
         }
     });
 

@@ -11,6 +11,8 @@ export struct ToastItemData {
     is_sticky: bool,
     can_copy: bool,
     error_payload: string,
+    has_action: bool,
+    action_label: string,
 }
 
 export component ToastCard inherits Rectangle {
@@ -20,6 +22,7 @@ export component ToastCard inherits Rectangle {
     callback copy-error(string);
     callback mouse-enter(string);
     callback mouse-leave(string);
+    callback action-clicked(string);
 
     width: 340px;
     min-height: 52px;
@@ -103,10 +106,40 @@ export component ToastCard inherits Rectangle {
                 }
             }
 
-            // Right side Action Pills: Copy Error + Dismiss
+            // Right side Action Pills: Action Button + Copy Error + Dismiss
             HorizontalLayout {
                 spacing: 6px;
                 alignment: end;
+
+                if root.data.has-action: Rectangle {
+                    height: 22px;
+                    background: action-touch.has-hover ? #2563EB : #1D4ED8;
+                    border-width: 1px;
+                    border-color: #3B82F6;
+
+                    action-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.action-clicked(root.data.id);
+                        }
+                    }
+
+                    HorizontalLayout {
+                        alignment: center;
+                        spacing: 4px;
+                        padding-left: 8px;
+                        padding-right: 8px;
+
+                        Text {
+                            text: root.data.action-label != "" ? root.data.action-label : "Update";
+                            font-family: Theme.font-family;
+                            font-size: 10px;
+                            font-weight: 700;
+                            color: #FFFFFF;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
 
                 if root.data.can-copy: Rectangle {
                     height: 22px;
@@ -183,6 +216,7 @@ export component ToastContainer inherits Rectangle {
     callback copy-error(string);
     callback pause-toast(string);
     callback resume-toast(string);
+    callback action-clicked(string);
 
     width: 340px;
     background: transparent;
@@ -199,6 +233,7 @@ export component ToastContainer inherits Rectangle {
             copy-error(err) => { root.copy-error(err); }
             mouse-enter(id) => { root.pause-toast(id); }
             mouse-leave(id) => { root.resume-toast(id); }
+            action-clicked(id) => { root.action-clicked(id); }
         }
     }
 }
