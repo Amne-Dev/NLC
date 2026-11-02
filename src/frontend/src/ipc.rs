@@ -431,6 +431,20 @@ pub struct SkinInfoResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct SkinPresetDeleteResponse {
+    #[serde(default)]
+    pub success: bool,
+    #[serde(default)]
+    pub was_active: bool,
+    #[serde(default)]
+    pub active_skin_path: String,
+    #[serde(default)]
+    pub active_skin_model: String,
+    #[serde(default)]
+    pub remaining_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SkinRenderFrameRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub skin_path: Option<String>,
@@ -1306,6 +1320,17 @@ impl AgentClient {
         Ok(serde_json::from_value(data_val.clone())?)
     }
 
+    pub async fn delete_skin_preset(&self, skin_path: &str) -> Result<SkinPresetDeleteResponse, IpcError> {
+        let payload = serde_json::json!({ "skin_path": skin_path });
+        let res: Value = self.call("skin_preset_delete", payload).await?;
+        let data_val = if let Some(data) = res.get("data") {
+            data
+        } else {
+            &res
+        };
+        Ok(serde_json::from_value(data_val.clone()).unwrap_or_default())
+    }
+
 
     pub async fn list_instances(&self) -> Result<Vec<InstallationItem>, IpcError> {
         let res: Value = self.call("instances_list", Value::Null).await?;
@@ -1376,11 +1401,12 @@ impl AgentClient {
         Ok(serde_json::from_value(packs_val)?)
     }
 
-    pub async fn create_modpack(&self, name: &str, loader: &str, mc_version: &str) -> Result<ModpackItem, IpcError> {
+    pub async fn create_modpack(&self, name: &str, loader: &str, mc_version: &str, icon: &str) -> Result<ModpackItem, IpcError> {
         let payload = serde_json::json!({
             "name": name,
             "loader": loader,
-            "mc_version": mc_version
+            "mc_version": mc_version,
+            "icon": icon,
         });
         let res: Value = self.call("modpack_create", payload).await?;
         let pack_val = if let Some(pack) = res.get("pack") {

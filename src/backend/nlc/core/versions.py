@@ -175,21 +175,29 @@ def get_versions_for_loader(loader: str = "Vanilla", include_snapshots: bool = F
                 supported = neo.get_minecraft_versions(stable_only=False)
                 manifest = fetch_version_manifest()
                 released_ids = {v.get("id") for v in manifest if v.get("type") == "release"}
-                valid_releases = [v for v in supported if v in released_ids]
-                if valid_releases:
-                    releases = list(reversed(valid_releases))
-                else:
-                    releases = list(reversed(supported))
+                norm_supported = []
+                for v in supported:
+                    if v in released_ids:
+                        norm_supported.append(v)
+                    elif v.startswith("1.26."):
+                        cal_v = v[2:]
+                        if cal_v in released_ids:
+                            norm_supported.append(cal_v)
+                        else:
+                            norm_supported.append(v)
+                    else:
+                        norm_supported.append(v)
+                releases = sort_versions(list(set(norm_supported)), reverse=True)
             except Exception as e_neo:
                 logger.warning("Error fetching NeoForge versions via mod_loader: %s", e_neo)
                 manifest = fetch_version_manifest()
                 for v in manifest:
                     vid = v.get("id", "")
-                    if v.get("type") == "release" and (vid.startswith("1.2") or vid.startswith("2") or vid.startswith("26.")):
+                    if v.get("type") == "release" and ((vid.startswith("1.20.") and vid not in ("1.20", "1.20.1")) or vid.startswith("1.21") or vid.startswith("26.")):
                         releases.append(vid)
             if not releases:
-                releases = list(FALLBACK_RELEASES)
-            latest_rel = releases[0]
+                releases = [r for r in FALLBACK_RELEASES if not (r.startswith("1.20.1") or r.startswith("1.19") or r.startswith("1.18") or r.startswith("1.16") or r.startswith("1.12") or r.startswith("1.8"))]
+            latest_rel = releases[0] if releases else "26.3"
 
     except Exception as exc:
         logger.warning("Error fetching versions for %s: %s", loader, exc)
@@ -197,15 +205,14 @@ def get_versions_for_loader(loader: str = "Vanilla", include_snapshots: bool = F
     if not releases:
         releases = list(FALLBACK_RELEASES)
     else:
-        for calver in CALVER_2026_RELEASES:
-            if calver not in releases:
-                releases.append(calver)
         releases = sort_versions(releases, reverse=True)
 
     latest_rel = releases[0] if releases else "26.3"
     if not snapshots:
         snapshots = list(FALLBACK_SNAPSHOTS)
         latest_snap = snapshots[0]
+    else:
+        snapshots = sort_versions(snapshots, reverse=True)
 
     with _CACHE_LOCK:
         _VERSION_CACHE[cache_key] = {

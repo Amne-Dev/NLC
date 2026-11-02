@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-FALLBACK_VERSION = "4.0.3"
+FALLBACK_VERSION = "4.0.5"
 
 
 def find_repo_root() -> Path:
@@ -96,7 +96,26 @@ def get_managed_file_rules(v: str) -> List[Dict[str, Any]]:
             "path": "packaging/linux/.SRCINFO",
             "patterns": [
                 (r'(\tpkgver\s*=\s*)[\d\w\.\-]+', rf'\g<1>{v}'),
+                (r'(source\s*=\s*new-launcher-)[\d\w\.\-]+(\.tar\.gz::https://github\.com/Amne-Dev/NLC/archive/refs/tags/v)[\d\w\.\-]+(\.tar\.gz)', rf'\g<1>{v}\g<2>{v}\g<3>'),
                 (r'(source\s*=\s*https://github\.com/Amne-Dev/NLC/archive/refs/tags/v)[\d\w\.\-]+(\.tar\.gz)', rf'\g<1>{v}\g<2>'),
+            ],
+        },
+        {
+            "path": "packaging/linux/PKGBUILD",
+            "patterns": [
+                (r'(pkgver=)[\d\w\.\-]+', rf'\g<1>{v}'),
+            ],
+        },
+        {
+            "path": "packaging/linux/install.sh",
+            "patterns": [
+                (r'(\|\| echo "v)[\d\w\.\-]+("\))', rf'\g<1>{v}\g<2>'),
+            ],
+        },
+        {
+            "path": "packaging/windows/build.bat",
+            "patterns": [
+                (r'(Building Ny-Luna Core v)[\d\w\.\-]+', rf'\g<1>{v}'),
             ],
         },
         {
@@ -109,7 +128,36 @@ def get_managed_file_rules(v: str) -> List[Dict[str, Any]]:
             "path": "src/frontend/ui/screens/settings.slint",
             "patterns": [
                 (r'title:\s*"Launcher Version:\s*[^"]+";', f'title: "Launcher Version: {v}";'),
-                (r'text:\s*"Version:\s*[^"•]+ • Python/Tkinter Native & Rust Frontend', f'text: "Version: {v} • Python/Tkinter Native & Rust Frontend'),
+                (r'text:\s*"Version:\s*[^|•]+(?=\s*[|•])', f'text: "Version: {v}  '),
+            ],
+        },
+        {
+            "path": "web/index.html",
+            "patterns": [
+                (r'("softwareVersion":\s*")[^"]+(")', rf'\g<1>{v}\g<2>'),
+                (r'(<span id="version-text" class="stat">Version\s*)[^<]+(</span>)', rf'\g<1>{v}\g<2>'),
+                (r'(<h4>Ny-Luna Core <span class="version-tag">v)[^<]+(</span></h4>)', rf'\g<1>{v}\g<2>'),
+                (r'(<h4>Ny-Luna Core AppImage <span class="version-tag">v)[^<]+(</span></h4>)', rf'\g<1>{v}\g<2>'),
+                (r'(download/NewLauncher-)[\d\w\.\-]+(-x86_64\.AppImage)', rf'\g<1>{v}\g<2>'),
+            ],
+        },
+        {
+            "path": "web/changelog.html",
+            "patterns": [
+                (r'(Version\s*)[\d\w\.\-]+(")', rf'\g<1>{v}\g<2>'),
+            ],
+        },
+        {
+            "path": "web/faq.html",
+            "patterns": [
+                (r'(NewLauncher-)[\d\w\.\-]+(-x86_64\.AppImage)', rf'\g<1>{v}\g<2>'),
+                (r'(Ny-Luna version \(e\.g\. v)[\d\w\.\-]+(\)\.)', rf'\g<1>{v}\g<2>'),
+            ],
+        },
+        {
+            "path": "web/wiki.html",
+            "patterns": [
+                (r'(Launcher Version:\s*v)[\d\w\.\-]+(\s*\|)', rf'\g<1>{v}\g<2>'),
             ],
         },
     ]

@@ -48,6 +48,51 @@ export struct InstallationChoice {
 }
 
 // -------------------------------------------------------------
+// Component: IconSlot (Block palette item)
+// -------------------------------------------------------------
+component IconSlot {
+    in-out property <image> icon;
+    in-out property <string> name;
+    in-out property <string> filter-query: "";
+    callback selected(image, string);
+
+    property <bool> is-match: root.filter-query == "" || root.name == root.filter-query;
+
+    width: 88px;
+    height: 52px;
+
+    Rectangle {
+        background: slot-touch.has-hover ? #2E333E : #1B1D24;
+        border-width: 1px;
+        border-color: slot-touch.has-hover ? Theme.accent : #282D37;
+        opacity: root.is-match ? 1.0 : 0.25;
+
+        HorizontalLayout {
+            padding-left: 6px;
+            padding-right: 6px;
+            spacing: 6px;
+            alignment: center;
+
+            Image {
+                source: root.icon;
+                width: 36px;
+                height: 36px;
+                image-fit: contain;
+                image-rendering: pixelated;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        slot-touch := TouchArea {
+            clicked => {
+                root.selected(root.icon, root.name);
+            }
+        }
+    }
+}
+
+// -------------------------------------------------------------
 // Component: PixelCombobox (Sharp 0px Dropdown Combobox)
 // -------------------------------------------------------------
 component PixelCombobox {
@@ -891,6 +936,10 @@ export component ModpacksScreen {
     in-out property <string> create-name: "";
     in-out property <string> create-loader: "fabric";
     in-out property <string> create-version: "26.3";
+    in-out property <image> create-icon: @image-url("../../../../icons/2x/crafting_table_front.png");
+    in-out property <string> create-icon-name: "crafting_table_front.png";
+    in-out property <bool> create-icon-picker-open: false;
+    in-out property <string> create-icon-search-query: "";
     in-out property <[string]> available-loaders: ["fabric", "forge", "neoforge", "quilt"];
     in-out property <[string]> available-versions: ["26.3", "26.2", "26.1", "1.21.4", "1.21.1", "1.20.4", "1.20.1", "1.19.4"];
 
@@ -908,10 +957,10 @@ export component ModpacksScreen {
     callback open-folder();
     callback refresh();
     callback export();
-    callback toggle-mod(string, bool);
-    callback remove-mod(string);
+    callback toggle-mod(string, string, bool);
+    callback remove-mod(string, string);
 
-    callback submit-create(string, string, string);
+    callback submit-create(string, string, string, string);
     callback cancel-create();
     callback open-link-modal(string);
     callback show-mods(string);
@@ -980,6 +1029,7 @@ export component ModpacksScreen {
                         clicked => {
                             root.view-mode = "create";
                             root.create-modpack();
+                            root.loader-changed(root.create-loader);
                         }
                     }
                 }
@@ -1116,7 +1166,6 @@ export component ModpacksScreen {
                         }
                         menu-folder-clicked => {
                             root.open-modpack-folder(pack.id);
-                            root.open-folder();
                         }
                         menu-mrpack-clicked => {
                             root.export-modpack-format(pack.id, "mrpack");
@@ -1181,71 +1230,122 @@ export component ModpacksScreen {
                     padding-bottom: 24px;
                     spacing: 16px;
 
-                    // Field 1: MODPACK NAME
-                    VerticalLayout {
-                        spacing: 6px;
+                    HorizontalLayout {
+                        spacing: 20px;
+                        alignment: start;
 
-                        Text {
-                            text: "MODPACK NAME";
-                            color: Theme.text-secondary;
-                            font-family: Theme.font-family;
-                            font-size: 9px;
-                            font-weight: 700;
-                        }
+                        // Left Column: Icon Preview & Change Button
+                        VerticalLayout {
+                            spacing: 8px;
+                            alignment: start;
 
-                        Rectangle {
-                            height: 32px;
-                            background: Theme.input-bg;
-                            border-width: 1px;
-                            border-color: create_name_input.has-focus ? Theme.border-focus : Theme.border;
+                            Rectangle {
+                                width: 56px;
+                                height: 56px;
+                                background: #1B1D24;
+                                border-width: 1px;
+                                border-color: create-icon-touch.has-hover ? Theme.accent : #282D37;
 
-                            create_name_input := TextInput {
-                                text <=> root.create-name;
-                                color: #FFFFFF;
+                                Image {
+                                    source: root.create-icon;
+                                    width: 44px;
+                                    height: 44px;
+                                    image-fit: contain;
+                                    image-rendering: pixelated;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+
+                                create-icon-touch := TouchArea {
+                                    clicked => { root.create-icon-picker-open = true; }
+                                }
+                            }
+
+                            Text {
+                                text: "Change";
+                                color: create-change-touch.has-hover ? #38B6FF : #A0AAB0;
                                 font-family: Theme.font-family;
-                                font-size: 10px;
-                                vertical-alignment: center;
-                                single-line: true;
+                                font-size: 9px;
+                                horizontal-alignment: center;
+
+                                create-change-touch := TouchArea {
+                                    clicked => { root.create-icon-picker-open = true; }
+                                }
                             }
                         }
-                    }
 
-                    // Field 2: MOD LOADER
-                    VerticalLayout {
-                        spacing: 6px;
+                        // Right Column: Form Fields
+                        VerticalLayout {
+                            spacing: 14px;
+                            horizontal-stretch: 1;
 
-                        Text {
-                            text: "MOD LOADER";
-                            color: Theme.text-secondary;
-                            font-family: Theme.font-family;
-                            font-size: 9px;
-                            font-weight: 700;
-                        }
+                            // Field 1: MODPACK NAME
+                            VerticalLayout {
+                                spacing: 6px;
 
-                        PixelCombobox {
-                            selected-value <=> root.create-loader;
-                            options: root.available-loaders;
-                            selected(loader) => {
-                                root.loader-changed(loader);
+                                Text {
+                                    text: "MODPACK NAME";
+                                    color: Theme.text-secondary;
+                                    font-family: Theme.font-family;
+                                    font-size: 9px;
+                                    font-weight: 700;
+                                }
+
+                                Rectangle {
+                                    height: 32px;
+                                    background: Theme.input-bg;
+                                    border-width: 1px;
+                                    border-color: create_name_input.has-focus ? Theme.border-focus : Theme.border;
+
+                                    create_name_input := TextInput {
+                                        text <=> root.create-name;
+                                        color: #FFFFFF;
+                                        font-family: Theme.font-family;
+                                        font-size: 10px;
+                                        vertical-alignment: center;
+                                        single-line: true;
+                                    }
+                                }
                             }
-                        }
-                    }
 
-                    // Field 3: MINECRAFT VERSION
-                    VerticalLayout {
-                        spacing: 6px;
+                            // Field 2: MOD LOADER
+                            VerticalLayout {
+                                spacing: 6px;
 
-                        Text {
-                            text: "MINECRAFT VERSION";
-                            color: Theme.text-secondary;
-                            font-family: Theme.font-family;
-                            font-size: 9px;
-                            font-weight: 700;
-                        }
+                                Text {
+                                    text: "MOD LOADER";
+                                    color: Theme.text-secondary;
+                                    font-family: Theme.font-family;
+                                    font-size: 9px;
+                                    font-weight: 700;
+                                }
 
-                        PixelCombobox {
-                            selected-value <=> root.create-version;
-                            options: root.available-versions;
+                                PixelCombobox {
+                                    selected-value <=> root.create-loader;
+                                    options: root.available-loaders;
+                                    selected(loader) => {
+                                        root.loader-changed(loader);
+                                    }
+                                }
+                            }
+
+                            // Field 3: MINECRAFT VERSION
+                            VerticalLayout {
+                                spacing: 6px;
+
+                                Text {
+                                    text: "MINECRAFT VERSION";
+                                    color: Theme.text-secondary;
+                                    font-family: Theme.font-family;
+                                    font-size: 9px;
+                                    font-weight: 700;
+                                }
+
+                                PixelCombobox {
+                                    selected-value <=> root.create-version;
+                                    options: root.available-versions;
+                                }
+                            }
                         }
                     }
 
@@ -1268,7 +1368,7 @@ export component ModpacksScreen {
                             primary: true;
                             custom-font-size: 10px;
                             clicked => {
-                                root.submit-create(root.create-name, root.create-loader, root.create-version);
+                                root.submit-create(root.create-name, root.create-loader, root.create-version, root.create-icon-name);
                                 root.view-mode = "overview";
                             }
                         }
@@ -1397,7 +1497,6 @@ export component ModpacksScreen {
                         animations-enabled: root.animations-enabled;
                         clicked => {
                             root.open-modpack-folder(root.active-modpack-id);
-                            root.open-folder();
                         }
                     }
 
@@ -1709,6 +1808,7 @@ export component ModpacksScreen {
 
                 // Empty State
                 if root.mods.length == 0: Rectangle {
+                    width: parent.width;
                     height: 140px;
                     background: Theme.card-bg;
                     border-width: 1px;
@@ -1745,8 +1845,8 @@ export component ModpacksScreen {
                         col: mod(idx, root.mod-grid-cols);
                         data: m;
                         animations-enabled: root.animations-enabled;
-                        toggled(act) => { root.toggle-mod(m.filename, act); }
-                        remove => { root.remove-mod(m.filename); }
+                        toggled(act) => { root.toggle-mod(root.active-modpack-id, m.filename, act); }
+                        remove => { root.remove-mod(root.active-modpack-id, m.filename); }
                     }
                 }
 
@@ -1757,8 +1857,8 @@ export component ModpacksScreen {
                     for m in root.mods: ModListRow {
                         data: m;
                         animations-enabled: root.animations-enabled;
-                        toggled(act) => { root.toggle-mod(m.filename, act); }
-                        remove => { root.remove-mod(m.filename); }
+                        toggled(act) => { root.toggle-mod(root.active-modpack-id, m.filename, act); }
+                        remove => { root.remove-mod(root.active-modpack-id, m.filename); }
                     }
                 }
             }
@@ -2087,12 +2187,189 @@ export component ModpacksScreen {
                 root.tutorial-open = false;
                 root.view-mode = "create";
                 root.create-modpack();
+                root.loader-changed(root.create-loader);
             }
             search-clicked => {
                 // Keep tutorial open so step advances to 3
             }
             action-clicked => {
                 root.tutorial-open = false;
+            }
+        }
+        // ========================================================
+        // ICON PICKER MODAL OVERLAY (5-Column Block Palette)
+        // ========================================================
+        if root.create-icon-picker-open: Rectangle {
+            x: 0px;
+            y: 0px;
+            width: parent.width;
+            height: parent.height;
+            background: #000000B8;
+
+            // Backdrop click to dismiss
+            TouchArea {
+                clicked => { root.create-icon-picker-open = false; }
+            }
+
+            // Modal Dialog Card
+            Rectangle {
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                width: 520px;
+                height: 520px;
+                background: Theme.card-bg;
+                border-width: 1px;
+                border-color: Theme.border;
+
+                VerticalLayout {
+                    spacing: 0px;
+
+                    // Header: Title + Close Button
+                    Rectangle {
+                        height: 44px;
+                        background: #1B1E26;
+
+                        HorizontalLayout {
+                            padding-left: 16px;
+                            padding-right: 12px;
+                            alignment: space-between;
+
+                            Text {
+                                text: "Select Modpack Icon";
+                                color: #FFFFFF;
+                                font-family: Theme.font-family;
+                                font-size: 14px;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+
+                            Rectangle {
+                                width: 28px;
+                                height: 28px;
+                                y: (parent.height - self.height) / 2;
+                                background: close-create-icon-touch.has-hover ? #E81123 : transparent;
+
+                                Text {
+                                    text: "X";
+                                    color: #FFFFFF;
+                                    font-family: Theme.font-family;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+
+                                close-create-icon-touch := TouchArea {
+                                    clicked => { root.create-icon-picker-open = false; }
+                                }
+                            }
+                        }
+                    }
+
+                    // 1px Separator
+                    Rectangle {
+                        height: 1px;
+                        background: #282D37;
+                    }
+
+                    // Search / Filter Input
+                    HorizontalLayout {
+                        padding-left: 16px;
+                        padding-right: 16px;
+                        padding-top: 10px;
+                        padding-bottom: 8px;
+
+                        SearchInput {
+                            placeholder: "Filter icons...";
+                            preferred-input-width: 488px;
+                            text <=> root.create-icon-search-query;
+                        }
+                    }
+
+                    // 5-Column Grid of 35 Popular Minecraft Block Textures
+                    Flickable {
+                        height: 430px;
+                        content-height: 440px;
+
+                        VerticalLayout {
+                            padding-left: 16px;
+                            padding-right: 16px;
+                            padding-top: 6px;
+                            padding-bottom: 16px;
+                            spacing: 8px;
+
+                            // Row 1
+                            HorizontalLayout {
+                                spacing: 8px;
+                                IconSlot { icon: @image-url("../../../../icons/2x/grass_block_side.png"); name: "grass_block_side.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/2x/crafting_table_front.png"); name: "crafting_table_front.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/furnace_front.png"); name: "furnace_front.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/2x/bookshelf.png"); name: "bookshelf.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/barrel_side.png"); name: "barrel_side.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                            }
+
+                            // Row 2
+                            HorizontalLayout {
+                                spacing: 8px;
+                                IconSlot { icon: @image-url("../../../../icons/tnt_side.png"); name: "tnt_side.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/obsidian.png"); name: "obsidian.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/anvil.png"); name: "anvil.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/2x/beacon.png"); name: "beacon.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/2x/glowstone.png"); name: "glowstone.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                            }
+
+                            // Row 3
+                            HorizontalLayout {
+                                spacing: 8px;
+                                IconSlot { icon: @image-url("../../../../icons/diamond_block.png"); name: "diamond_block.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/gold_block.png"); name: "gold_block.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/iron_block.png"); name: "iron_block.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/emerald_block.png"); name: "emerald_block.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/lapis_block.png"); name: "lapis_block.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                            }
+
+                            // Row 4
+                            HorizontalLayout {
+                                spacing: 8px;
+                                IconSlot { icon: @image-url("../../../../icons/diamond_ore.png"); name: "diamond_ore.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/gold_ore.png"); name: "gold_ore.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/iron_ore.png"); name: "iron_ore.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/coal_ore.png"); name: "coal_ore.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/redstone_ore.png"); name: "redstone_ore.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                            }
+
+                            // Row 5
+                            HorizontalLayout {
+                                spacing: 8px;
+                                IconSlot { icon: @image-url("../../../../icons/dirt.png"); name: "dirt.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/stone.png"); name: "stone.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/cobblestone.png"); name: "cobblestone.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/oak_planks.png"); name: "oak_planks.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/spruce_log.png"); name: "spruce_log.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                            }
+
+                            // Row 6
+                            HorizontalLayout {
+                                spacing: 8px;
+                                IconSlot { icon: @image-url("../../../../icons/bedrock.png"); name: "bedrock.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/sand.png"); name: "sand.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/gravel.png"); name: "gravel.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/clay.png"); name: "clay.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/snow.png"); name: "snow.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                            }
+
+                            // Row 7
+                            HorizontalLayout {
+                                spacing: 8px;
+                                IconSlot { icon: @image-url("../../../../icons/ice.png"); name: "ice.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/pumpkin_side.png"); name: "pumpkin_side.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/melon_side.png"); name: "melon_side.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/netherrack.png"); name: "netherrack.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                                IconSlot { icon: @image-url("../../../../icons/red_wool.png"); name: "red_wool.png"; filter-query: root.create-icon-search-query; selected(img, name) => { root.create-icon = img; root.create-icon-name = name; root.create-icon-picker-open = false; } }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

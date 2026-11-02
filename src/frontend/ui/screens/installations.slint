@@ -536,6 +536,7 @@ export component InstallationsScreen {
         root.editor-game-dir = "";
         root.version-fetch-status = "Select a loader to fetch versions";
         root.view-mode = "editor";
+        root.loader-changed("Vanilla");
     }
 
     public function open-editor-for-edit(item: InstallationData) {
@@ -554,8 +555,9 @@ export component InstallationsScreen {
         root.editor-res-width = "854";
         root.editor-res-height = "480";
         root.editor-game-dir = item.game-dir;
-        root.version-fetch-status = "Found 48 versions";
+        root.version-fetch-status = "Select a loader to fetch versions";
         root.view-mode = "editor";
+        root.loader-changed(item.loader);
     }
 
     public function commit-editor() {

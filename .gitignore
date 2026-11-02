@@ -60,6 +60,7 @@ temp_community_repo/
 /scripts/*
 !/scripts/generate_release_cdc.py
 !/scripts/run_dev.sh
+!/scripts/version.py
 /tests/*
 !/tests/conftest.py
 !/tests/unit/
@@ -68,5 +69,9 @@ temp_community_repo/
 !/tests/unit/test_packaging_and_signing.py
 !/tests/unit/test_web_installer_assets.py
 !/tests/unit/test_linux_compatibility.py
+!/tests/unit/test_version_manager.py
+!/tests/unit/test_modpack_mods_management.py
+!/tests/unit/test_skin_preset_and_mod_consistency.py
+!/tests/unit/test_wallpapers_and_modpacks.py
 icons/candidates/
 .impeccable/

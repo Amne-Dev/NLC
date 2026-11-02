@@ -258,13 +258,12 @@ component WallpaperCard inherits Rectangle {
         }
     }
 
-    // Top-Right: Delete Button ("✕") - only visible for downloaded custom items
+    // Top-Right: Delete Button ("X") - hover control for all wallpapers
     Rectangle {
         x: parent.width - self.width - 8px;
         y: root.controls-y;
         width: 22px;
         height: 22px;
-        visible: root.data.is-downloaded;
         background: del-touch.has-hover ? #C0392B : #E74C3CB0;
         border-width: 1px;
         border-color: del-touch.has-hover ? #962D22 : #E74C3C;
@@ -282,7 +281,6 @@ component WallpaperCard inherits Rectangle {
         }
 
         del-touch := TouchArea {
-            enabled: root.data.is-downloaded;
             clicked => {
                 root.delete();
             }
@@ -1198,7 +1196,7 @@ export component LockerScreen {
                                 row: idx / 3;
                                 col: mod(idx, 3);
                                 equip => { root.equip-wallpaper(wp.path); }
-                                delete => { root.delete-wallpaper(wp.path); }
+                                delete => { root.delete-wallpaper(wp.path != "" ? wp.path : wp.id); }
                                 download => { root.download-wallpaper(wp.id); }
                             }
                         }

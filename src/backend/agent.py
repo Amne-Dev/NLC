@@ -1386,6 +1386,7 @@ def _resolve_instance_mods_dir(instance_id: str) -> str:
     cfg = cm.load()
 
     clean_id = instance_id.replace("inst-", "") if (instance_id and instance_id.startswith("inst-")) else instance_id
+    clean_id = clean_id.replace("modpack-", "") if (clean_id and clean_id.startswith("modpack-")) else clean_id
 
     # 1. Modpacks directory direct search (checking both raw and stripped id)
     for tid in filter(None, (instance_id, clean_id)):
@@ -1396,43 +1397,44 @@ def _resolve_instance_mods_dir(instance_id: str) -> str:
             return str(direct_mods)
 
     # 2. Modpacks metadata search (modpacks.json)
-    mp_file = Path(get_config_dir()) / "modpacks.json"
-    if mp_file.exists():
-        try:
-            with open(mp_file, "r", encoding="utf-8") as f:
-                modpacks = json.load(f)
-            if isinstance(modpacks, list):
-                for mp in modpacks:
-                    mp_id = mp.get("id", "")
-                    mp_name = mp.get("name", "").lower().replace(" ", "-")
-                    query = instance_id.lower().replace(" ", "-") if instance_id else ""
+    if instance_id:
+        mp_file = Path(get_config_dir()) / "modpacks.json"
+        if mp_file.exists():
+            try:
+                with open(mp_file, "r", encoding="utf-8") as f:
+                    modpacks = json.load(f)
+                if isinstance(modpacks, list):
+                    query = instance_id.lower().replace(" ", "-")
                     clean_query = clean_id.lower().replace(" ", "-") if clean_id else ""
-                    if (
-                        mp_id in (instance_id, clean_id)
-                        or mp.get("linked_installation_id") in (instance_id, clean_id)
-                        or (query and mp_name == query)
-                        or (clean_query and mp_name == clean_query)
-                        or (query and query in mp_id.lower())
-                        or (clean_query and clean_query in mp_id.lower())
-                    ):
-                        pack_dir = Path(get_config_dir()) / "modpacks" / mp["id"] / "mods"
-                        pack_dir.mkdir(parents=True, exist_ok=True)
-                        return str(pack_dir)
-        except Exception:
-            pass
+                    for mp in modpacks:
+                        mp_id = str(mp.get("id", ""))
+                        mp_name = str(mp.get("name", "")).lower().replace(" ", "-")
+                        linked_id = str(mp.get("linked_installation_id") or "")
+                        if (
+                            mp_id in (instance_id, clean_id)
+                            or (linked_id and linked_id in (instance_id, clean_id))
+                            or (query and mp_name == query)
+                            or (clean_query and mp_name == clean_query)
+                        ):
+                            pack_dir = Path(get_config_dir()) / "modpacks" / mp_id / "mods"
+                            pack_dir.mkdir(parents=True, exist_ok=True)
+                            return str(pack_dir)
+            except Exception:
+                pass
 
     # 3. Installations search
-    for inst in cfg.get("installations", []):
-        if (
-            inst.get("id") in (instance_id, clean_id)
-            or inst.get("name") in (instance_id, clean_id)
-            or str(inst.get("name", "")).lower() in (str(instance_id).lower(), str(clean_id).lower())
-        ):
-            game_dir = inst.get("game_directory")
-            if game_dir and os.path.exists(game_dir):
-                mods_path = Path(game_dir) / "mods"
-                mods_path.mkdir(parents=True, exist_ok=True)
-                return str(mods_path)
+    if instance_id:
+        for inst in cfg.get("installations", []):
+            if (
+                inst.get("id") in (instance_id, clean_id)
+                or inst.get("name") in (instance_id, clean_id)
+                or str(inst.get("name", "")).lower() in (str(instance_id).lower(), str(clean_id).lower())
+            ):
+                game_dir = inst.get("game_directory")
+                if game_dir and os.path.exists(game_dir):
+                    mods_path = Path(game_dir) / "mods"
+                    mods_path.mkdir(parents=True, exist_ok=True)
+                    return str(mods_path)
 
     # 4. Default fallback
     default_mods = Path(get_minecraft_dir()) / "mods"
@@ -1484,37 +1486,57 @@ def handle_mods_toggle_enabled(payload: Dict[str, Any]) -> Dict[str, Any]:
     filename = payload.get("filename") or payload.get("file") or ""
     enable_flag = payload.get("enabled", payload.get("enable"))
 
+    if not filename:
+        raise ValueError("Missing filename to toggle")
+
     mods_dir = _resolve_instance_mods_dir(instance_id)
-    old_path = os.path.join(mods_dir, filename)
-    if not os.path.exists(old_path):
-        if os.path.exists(old_path + ".disabled"):
-            old_path = old_path + ".disabled"
-            filename = filename + ".disabled"
-        elif filename.lower().endswith(".disabled") and os.path.exists(old_path[:-9]):
-            old_path = old_path[:-9]
-            filename = filename[:-9]
-        else:
-            raise FileNotFoundError(f"Mod file not found: {filename}")
+    if not os.path.isdir(mods_dir):
+        os.makedirs(mods_dir, exist_ok=True)
 
-    is_currently_enabled = not filename.lower().endswith(".disabled")
-    target_enabled = not is_currently_enabled if enable_flag is None else bool(enable_flag)
+    clean_base = filename[:-9] if filename.lower().endswith(".disabled") else filename
+    enabled_path = os.path.join(mods_dir, clean_base)
+    disabled_path = os.path.join(mods_dir, clean_base + ".disabled")
 
-    if target_enabled and not is_currently_enabled:
-        new_filename = filename[:-9] if filename.lower().endswith(".disabled") else filename
-    elif not target_enabled and is_currently_enabled:
-        new_filename = filename + ".disabled"
+    if os.path.exists(enabled_path):
+        source_path = enabled_path
+        is_currently_enabled = True
+    elif os.path.exists(disabled_path):
+        source_path = disabled_path
+        is_currently_enabled = False
+    elif os.path.exists(os.path.join(mods_dir, filename)):
+        source_path = os.path.join(mods_dir, filename)
+        is_currently_enabled = not filename.lower().endswith(".disabled")
     else:
-        new_filename = filename
+        raise FileNotFoundError(f"Mod file not found: {filename} in {mods_dir}")
 
-    new_path = os.path.join(mods_dir, new_filename)
-    if old_path != new_path:
-        os.replace(old_path, new_path)
+    target_enabled = not is_currently_enabled if enable_flag is None else bool(enable_flag)
+    target_path = enabled_path if target_enabled else disabled_path
+    target_filename = clean_base if target_enabled else (clean_base + ".disabled")
+
+    if source_path != target_path:
+        renamed = False
+        last_err = None
+        for attempt in range(5):
+            try:
+                if os.path.exists(target_path):
+                    try:
+                        os.remove(target_path)
+                    except Exception:
+                        pass
+                os.replace(source_path, target_path)
+                renamed = True
+                break
+            except Exception as e:
+                last_err = e
+                time.sleep(0.05)
+        if not renamed and last_err:
+            raise last_err
 
     return {
         "status": "success",
         "success": True,
-        "old_file": filename,
-        "new_file": new_filename,
+        "old_file": os.path.basename(source_path),
+        "new_file": target_filename,
         "enabled": target_enabled
     }
 
@@ -2971,9 +2993,9 @@ def handle_skin_presets_list(payload: Optional[Dict[str, Any]] = None) -> Dict[s
     skins_dir = Path(get_config_dir()) / "skins"
     skins_dir.mkdir(parents=True, exist_ok=True)
 
-    # Seed default skins from bundled app skins if user folder has <= 1 png
-    existing_pngs = list(skins_dir.glob("*.png"))
-    if len(existing_pngs) <= 1:
+    # Seed default skins only once on initial setup if .seeded marker does not exist
+    seeded_marker = skins_dir / ".seeded"
+    if not seeded_marker.exists():
         for cand_dir in [
             Path(sys.executable).parent / "skins",
             Path(__file__).resolve().parent.parent.parent / "skins",
@@ -2988,6 +3010,10 @@ def handle_skin_presets_list(payload: Optional[Dict[str, Any]] = None) -> Dict[s
                         except Exception:
                             pass
                 break
+        try:
+            seeded_marker.touch()
+        except Exception:
+            pass
 
     cm = get_config_manager()
     cfg = cm.load()
@@ -3028,6 +3054,95 @@ def handle_skin_presets_list(payload: Optional[Dict[str, Any]] = None) -> Dict[s
         })
 
     return {"status": "success", "presets": presets}
+
+
+def handle_skin_preset_delete(payload: Dict[str, Any]) -> Dict[str, Any]:
+    skin_path = payload.get("skin_path") or payload.get("preset_id") or payload.get("id") or ""
+    if not skin_path:
+        raise ValueError("Missing skin_path to delete")
+
+    skins_dir = Path(get_config_dir()) / "skins"
+    target_p = Path(skin_path).resolve()
+
+    # 1. Delete thumbnail if present
+    stem = Path(skin_path).stem
+    thumbs_dir = Path(get_config_dir()) / "thumbnails"
+    if thumbs_dir.exists():
+        for cand in thumbs_dir.glob(f"thumb_{stem}_*.png"):
+            try:
+                cand.unlink(missing_ok=True)
+            except Exception:
+                pass
+
+    # 2. Delete the skin file itself
+    try:
+        if target_p.exists():
+            target_p.unlink()
+    except Exception as exc:
+        logger.warning("Could not delete skin file %s: %s", skin_path, exc)
+
+    # 3. Check if deleted skin was active on any profile
+    cm = get_config_manager()
+    cfg = cm.load()
+    profiles = cfg.get("profiles", [])
+    active_idx = cfg.get("active_profile_index", cfg.get("current_profile_index", 0))
+
+    remaining_pngs = sorted(skins_dir.glob("*.png"), key=lambda p: p.stat().st_mtime, reverse=True)
+    cfg_models = cfg.get("skin_arm_models", {})
+
+    was_active = False
+    new_active_skin = ""
+    new_active_model = "classic"
+    profile_modified = False
+
+    for idx, p in enumerate(profiles):
+        p_skin = p.get("skin_path", "")
+        is_match = False
+        if p_skin:
+            try:
+                is_match = (Path(p_skin).resolve() == target_p) or (p_skin == skin_path)
+            except Exception:
+                is_match = (p_skin == skin_path)
+
+        if is_match:
+            profile_modified = True
+            if idx == active_idx:
+                was_active = True
+
+            if remaining_pngs:
+                fallback_path = str(remaining_pngs[0].resolve())
+                fallback_model = cfg_models.get(remaining_pngs[0].name) or cfg_models.get(fallback_path) or "classic"
+                fallback_model = "slim" if str(fallback_model).lower() == "slim" else "classic"
+            else:
+                fallback_path = _ensure_default_steve_skin()
+                fallback_model = "classic"
+
+            p["skin_path"] = fallback_path
+            p["skin_model"] = fallback_model
+            p_name = p.get("name", "player")
+            p_uuid = p.get("uuid", str(idx))
+            head_path = extract_player_head(fallback_path, p_name, p_uuid, force=True)
+            p["head_path"] = head_path
+
+            if idx == active_idx:
+                new_active_skin = fallback_path
+                new_active_model = fallback_model
+
+            _async_sync_discord_avatar(p)
+
+    if profile_modified:
+        cm.save(cfg)
+        emit_event("config_changed", {"key": "profiles", "value": profiles})
+
+    return {
+        "status": "success",
+        "success": True,
+        "deleted_path": str(target_p),
+        "was_active": was_active,
+        "active_skin_path": new_active_skin,
+        "active_skin_model": new_active_model,
+        "remaining_count": len(remaining_pngs),
+    }
 
 
 def handle_skin_steal_preview(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -3257,10 +3372,16 @@ def handle_wallpapers_list(payload: Optional[Dict[str, Any]] = None) -> Dict[str
     items = []
     seen = set()
 
+    cm = get_config_manager()
+    cfg = cm.load()
+    hidden_wallpapers = set(cfg.get("hidden_wallpapers", []))
+
     # 1. Process Official Wallpapers Catalog
     for entry in OFFICIAL_WALLPAPERS:
         fname = entry["filename"]
         stem = Path(fname).stem
+        if fname in hidden_wallpapers or fname.lower() in hidden_wallpapers or stem in hidden_wallpapers or stem.lower() in hidden_wallpapers:
+            continue
         seen.add(fname.lower())
 
         repo_full = repo_wp_dir / fname
@@ -3306,8 +3427,13 @@ def handle_wallpapers_list(payload: Optional[Dict[str, Any]] = None) -> Dict[str
         })
 
     # 2. Process Custom Uploaded Wallpapers from user_wp_dir
+    VALID_WP_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
     if user_wp_dir.exists():
-        for f in sorted(user_wp_dir.glob("*.png")):
+        for f in sorted(user_wp_dir.iterdir()):
+            if not f.is_file() or f.suffix.lower() not in VALID_WP_EXTS:
+                continue
+            if f.name in hidden_wallpapers or f.name.lower() in hidden_wallpapers or f.stem in hidden_wallpapers or f.stem.lower() in hidden_wallpapers:
+                continue
             if f.name.lower() not in seen:
                 seen.add(f.name.lower())
                 p_str = str(f)
@@ -3434,40 +3560,82 @@ def handle_wallpapers_upload(payload: Dict[str, Any]) -> Dict[str, Any]:
     user_wp_dir = Path(get_config_dir()) / "wallpapers"
     user_wp_dir.mkdir(parents=True, exist_ok=True)
     dst_name = f"wp_{int(time.time())}_{Path(src_path).name}"
-    dst_path = str(user_wp_dir / dst_name)
+    dst_path = user_wp_dir / dst_name
     shutil.copy2(src_path, dst_path)
+
+    thumbs_dir = Path(get_config_dir()) / "wallpapers_thumbs"
+    thumbs_dir.mkdir(parents=True, exist_ok=True)
+    thumb_file = thumbs_dir / f"thumb_{dst_path.stem}.png"
+    try:
+        from PIL import Image
+        with Image.open(dst_path) as img:
+            img_thumb = img.convert("RGB")
+            img_thumb.thumbnail((240, 135))
+            img_thumb.save(thumb_file, format="PNG")
+    except Exception as e:
+        logger.warning("Could not create thumb for uploaded wallpaper: %s", e)
 
     cm = get_config_manager()
     cfg = cm.load()
-    cfg["current_wallpaper"] = dst_path
+    cfg["current_wallpaper"] = str(dst_path)
+    # Remove from hidden_wallpapers if previously hidden
+    hidden = set(cfg.get("hidden_wallpapers", []))
+    if dst_name.lower() in hidden:
+        hidden.remove(dst_name.lower())
+        cfg["hidden_wallpapers"] = sorted(list(hidden))
     cm.save(cfg)
-    emit_event("config_changed", {"key": "current_wallpaper", "value": dst_path})
-    return {"status": "success", "path": dst_path}
+    emit_event("config_changed", {"key": "current_wallpaper", "value": str(dst_path)})
+    return {"status": "success", "path": str(dst_path)}
 
 
 def handle_wallpapers_delete(payload: Dict[str, Any]) -> Dict[str, Any]:
-    wp_path = payload.get("path") or ""
-    repo_wp_dir = get_bundled_wallpapers_dir()
-    if wp_path and os.path.exists(wp_path):
-        try:
-            # Protect bundled repository wallpapers from deletion
-            if Path(wp_path).resolve().is_relative_to(repo_wp_dir.resolve()):
-                logger.info("Ignoring delete request for built-in wallpaper: %s", wp_path)
-                return {"status": "error", "error": "Cannot delete built-in wallpaper"}
-            os.remove(wp_path)
-            fname = Path(wp_path).name
-            thumb = Path(get_config_dir()) / "wallpapers_thumbs" / f"thumb_{fname}"
-            if thumb.exists():
-                thumb.unlink(missing_ok=True)
-        except Exception as e:
-            logger.warning("Error deleting wallpaper %s: %s", wp_path, e)
+    wp_ident = str(payload.get("path") or payload.get("id") or payload.get("filename") or "").strip()
     cm = get_config_manager()
     cfg = cm.load()
-    if cfg.get("current_wallpaper") == wp_path:
+    hidden = set(cfg.get("hidden_wallpapers", []))
+
+    req_name = Path(wp_ident).name.lower() if wp_ident else ""
+    is_official = False
+    for entry in OFFICIAL_WALLPAPERS:
+        fname = entry["filename"].lower()
+        fstem = Path(fname).stem.lower()
+        if req_name in (fname, fstem) or wp_ident.lower() in (fname, fstem):
+            hidden.add(entry["filename"])
+            hidden.add(entry["filename"].lower())
+            is_official = True
+            break
+
+    user_wp_dir = Path(get_config_dir()) / "wallpapers"
+    thumbs_dir = Path(get_config_dir()) / "wallpapers_thumbs"
+    repo_wp_dir = get_bundled_wallpapers_dir()
+
+    target_file = None
+    if wp_ident and os.path.exists(wp_ident):
+        target_file = Path(wp_ident)
+    elif req_name and (user_wp_dir / req_name).exists():
+        target_file = user_wp_dir / req_name
+
+    if target_file and target_file.exists():
+        try:
+            if not target_file.resolve().is_relative_to(repo_wp_dir.resolve()):
+                target_file.unlink(missing_ok=True)
+                thumb = thumbs_dir / f"thumb_{target_file.stem}.png"
+                thumb.unlink(missing_ok=True)
+        except Exception as e:
+            logger.warning("Error deleting wallpaper %s: %s", target_file, e)
+
+    if is_official or (not target_file and req_name):
+        if req_name:
+            hidden.add(req_name)
+    cfg["hidden_wallpapers"] = sorted(list(hidden))
+
+    current_wp = cfg.get("current_wallpaper", "")
+    if current_wp and (current_wp == wp_ident or Path(current_wp).name.lower() == req_name or (target_file and current_wp == str(target_file))):
         cfg["current_wallpaper"] = ""
-        cm.save(cfg)
         emit_event("config_changed", {"key": "current_wallpaper", "value": ""})
-    return {"status": "success", "deleted": wp_path}
+
+    cm.save(cfg)
+    return {"status": "success", "deleted": wp_ident}
 
 
 def handle_wallpapers_open_folder(payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -4100,6 +4268,16 @@ def handle_launch_game(payload: Dict[str, Any]) -> Dict[str, Any]:
                         fn = m.get("filename")
                         if fn:
                             mod_file = mods_folder / fn
+                            disabled_file = mods_folder / (fn + ".disabled")
+                            if fn.lower().endswith(".disabled"):
+                                enabled_name = fn[:-9]
+                                mod_file = mods_folder / enabled_name
+                                disabled_file = mods_folder / fn
+
+                            # If mod is already disabled by user or marked disabled, do NOT re-download!
+                            if disabled_file.exists() or m.get("enabled") is False:
+                                continue
+
                             if not mod_file.exists() or mod_file.stat().st_size == 0:
                                 slug = m.get("slug")
                                 ver_id = m.get("version_id")
@@ -5956,6 +6134,8 @@ def handle_modpacks_list(payload: Optional[Dict[str, Any]] = None) -> Dict[str, 
             icon_path = str(p.get("icon_path"))
         elif p.get("thumbnail") and os.path.exists(p.get("thumbnail")):
             icon_path = str(p.get("thumbnail"))
+        elif p.get("icon"):
+            icon_path = str(p.get("icon"))
 
         p_copy["icon_path"] = icon_path
         p_copy["has_icon"] = bool(icon_path)
@@ -5976,9 +6156,25 @@ def handle_modpack_create(payload: Dict[str, Any]) -> Dict[str, Any]:
     loader = payload.get("loader") or "fabric"
     mc_version = payload.get("mc_version") or payload.get("version") or "26.3"
     pack_id = payload.get("id") or str(uuid.uuid4())
+    icon = (payload.get("icon") or "crafting_table_front.png").strip()
 
     pack_dir = _get_modpack_dir(pack_id)
     (pack_dir / "mods").mkdir(parents=True, exist_ok=True)
+
+    # Copy icon to pack_dir / "icon.png" if candidate exists
+    launcher_dir = Path(get_launcher_dir())
+    icon_candidates = [
+        launcher_dir / "icons" / "2x" / icon,
+        launcher_dir / "icons" / icon,
+        Path(icon) if os.path.exists(icon) else None,
+    ]
+    for cand in icon_candidates:
+        if cand and cand.exists():
+            try:
+                shutil.copy2(cand, pack_dir / "icon.png")
+            except Exception as e_cp:
+                logger.debug("Failed copying modpack icon: %s", e_cp)
+            break
 
     new_pack = {
         "id": pack_id,
@@ -5986,6 +6182,8 @@ def handle_modpack_create(payload: Dict[str, Any]) -> Dict[str, Any]:
         "loader": loader,
         "mc_version": mc_version,
         "version": mc_version,
+        "icon": icon,
+        "icon_path": icon,
         "description": payload.get("description", ""),
         "source": payload.get("source", "Custom"),
         "total_mods": 0,
@@ -6150,6 +6348,48 @@ def handle_modpack_mods_toggle(payload: Dict[str, Any]) -> Dict[str, Any]:
     filename = payload.get("filename") or payload.get("file") or ""
     enabled = payload.get("enabled", payload.get("is_active"))
     res = handle_mods_toggle_enabled({"instance_id": pack_id, "filename": filename, "enabled": enabled})
+
+    # Synchronize modpacks.json and linked installations
+    old_fn = res.get("old_file", filename)
+    new_fn = res.get("new_file", filename)
+    target_enabled = res.get("enabled", enabled)
+
+    try:
+        with _config_lock:
+            packs = _load_modpacks_json()
+            pack_found = False
+            for p in packs:
+                p_id = str(p.get("id", ""))
+                p_name = str(p.get("name", ""))
+                if p_id == pack_id or p_name == pack_id or p_name.lower().replace(" ", "-") == pack_id.lower().replace(" ", "-"):
+                    pack_found = True
+                    for m in p.get("mods", []):
+                        m_fn = m.get("filename", "")
+                        if m_fn in (old_fn, new_fn) or (old_fn and m_fn.startswith(Path(old_fn).stem)):
+                            m["filename"] = new_fn
+                            m["enabled"] = target_enabled
+                    # Mirror rename in linked installation if custom folder exists
+                    linked_id = p.get("linked_installation_id")
+                    if linked_id:
+                        cfg = load_launcher_config()
+                        for inst in cfg.get("installations", []):
+                            if inst.get("id") == linked_id and inst.get("game_directory"):
+                                inst_mods = Path(inst["game_directory"]) / "mods"
+                                if inst_mods.exists():
+                                    src_f = inst_mods / old_fn
+                                    dst_f = inst_mods / new_fn
+                                    if src_f.exists() and src_f != dst_f:
+                                        try:
+                                            os.replace(src_f, dst_f)
+                                        except Exception:
+                                            pass
+                    break
+            if pack_found:
+                _save_modpacks_json(packs)
+                emit_event("modpacks_changed", {"action": "mod_toggled", "pack_id": pack_id, "filename": new_fn, "enabled": target_enabled})
+    except Exception as exc:
+        logger.debug("Failed syncing modpack toggle to modpacks.json: %s", exc)
+
     return {
         "status": "success",
         "success": True,
@@ -6164,13 +6404,60 @@ def handle_modpack_mods_remove(payload: Dict[str, Any]) -> Dict[str, Any]:
         raise ValueError("Missing filename to remove")
 
     mods_dir = _resolve_instance_mods_dir(pack_id)
-    target = os.path.join(mods_dir, filename)
-    if os.path.exists(target):
-        os.remove(target)
-    elif os.path.exists(target + ".disabled"):
-        os.remove(target + ".disabled")
-    elif filename.lower().endswith(".disabled") and os.path.exists(target[:-9]):
-        os.remove(target[:-9])
+    clean_base = filename[:-9] if filename.lower().endswith(".disabled") else filename
+    enabled_target = os.path.join(mods_dir, clean_base)
+    disabled_target = os.path.join(mods_dir, clean_base + ".disabled")
+    raw_target = os.path.join(mods_dir, filename)
+
+    removed = False
+    for cand in (raw_target, enabled_target, disabled_target):
+        if os.path.exists(cand):
+            try:
+                os.remove(cand)
+                removed = True
+            except Exception as e:
+                logger.warning("Could not remove mod file %s: %s", cand, e)
+
+    # Synchronize modpacks.json metadata and linked installation mods folder
+    base_stem = Path(filename[:-9] if filename.lower().endswith(".disabled") else filename).stem
+    try:
+        with _config_lock:
+            packs = _load_modpacks_json()
+            pack_found = False
+            for p in packs:
+                p_id = str(p.get("id", ""))
+                p_name = str(p.get("name", ""))
+                if p_id == pack_id or p_name == pack_id or p_name.lower().replace(" ", "-") == pack_id.lower().replace(" ", "-"):
+                    pack_found = True
+                    p_mods = p.get("mods", [])
+                    p["mods"] = [
+                        m for m in p_mods
+                        if m.get("filename") != filename
+                        and m.get("filename") != (filename + ".disabled")
+                        and (not filename.lower().endswith(".disabled") or m.get("filename") != filename[:-9])
+                        and (not base_stem or Path(m.get("filename", "")).stem != base_stem)
+                        and m.get("slug") != filename
+                    ]
+                    # Also remove from linked installation if present
+                    linked_id = p.get("linked_installation_id")
+                    if linked_id:
+                        cfg = load_launcher_config()
+                        for inst in cfg.get("installations", []):
+                            if inst.get("id") == linked_id and inst.get("game_directory"):
+                                inst_mods = Path(inst["game_directory"]) / "mods"
+                                if inst_mods.exists():
+                                    for cand in [inst_mods / filename, inst_mods / (filename + ".disabled"), inst_mods / (filename[:-9] if filename.lower().endswith(".disabled") else "")]:
+                                        if cand.name and cand.exists():
+                                            try:
+                                                os.remove(cand)
+                                            except Exception:
+                                                pass
+                    break
+            if pack_found:
+                _save_modpacks_json(packs)
+                emit_event("modpacks_changed", {"action": "mod_removed", "pack_id": pack_id, "filename": filename})
+    except Exception as exc:
+        logger.debug("Failed syncing mod removal to modpacks.json: %s", exc)
 
     return {
         "status": "success",
@@ -6546,6 +6833,8 @@ ACTION_HANDLERS = {
     "skin_steal": handle_skin_steal,
     "skin_steal_preview": handle_skin_steal_preview,
     "skin_presets_list": handle_skin_presets_list,
+    "skin_preset_delete": handle_skin_preset_delete,
+    "skin_delete": handle_skin_preset_delete,
     "capes_list": handle_capes_list,
     "capes_select": handle_capes_select,
     "wallpapers_list": handle_wallpapers_list,

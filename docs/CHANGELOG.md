@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.0.5] - 2026-11-02
+
+### Fixed
+
+- **Modpack Folder Navigation**:
+  - Fixed duplicate folder window opening: clicking the "Folder" button or context menu entry inside a modpack now opens only the specific modpack's directory in a single window instead of also opening the parent modpacks directory.
+- **Modpack Mod Listing & Deletion Isolation**:
+  - Resolved cross-modpack modlist leakage where deleting or disabling the last mod of a modpack abruptly displayed mods from another modpack or `.minecraft/mods`.
+  - Empty modpack mods folders are now strictly preserved and display the empty state card ("No mods found") rather than falling back to global `.minecraft/mods` or loose matches.
+  - Removed fuzzy UUID substring matching and empty ID collisions in mod directory resolution.
+- **Mod Disable / Rename Persistence**:
+  - Fixed mod toggle persistence on disk: disabling a mod atomically renames `.jar` to `.jar.disabled` (and vice-versa when enabling) with retry handling for transient file locks.
+  - Forwarded explicit `pack_id` from Slint through Rust to ensure mod toggle and deletion actions always target the active modpack.
+  - Synced file status and names in `modpacks.json` and linked installations, and rolled back UI state if a file operation fails.
+- **Skin Locker Deletion**:
+  - Fixed skin deletion bugs when deleting the currently active skin or the last preset in the locker.
+- **Wallpaper Management**:
+  - Fixed clearing and resetting of the equipped wallpaper when deleted from the downloadable or custom wallpaper roster.
+
+### Added
+
+- **Wallpaper Upload Formats**:
+  - Added support for custom wallpaper uploads across all standard image formats (`.png`, `.jpg`, `.jpeg`, `.webp`, `.bmp`).
+  - Added ability to delete/hide downloadable wallpapers without requiring them to be downloaded first.
+- **Modpack Creation Icon Palette**:
+  - Integrated 35-block texture palette and custom icon selection into the modpack creation view.
+  - Implemented dynamic upstream version filtering for all loaders (Forge, NeoForge, Fabric, Quilt, Vanilla) to automatically reflect supported Minecraft versions.
+
 ## [4.0.4] - 2026-10-31
 
 ### Fixed

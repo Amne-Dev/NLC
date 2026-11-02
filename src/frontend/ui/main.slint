@@ -522,7 +522,7 @@ export component MainWindow inherits Window {
 
     callback duplicate-installation(string);
 
-    callback create-modpack(string, string, string);
+    callback create-modpack(string, string, string, string);
 
     callback link-modpack(string, string);
 
@@ -534,9 +534,9 @@ export component MainWindow inherits Window {
 
     callback export-modpack();
 
-    callback toggle-mod(string, bool);
+    callback toggle-mod(string, string, bool);
 
-    callback remove-mod(string);
+    callback remove-mod(string, string);
 
     callback installation-selected(string, string);
 
@@ -1043,9 +1043,9 @@ export component MainWindow inherits Window {
 
                             export => { root.export-modpack(); }
 
-                            toggle-mod(id, act) => { root.toggle-mod(id, act); }
+                            toggle-mod(pack-id, fn, act) => { root.toggle-mod(pack-id, fn, act); }
 
-                            remove-mod(id) => { root.remove-mod(id); }
+                            remove-mod(pack-id, fn) => { root.remove-mod(pack-id, fn); }
 
                             add-mod(pack-id) => { root.add-mod(pack-id); }
 
@@ -1061,7 +1061,7 @@ export component MainWindow inherits Window {
 
                             }
 
-                            submit-create(name, loader, ver) => { root.create-modpack(name, loader, ver); }
+                            submit-create(name, loader, ver, icon) => { root.create-modpack(name, loader, ver, icon); }
 
                             link-modpack(pack-id, inst-id) => { root.link-modpack(pack-id, inst-id); }
 

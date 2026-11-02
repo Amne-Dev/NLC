@@ -418,7 +418,17 @@ async fn refresh_wallpapers_roster(agent: &ipc::AgentClient, win_weak: slint::We
                         w.set_current_wallpaper_image(full_img);
                         w.set_has_current_wallpaper(true);
                     }
+                } else {
+                    w.set_has_current_wallpaper(false);
+                    w.set_current_wallpaper_image(slint::Image::default());
                 }
+            }
+        });
+    } else {
+        let _ = slint::invoke_from_event_loop(move || {
+            if let Some(w) = win_for_eq.upgrade() {
+                w.set_has_current_wallpaper(false);
+                w.set_current_wallpaper_image(slint::Image::default());
             }
         });
     }
@@ -4278,10 +4288,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let state = skin_state_del_sk.clone();
         rt_del_sk.spawn(async move {
             if let Some(ref ag) = agent {
-                if std::path::Path::new(&p_str).exists() {
+                let del_res = ag.delete_skin_preset(&p_str).await;
+                if let Ok(res) = del_res {
+                    if res.was_active || !res.active_skin_path.is_empty() {
+                        let new_model = if res.active_skin_model.is_empty() { "classic".to_string() } else { res.active_skin_model };
+                        {
+                            let mut s = state.lock().await;
+                            s.skin_path = if res.active_skin_path.is_empty() { None } else { Some(res.active_skin_path) };
+                            s.model = new_model.clone();
+                        }
+                        let win_inner = win.clone();
+                        let m_ui = new_model.clone();
+                        let _ = slint::invoke_from_event_loop(move || {
+                            if let Some(w) = win_inner.upgrade() {
+                                w.set_locker_model(m_ui.into());
+                            }
+                        });
+                    }
+                } else if std::path::Path::new(&p_str).exists() {
                     let _ = std::fs::remove_file(&p_str);
                 }
                 refresh_locker_presets(ag, win.clone()).await;
+                refresh_accounts_roster(ag, win.clone()).await;
                 trigger_skin_render(ag.clone(), win.clone(), state.clone()).await;
             }
         });
@@ -5288,16 +5316,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let agent_client_create_mp = agent_client.clone();
     let win_weak_create_mp = main_window.as_weak();
     let rt_create_mp = rt.clone();
-    main_window.on_create_modpack(move |name, loader, ver| {
+    main_window.on_create_modpack(move |name, loader, ver, icon| {
         let name_str = name.to_string();
         let loader_str = loader.to_string();
         let ver_str = ver.to_string();
-        println!("[NLC-Rust] Creating modpack: name={}, loader={}, ver={}", name_str, loader_str, ver_str);
+        let icon_str = icon.to_string();
+        println!("[NLC-Rust] Creating modpack: name={}, loader={}, ver={}, icon={}", name_str, loader_str, ver_str, icon_str);
         let agent = agent_client_create_mp.clone();
         let win_weak_inner = win_weak_create_mp.clone();
         rt_create_mp.spawn(async move {
             if let Some(ref agent) = agent {
-                let _ = agent.create_modpack(&name_str, &loader_str, &ver_str).await;
+                let _ = agent.create_modpack(&name_str, &loader_str, &ver_str, &icon_str).await;
                 if let Ok(packs) = agent.list_modpacks().await {
                     let _ = slint::invoke_from_event_loop(move || {
                         if let Some(w) = win_weak_inner.upgrade() {
@@ -5634,14 +5663,25 @@ fn apply_mod_filter(
                                     let mut lock = cached_mods_inner.lock().unwrap();
                                     *lock = mods.clone();
                                 }
+                                let win_mods = win_weak_inner.clone();
                                 let _ = slint::invoke_from_event_loop(move || {
-                                    if let Some(w) = win_weak_inner.upgrade() {
+                                    if let Some(w) = win_mods.upgrade() {
                                         let q = w.get_mod_search_query().to_string();
                                         let s = w.get_mod_filter_status().to_string();
                                         let slint_mods = apply_mod_filter(&mods, &q, &s);
                                         w.set_modpack_mods(std::rc::Rc::new(slint::VecModel::from(slint_mods)).into());
                                     }
                                 });
+                                if let Ok(packs) = agent.list_modpacks().await {
+                                    let win_packs = win_weak_inner.clone();
+                                    let _ = slint::invoke_from_event_loop(move || {
+                                        if let Some(w) = win_packs.upgrade() {
+                                            let slint_packs: Vec<ModpackData> = packs.iter().map(map_modpack).collect();
+                                            sync_modrinth_destinations(&w, &slint_packs);
+                                            w.set_modpacks(std::rc::Rc::new(slint::VecModel::from(slint_packs)).into());
+                                        }
+                                    });
+                                }
                             }
                         }
                     }
@@ -5673,34 +5713,55 @@ fn apply_mod_filter(
     let win_weak_toggle = main_window.as_weak();
     let rt_toggle = rt.clone();
     let cached_mods_toggle = cached_mods_state.clone();
-    main_window.on_toggle_mod(move |mod_id, enabled| {
+    main_window.on_toggle_mod(move |pack_id, mod_id, enabled| {
+        let pack_str = pack_id.to_string();
         let mod_str = mod_id.to_string();
-        println!("[NLC-Rust] Toggling mod {} -> {}", mod_str, enabled);
+        println!("[NLC-Rust] Toggling mod {} in pack {} -> {}", mod_str, pack_str, enabled);
         let agent = agent_client_toggle.clone();
         let win_weak_inner = win_weak_toggle.clone();
         let cached_mods_inner = cached_mods_toggle.clone();
         rt_toggle.spawn(async move {
-            let active_pack = if let Some(w) = win_weak_inner.upgrade() {
+            let active_pack = if !pack_str.is_empty() {
+                pack_str
+            } else if let Some(w) = win_weak_inner.upgrade() {
                 let p = w.get_active_modpack_id().to_string();
                 if p.is_empty() { "fabulously-optimized".to_string() } else { p }
             } else {
                 "fabulously-optimized".to_string()
             };
             if let Some(ref agent) = agent {
-                let _ = agent.toggle_pack_mod(&active_pack, &mod_str, enabled).await;
+                match agent.toggle_pack_mod(&active_pack, &mod_str, enabled).await {
+                    Ok(success) => {
+                        println!("[NLC-Rust] Toggle mod result: {}", success);
+                    }
+                    Err(e) => {
+                        eprintln!("[NLC-Rust] Failed to toggle mod {}: {:?}", mod_str, e);
+                    }
+                }
                 if let Ok(mods) = agent.list_pack_mods(&active_pack).await {
                     {
                         let mut lock = cached_mods_inner.lock().unwrap();
                         *lock = mods.clone();
                     }
+                    let win_mods = win_weak_inner.clone();
                     let _ = slint::invoke_from_event_loop(move || {
-                        if let Some(w) = win_weak_inner.upgrade() {
+                        if let Some(w) = win_mods.upgrade() {
                             let q = w.get_mod_search_query().to_string();
                             let s = w.get_mod_filter_status().to_string();
                             let slint_mods = apply_mod_filter(&mods, &q, &s);
                             w.set_modpack_mods(std::rc::Rc::new(slint::VecModel::from(slint_mods)).into());
                         }
                     });
+                    if let Ok(packs) = agent.list_modpacks().await {
+                        let win_packs = win_weak_inner.clone();
+                        let _ = slint::invoke_from_event_loop(move || {
+                            if let Some(w) = win_packs.upgrade() {
+                                let slint_packs: Vec<ModpackData> = packs.iter().map(map_modpack).collect();
+                                sync_modrinth_destinations(&w, &slint_packs);
+                                w.set_modpacks(std::rc::Rc::new(slint::VecModel::from(slint_packs)).into());
+                            }
+                        });
+                    }
                 }
             }
         });
@@ -5710,14 +5771,17 @@ fn apply_mod_filter(
     let win_weak_rm = main_window.as_weak();
     let rt_rm = rt.clone();
     let cached_mods_rm = cached_mods_state.clone();
-    main_window.on_remove_mod(move |mod_id| {
+    main_window.on_remove_mod(move |pack_id, mod_id| {
+        let pack_str = pack_id.to_string();
         let mod_str = mod_id.to_string();
-        println!("[NLC-Rust] Mod removal requested: {}", mod_str);
+        println!("[NLC-Rust] Mod removal requested: {} in pack {}", mod_str, pack_str);
         let agent = agent_client_rm.clone();
         let win_weak_inner = win_weak_rm.clone();
         let cached_mods_inner = cached_mods_rm.clone();
         rt_rm.spawn(async move {
-            let active_pack = if let Some(w) = win_weak_inner.upgrade() {
+            let active_pack = if !pack_str.is_empty() {
+                pack_str
+            } else if let Some(w) = win_weak_inner.upgrade() {
                 let p = w.get_active_modpack_id().to_string();
                 if p.is_empty() { "fabulously-optimized".to_string() } else { p }
             } else {
@@ -5730,14 +5794,25 @@ fn apply_mod_filter(
                         let mut lock = cached_mods_inner.lock().unwrap();
                         *lock = mods.clone();
                     }
+                    let win_mods = win_weak_inner.clone();
                     let _ = slint::invoke_from_event_loop(move || {
-                        if let Some(w) = win_weak_inner.upgrade() {
+                        if let Some(w) = win_mods.upgrade() {
                             let q = w.get_mod_search_query().to_string();
                             let s = w.get_mod_filter_status().to_string();
                             let slint_mods = apply_mod_filter(&mods, &q, &s);
                             w.set_modpack_mods(std::rc::Rc::new(slint::VecModel::from(slint_mods)).into());
                         }
                     });
+                    if let Ok(packs) = agent.list_modpacks().await {
+                        let win_packs = win_weak_inner.clone();
+                        let _ = slint::invoke_from_event_loop(move || {
+                            if let Some(w) = win_packs.upgrade() {
+                                let slint_packs: Vec<ModpackData> = packs.iter().map(map_modpack).collect();
+                                sync_modrinth_destinations(&w, &slint_packs);
+                                w.set_modpacks(std::rc::Rc::new(slint::VecModel::from(slint_packs)).into());
+                            }
+                        });
+                    }
                 }
             }
         });
@@ -6994,7 +7069,13 @@ fn apply_mod_filter(
                     let _ = slint::invoke_from_event_loop(move || {
                         if let Some(w) = win_weak_inner.upgrade() {
                             if !versions.is_empty() {
-                                w.set_available_versions(std::rc::Rc::new(slint::VecModel::from(versions)).into());
+                                w.set_available_versions(std::rc::Rc::new(slint::VecModel::from(versions.clone())).into());
+                                let cur_mp_ver = w.get_modpack_version().to_string();
+                                if !versions.iter().any(|v| v.as_str() == cur_mp_ver) {
+                                    if let Some(first) = versions.first() {
+                                        w.set_modpack_version(first.clone());
+                                    }
+                                }
                             }
                             w.set_version_fetch_status(format!("Found {} {} versions", count, loader_str).into());
                         }
