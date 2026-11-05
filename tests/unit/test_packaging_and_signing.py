@@ -27,6 +27,7 @@ from build_installers import (
     build_signtool_command,
     find_signtool,
     get_signing_config,
+    mask_command_secrets,
     sign_binary,
 )
 
@@ -368,7 +369,22 @@ def test_sign_binary_dry_run_mode(monkeypatch, tmp_path, capsys):
     assert "sign" in captured.out
     assert "/fd SHA256" in captured.out
     assert "/f C:/certs/test.pfx" in captured.out
-    assert "/p secret_pass" in captured.out
+    assert "/p ********" in captured.out
+    assert "secret_pass" not in captured.out
+
+
+def test_mask_command_secrets():
+    cmd = ["signtool.exe", "sign", "/f", "cert.pfx", "/p", "MySuperSecret123", "app.exe"]
+    masked = mask_command_secrets(cmd)
+    assert "MySuperSecret123" not in masked
+    assert "/p ********" in masked
+
+    cmd_flags = ["tool", "--password", "admin123", "-p", "pass456", "/password", "pass789"]
+    masked_flags = mask_command_secrets(cmd_flags)
+    assert "admin123" not in masked_flags
+    assert "pass456" not in masked_flags
+    assert "pass789" not in masked_flags
+    assert "--password ********" in masked_flags
 
 
 # ---------------------------------------------------------------------------

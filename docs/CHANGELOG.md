@@ -34,8 +34,11 @@ All notable changes to this project will be documented in this file.
   - Fixed Windows startup window state to ensure the frameless launcher reliably launches maximized.
 - **Settings Launcher Updates Status**:
   - Fixed hardcoded "Checking for updates..." title in the Settings About category, dynamically displaying current update status ("Up to Date", "Update Available").
-- **CodeQL Security Hardening & Safe Logging (CWE-312 / CWE-532)**:
+- **CodeQL Security Hardening & Safe Logging (CWE-312 / CWE-532 / CWE-20)**:
   - Eliminated cleartext logging of sensitive credentials, authentication tokens, ciphertext slices, and network exception payloads across backend subsystems (`capes.py`, `vault.py`, `agent.py`, `elyby_auth.py`, `ms_auth.py`).
+  - Redacted sensitive account tokens and credential payloads from Rust frontend debug logs (`src/frontend/src/main.rs`) during account selection and removal flows.
+  - Implemented command secret masking (`mask_command_secrets`) in Windows installer packaging (`packaging/windows/build_installers.py`), preventing certificate passwords (`/p`) from leaking to console and CI build logs in dry-run and execution outputs.
+  - Resolved CodeQL `py/incomplete-url-substring-sanitization` in `tests/unit/test_custom_msa_auth.py` by parsing Microsoft OAuth redirect URIs using `urllib.parse.urlparse` to strictly assert network location authority and path hierarchy.
   - Removed token references from `upload_mojang_skin` warnings.
   - Replaced ciphertext prefix slicing in `vault_decrypt` with safe length-only logging, preventing raw token or credential leaks into logs when encountering unrecognized formats.
   - Sanitized exception handlers during Ely.by authentication and Microsoft OAuth token polling, ensuring raw HTTP request payloads (passwords, device codes) are never exposed.

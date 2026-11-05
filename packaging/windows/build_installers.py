@@ -26,9 +26,24 @@ for p in (str(REPO_ROOT), str(BACKEND_DIR)):
 from nlc.version import get_version
 
 
+def mask_command_secrets(cmd: list[str]) -> str:
+    """Formats a command list for display/logging, redacting sensitive arguments like passwords."""
+    safe = []
+    mask_next = False
+    for token in cmd:
+        if mask_next:
+            safe.append("********")
+            mask_next = False
+        else:
+            safe.append(token)
+            if token.lower() in ("/p", "-p", "--password", "/password"):
+                mask_next = True
+    return " ".join(safe)
+
+
 def run_cmd(cmd: list[str], cwd: Path, desc: str) -> None:
     print(f"\n[*] {desc}...")
-    print(f"    Running: {' '.join(cmd)}")
+    print(f"    Running: {mask_command_secrets(cmd)}")
     result = subprocess.run(cmd, cwd=str(cwd))
     if result.returncode != 0:
         print(f"[-] FAILED: {desc} exited with code {result.returncode}", file=sys.stderr)
@@ -167,7 +182,7 @@ def sign_binary(
 
     print(f"\n[*] Authenticode signing: {target_path.name}...")
     if dry_run or os.environ.get("SIGN_DRY_RUN") == "1":
-        print(f"    [DRY RUN] Would run: {' '.join(cmd)}")
+        print(f"    [DRY RUN] Would run: {mask_command_secrets(cmd)}")
         return True
 
     res = subprocess.run(cmd)

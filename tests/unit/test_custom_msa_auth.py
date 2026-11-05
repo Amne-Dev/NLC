@@ -1,4 +1,5 @@
 import os
+from urllib.parse import urlparse
 import pytest
 from unittest.mock import patch, MagicMock
 from nlc.net.ms_auth import (
@@ -65,7 +66,9 @@ def test_get_msa_client_id_resolution(monkeypatch, tmp_path):
 
 def test_redirect_uri_matches_client():
     uri = get_msa_redirect_uri()
-    assert "ms-auth.minecraftservices.com" in uri or "nativeclient" in uri
+    parsed = urlparse(uri)
+    assert parsed.scheme in ("https", "http")
+    assert parsed.netloc in {"login.microsoftonline.com", "ms-auth.minecraftservices.com"} or parsed.path.endswith("nativeclient")
 
 
 def test_microsoft_device_auth_initializes_with_resolved_client_id(monkeypatch):

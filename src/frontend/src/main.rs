@@ -5174,8 +5174,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     index: Some(idx_val),
                     username: Some(name_str.clone()),
                 };
-                if let Ok(res) = agent.select_account(req).await {
-                    println!("[NLC-Rust] Account selected: {:?}", res);
+                if let Ok(_res) = agent.select_account(req).await {
+                    println!("[NLC-Rust] Account selected successfully");
                     let _ = agent.set_config(serde_json::json!({ "username": name_str.clone(), "default_offline_name": name_str.clone() })).await;
                     refresh_accounts_roster(agent, win_weak_inner.clone()).await;
 
@@ -5215,7 +5215,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         rt_acct_rm.spawn(async move {
             if let Some(ref agent) = agent {
                 let res = agent.remove_account_by_target(Some(idx_val), Some(&name_str), Some(&id_str)).await;
-                println!("[NLC-Rust] Account removed: {:?}", res);
+                match res {
+                    Ok(_) => println!("[NLC-Rust] Account removed successfully"),
+                    Err(ref e) => eprintln!("[NLC-Rust] Account removal failed: {:?}", e),
+                }
                 refresh_accounts_roster(agent, win_weak).await;
             }
         });
