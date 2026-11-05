@@ -5535,11 +5535,18 @@ def handle_system_apply_update(payload: Optional[Dict[str, Any]] = None) -> Dict
                 subprocess.Popen([str(target_path)], start_new_session=True)
                 return {"status": "success", "message": "AppImage updated and restarted"}
 
-            # If not installed as an AppImage, guide user to package manager or install script
+            # If not installed as an AppImage, open download page in browser and guide user to package manager or install script
+            target_url = download_url or "https://github.com/Amne-Dev/NLC/releases/latest"
+            try:
+                import webbrowser
+                webbrowser.open(target_url)
+            except Exception:
+                pass
             return {
                 "status": "success",
                 "message": "To complete update on Linux, please run:\ncurl -fsSL https://raw.githubusercontent.com/Amne-Dev/NLC/main/packaging/linux/install.sh | bash",
-                "manual_command": "curl -fsSL https://raw.githubusercontent.com/Amne-Dev/NLC/main/packaging/linux/install.sh | bash"
+                "manual_command": "curl -fsSL https://raw.githubusercontent.com/Amne-Dev/NLC/main/packaging/linux/install.sh | bash",
+                "browser": True,
             }
 
         # 2. Windows Updater / Setup flow

@@ -47,6 +47,8 @@ All notable changes to this project will be documented in this file.
 - **Codebase Cleanup & Dead Import Removal**:
   - Pruned 15 residual unused imports and unreferenced type hints across `src/backend/agent.py` and `src/backend/nlc/` (`cdc_engine.py`, `instances.py`, `launch.py`, `skins.py`, `skin_renderer.py`, `system_info.py`, `mod_icons.py`, `lock.py`).
   - Verified dependency graphs against all CI/CD workflows, PyInstaller packaging specs, and test suites with 0 functional regressions across all 388 unit test cases.
+- **Linux Updater Browser Fallback Parity**:
+  - Harmonized Linux updater behavior when running unbundled or unpackaged builds: opens the release download page in the default web browser and marks `"browser": True`, while continuing to supply the terminal installation script command.
 
 ## [4.0.5] - 2026-11-02
 

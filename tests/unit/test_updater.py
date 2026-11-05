@@ -149,15 +149,33 @@ def test_handle_system_check_updates_integration():
     assert "current_version" in res
 
 
-def test_handle_system_apply_update_browser_fallback(monkeypatch):
+def test_handle_system_apply_update_browser_fallback(monkeypatch, tmp_path):
     import agent
     from unittest.mock import MagicMock
 
     mock_open = MagicMock()
     monkeypatch.setattr("webbrowser.open", mock_open)
-    monkeypatch.setattr(agent, "get_launcher_dir", lambda: "C:/non_existent_dir_12345")
+    monkeypatch.setattr(agent, "get_launcher_dir", lambda: str(tmp_path / "non_existent_dir_12345"))
 
     res = agent.handle_system_apply_update({"download_url": "https://github.com/Amne-Dev/NLC/releases/tag/v4.0.5"})
     assert res.get("status") == "success"
     assert res.get("browser") is True
+    assert mock_open.called
+
+
+def test_handle_system_apply_update_linux_browser_fallback(monkeypatch, tmp_path):
+    import sys
+    import agent
+    from unittest.mock import MagicMock
+
+    mock_open = MagicMock()
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.delenv("APPIMAGE", raising=False)
+    monkeypatch.setattr("webbrowser.open", mock_open)
+    monkeypatch.setattr(agent, "get_launcher_dir", lambda: str(tmp_path / "non_existent_dir_linux"))
+
+    res = agent.handle_system_apply_update({"download_url": "https://github.com/Amne-Dev/NLC/releases/tag/v4.0.5"})
+    assert res.get("status") == "success"
+    assert res.get("browser") is True
+    assert "manual_command" in res
     assert mock_open.called
