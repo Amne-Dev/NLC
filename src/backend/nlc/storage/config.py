@@ -77,8 +77,9 @@ def get_default_config() -> Dict[str, Any]:
         "custom_accent": None,
         "animations_enabled": True,
         "enable_walking_mobs": True,
-        "minimize_to_tray": False,
-        "post_launch_action": "Minimise to taskbar",
+        "minimize_to_tray": True,
+        "post_launch_action": "Minimise to tray",
+        "gui_scale": "100%",
         "rpc_enabled": True,
         "streamer_mode": False,
         "instances": {
@@ -207,7 +208,11 @@ class ConfigManager:
             elif data.get("minimize_to_tray"):
                 data["post_launch_action"] = "Minimise to tray"
             else:
-                data["post_launch_action"] = defaults.get("post_launch_action", "Minimise to taskbar")
+                data["post_launch_action"] = defaults.get("post_launch_action", "Minimise to tray")
+            changed = True
+
+        if "gui_scale" not in data or data["gui_scale"] not in ("100%", "125%", "150%"):
+            data["gui_scale"] = defaults.get("gui_scale", "100%")
             changed = True
 
         if data.get("version") != CURRENT_VERSION:
@@ -284,3 +289,7 @@ class ConfigManager:
                 except Exception:
                     pass
             return False
+
+
+def get_config_manager() -> ConfigManager:
+    return ConfigManager()

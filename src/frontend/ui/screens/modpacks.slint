@@ -219,6 +219,7 @@ component ModpackCard {
     horizontal-stretch: 1;
 
     card_bg := Rectangle {
+        clip: true;
         background: card_touch.has-hover ? #181B22 : Theme.card-bg;
         border-width: 1px;
         border-color: card_touch.has-hover ? #383E4E : Theme.border;
@@ -247,6 +248,7 @@ component ModpackCard {
                     spacing: 12px;
                     alignment: start;
                     horizontal-stretch: 1;
+                    min-width: 0px;
 
                     // 44x44 Icon Frame
                     Rectangle {
@@ -282,6 +284,7 @@ component ModpackCard {
                         alignment: center;
                         spacing: 4px;
                         horizontal-stretch: 1;
+                        min-width: 0px;
 
                         Text {
                             text: root.pack.name;
@@ -324,6 +327,7 @@ component ModpackCard {
                                 color: Theme.text-secondary;
                                 font-family: Theme.font-family;
                                 font-size: 10px;
+                                overflow: elide;
                                 vertical-alignment: center;
                             }
 
@@ -906,8 +910,8 @@ export component ModpacksScreen {
     in-out property <string> modpack-title: "Fabulously Optimized";
     in-out property <string> mods-layout: "grid"; // "grid" | "list"
     in-out property <bool> animations-enabled: true;
-    property <int> grid-cols: max(1, min(3, floor((root.width - 48px) / 300px)));
-    property <int> mod-grid-cols: max(1, min(4, floor((root.width - 48px) / 250px)));
+    property <int> grid-cols: max(1, min(3, floor((root.width - 48px) / 440px)));
+    property <int> mod-grid-cols: max(1, min(4, floor((root.width - 48px) / 270px)));
     in-out property <string> mod-filter-status: "all"; // "all" | "active" | "disabled"
     in-out property <string> modpack-loader: "Fabric";
     in-out property <string> modpack-version: "26.3";
@@ -989,21 +993,59 @@ export component ModpacksScreen {
             spacing: 20px;
 
             // Top Bar
-            HorizontalLayout {
-                alignment: space-between;
-
-                Text {
-                    text: "My Modpacks";
-                    color: #FFFFFF;
-                    font-family: Theme.font-family;
-                    font-size: 16px;
-                    font-weight: 700;
-                    vertical-alignment: center;
-                }
+            VerticalLayout {
+                spacing: 10px;
 
                 HorizontalLayout {
-                    spacing: 10px;
-                    alignment: end;
+                    alignment: space-between;
+                    spacing: 12px;
+
+                    Text {
+                        text: "My Modpacks";
+                        color: #FFFFFF;
+                        font-family: Theme.font-family;
+                        font-size: 16px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+
+                    if root.width >= 740px: HorizontalLayout {
+                        spacing: 8px;
+                        alignment: end;
+
+                        PixelButton {
+                            text: "[?] Guide";
+                            custom-font-size: 11px;
+                            clicked => {
+                                root.tutorial-open = true;
+                            }
+                        }
+
+                        PixelButton {
+                            text: "Import CurseForge Pack";
+                            custom-font-size: 11px;
+                            clicked => {
+                                root.import-modal-open = true;
+                                root.import-curseforge();
+                            }
+                        }
+
+                        PixelButton {
+                            text: "+ Create Custom Modpack";
+                            primary: true;
+                            custom-font-size: 11px;
+                            clicked => {
+                                root.view-mode = "create";
+                                root.create-modpack();
+                                root.loader-changed(root.create-loader);
+                            }
+                        }
+                    }
+                }
+
+                if root.width < 740px: HorizontalLayout {
+                    spacing: 8px;
+                    alignment: start;
 
                     PixelButton {
                         text: "[?] Guide";
@@ -1014,7 +1056,7 @@ export component ModpacksScreen {
                     }
 
                     PixelButton {
-                        text: "Import CurseForge Pack";
+                        text: "Import Pack";
                         custom-font-size: 11px;
                         clicked => {
                             root.import-modal-open = true;
@@ -1023,7 +1065,7 @@ export component ModpacksScreen {
                     }
 
                     PixelButton {
-                        text: "+ Create Custom Modpack";
+                        text: "+ Create Modpack";
                         primary: true;
                         custom-font-size: 11px;
                         clicked => {
@@ -1036,30 +1078,33 @@ export component ModpacksScreen {
             }
 
             // Sub-Bar: Modrinth Search & Filter bar for browsing community packs
-            HorizontalLayout {
-                spacing: 12px;
-                alignment: space-between;
+            VerticalLayout {
+                spacing: 8px;
 
                 HorizontalLayout {
-                    spacing: 10px;
                     alignment: start;
 
                     SearchInput {
                         placeholder: "Search Modrinth & community packs...";
-                        preferred-input-width: 260px;
+                        preferred-input-width: 280px;
                         text <=> root.overview-search-query;
                         edited(q) => { root.search-mods(q); }
                     }
+                }
+
+                HorizontalLayout {
+                    spacing: 6px;
+                    alignment: start;
 
                     for l in ["All", "Fabric", "NeoForge", "Forge", "Quilt"]: Rectangle {
-                        height: 26px;
+                        height: 24px;
                         background: root.overview-filter-loader == l ? #252B38 : (f_touch.has-hover ? #20242D : #16181E);
                         border-width: 1px;
                         border-color: root.overview-filter-loader == l ? Theme.accent : #2D313A;
 
                         HorizontalLayout {
-                            padding-left: 10px;
-                            padding-right: 10px;
+                            padding-left: 8px;
+                            padding-right: 8px;
                             Text {
                                 text: l;
                                 color: root.overview-filter-loader == l ? #FFFFFF : #A0A5B5;
@@ -1085,9 +1130,11 @@ export component ModpacksScreen {
             Flickable {
                 interactive: true;
                 vertical-stretch: 1;
+                content-width: self.width;
                 content-height: max(160px, (ceil(root.modpacks.length / root.grid-cols)) * 166px + 24px);
 
                 GridLayout {
+                    width: 100%;
                     spacing: 12px;
                     padding-bottom: 24px;
 
@@ -1802,6 +1849,7 @@ export component ModpacksScreen {
             Flickable {
                 interactive: true;
                 vertical-stretch: 1;
+                content-width: self.width;
                 content-height: max(200px, root.mods-layout == "grid" ?
                     ((ceil(root.mods.length / root.mod-grid-cols)) * 142px + 24px) :
                     (root.mods.length * 54px + 24px));

@@ -1875,320 +1875,36 @@ HorizontalLayout {
                                     }
                                 }
 
-                                // Mini Launcher Frame
+                                // Authentic Launcher Screenshot Preview Box
                                 Rectangle {
-                                    height: 236px;
-                                    background: root.selected-theme == "obsidian" ? #0D1016 : (root.selected-theme == "slate" ? #141820 : (root.selected-theme == "catppuccin" ? #1E1E2E : (root.selected-theme == "nord" ? #242933 : (root.selected-theme == "dracula" ? #282A36 : #162119))));
+                                    height: 240px;
+                                    background: #0E1015;
                                     border-width: 1px;
                                     border-color: #2A3245;
+                                    clip: true;
 
-                                    VerticalLayout {
-                                        spacing: 0px;
+                                    // Base Theme Screenshot
+                                    Image {
+                                        source: root.selected-theme == "slate" ? @image-url("../../../assets/onboarding/preview_slate.png") :
+                                                root.selected-theme == "catppuccin" ? @image-url("../../../assets/onboarding/preview_catppuccin.png") :
+                                                root.selected-theme == "nord" ? @image-url("../../../assets/onboarding/preview_nord.png") :
+                                                root.selected-theme == "dracula" ? @image-url("../../../assets/onboarding/preview_dracula.png") :
+                                                root.selected-theme == "emerald" ? @image-url("../../../assets/onboarding/preview_emerald.png") :
+                                                @image-url("../../../assets/onboarding/preview_obsidian.png");
+                                        width: 100%;
+                                        height: 100%;
+                                        image-fit: contain;
+                                    }
 
-                                        // Mini Titlebar
-                                        Rectangle {
-                                            height: 24px;
-                                            background: #090B0F;
-
-                                            Rectangle {
-                                                y: parent.height - 1px;
-                                                height: 1px;
-                                                width: 100%;
-                                                background: #1C2230;
-                                            }
-
-                                            HorizontalLayout {
-                                                padding-left: 8px;
-                                                padding-right: 8px;
-                                                alignment: space-between;
-
-                                                HorizontalLayout {
-                                                    spacing: 6px;
-                                                    alignment: start;
-                                                    Text {
-                                                        text: "NLC";
-                                                        color: Theme.accent;
-                                                        font-family: Theme.font-family-mono;
-                                                        font-size: 9px;
-                                                        font-weight: 700;
-                                                        vertical-alignment: center;
-                                                    }
-                                                    Text {
-                                                        text: "NY-LUNA CORE";
-                                                        color: #A0B0C8;
-                                                        font-family: Theme.font-family;
-                                                        font-size: 9px;
-                                                        vertical-alignment: center;
-                                                    }
-                                                }
-
-                                                HorizontalLayout {
-                                                    spacing: 6px;
-                                                    alignment: end;
-                                                    Rectangle { width: 6px; height: 1px; y: (parent.height - self.height) / 2; background: #606C84; }
-                                                    Rectangle { width: 6px; height: 6px; y: (parent.height - self.height) / 2; border-width: 1px; border-color: #606C84; }
-                                                    Rectangle { width: 6px; height: 6px; y: (parent.height - self.height) / 2; background: #E74C3C; }
-                                                }
-                                            }
-                                        }
-
-                                        // Mini Window Body: Mini Sidebar + Mini Content Area
-                                        HorizontalLayout {
-                                            height: 168px;
-                                            spacing: 0px;
-
-                                            // Mini Sidebar (54px)
-                                            Rectangle {
-                                                width: 54px;
-                                                background: #0B0E14;
-
-                                                Rectangle {
-                                                    x: parent.width - 1px;
-                                                    width: 1px;
-                                                    height: 100%;
-                                                    background: #1A202E;
-                                                }
-
-                                                VerticalLayout {
-                                                    padding-top: 6px;
-                                                    padding-bottom: 6px;
-                                                    spacing: 3px;
-
-                                                    // Active PLAY Tab
-                                                    Rectangle {
-                                                        height: 22px;
-                                                        background: #151A24;
-
-                                                        Rectangle {
-                                                            x: 0px;
-                                                            width: 2px;
-                                                            height: 100%;
-                                                            background: Theme.accent;
-                                                        }
-
-                                                        Text {
-                                                            text: "▶ PLAY";
-                                                            color: Theme.accent;
-                                                            font-family: Theme.font-family-mono;
-                                                            font-size: 8px;
-                                                            font-weight: 700;
-                                                            horizontal-alignment: center;
-                                                            vertical-alignment: center;
-                                                        }
-                                                    }
-
-                                                    // Inactive Tab: INSTALLS
-                                                    Rectangle {
-                                                        height: 18px;
-                                                        Text {
-                                                            text: "INSTALLS";
-                                                            color: #606C84;
-                                                            font-family: Theme.font-family-mono;
-                                                            font-size: 7px;
-                                                            horizontal-alignment: center;
-                                                            vertical-alignment: center;
-                                                        }
-                                                    }
-
-                                                    // Inactive Tab: MODPACKS
-                                                    Rectangle {
-                                                        height: 18px;
-                                                        Text {
-                                                            text: "MODPACKS";
-                                                            color: #606C84;
-                                                            font-family: Theme.font-family-mono;
-                                                            font-size: 7px;
-                                                            horizontal-alignment: center;
-                                                            vertical-alignment: center;
-                                                        }
-                                                    }
-
-                                                    // Inactive Tab: MODRINTH
-                                                    Rectangle {
-                                                        height: 18px;
-                                                        Text {
-                                                            text: "MODRINTH";
-                                                            color: #606C84;
-                                                            font-family: Theme.font-family-mono;
-                                                            font-size: 7px;
-                                                            horizontal-alignment: center;
-                                                            vertical-alignment: center;
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            // Mini Main Workspace: Instance Card + Badges
-                                            VerticalLayout {
-                                                padding: 8px;
-                                                spacing: 6px;
-                                                alignment: center;
-
-                                                Rectangle {
-                                                    height: 56px;
-                                                    background: #161B26;
-                                                    border-width: 1px;
-                                                    border-color: Theme.accent;
-
-                                                    HorizontalLayout {
-                                                        padding-left: 8px;
-                                                        padding-right: 8px;
-                                                        spacing: 8px;
-                                                        alignment: space-between;
-                                                        y: (parent.height - self.height) / 2;
-
-                                                        HorizontalLayout {
-                                                            spacing: 8px;
-                                                            Rectangle {
-                                                                width: 32px;
-                                                                height: 32px;
-                                                                background: #0E121A;
-                                                                border-width: 1px;
-                                                                border-color: Theme.accent;
-                                                                y: (parent.height - self.height) / 2;
-
-                                                                Text {
-                                                                    text: "MC";
-                                                                    color: Theme.accent;
-                                                                    font-family: Theme.font-family-mono;
-                                                                    font-size: 11px;
-                                                                    font-weight: 700;
-                                                                    horizontal-alignment: center;
-                                                                    vertical-alignment: center;
-                                                                }
-                                                            }
-
-                                                            VerticalLayout {
-                                                                spacing: 2px;
-                                                                alignment: center;
-                                                                Text {
-                                                                    text: "Default Profile";
-                                                                    color: #FFFFFF;
-                                                                    font-family: Theme.font-family;
-                                                                    font-size: 11px;
-                                                                    font-weight: 700;
-                                                                }
-                                                                Text {
-                                                                    text: "Vanilla 1.21.4  •  " + (root.selected-ram-mb / 1024) + " GB";
-                                                                    color: #8C99B0;
-                                                                    font-family: Theme.font-family;
-                                                                    font-size: 9px;
-                                                                }
-                                                            }
-                                                        }
-
-                                                        Rectangle {
-                                                            width: 44px;
-                                                            height: 18px;
-                                                            background: #2ECC7122;
-                                                            border-width: 1px;
-                                                            border-color: #2ECC71;
-                                                            y: (parent.height - self.height) / 2;
-
-                                                            Text {
-                                                                text: "READY";
-                                                                color: #2ECC71;
-                                                                font-family: Theme.font-family-mono;
-                                                                font-size: 8px;
-                                                                font-weight: 700;
-                                                                horizontal-alignment: center;
-                                                                vertical-alignment: center;
-                                                            }
-                                                        }
-                                                    }
-                                                }
-
-                                                // Mini Badges Row
-                                                HorizontalLayout {
-                                                    spacing: 6px;
-                                                    Rectangle {
-                                                        height: 18px;
-                                                        background: #111520;
-                                                        border-width: 1px;
-                                                        border-color: Theme.accent;
-                                                        HorizontalLayout {
-                                                            padding-left: 6px;
-                                                            padding-right: 6px;
-                                                            alignment: center;
-                                                            Text {
-                                                                text: "ACCENT: " + root.custom-accent-hex;
-                                                                color: Theme.accent;
-                                                                font-family: Theme.font-family-mono;
-                                                                font-size: 8px;
-                                                                font-weight: 700;
-                                                                vertical-alignment: center;
-                                                            }
-                                                        }
-                                                    }
-                                                    Rectangle {
-                                                        width: 76px;
-                                                        height: 18px;
-                                                        background: #111520;
-                                                        border-width: 1px;
-                                                        border-color: #2A3245;
-                                                        HorizontalLayout {
-                                                            alignment: center;
-                                                            Text {
-                                                                text: "FPS BOOST: ON";
-                                                                color: #2ECC71;
-                                                                font-family: Theme.font-family-mono;
-                                                                font-size: 8px;
-                                                                vertical-alignment: center;
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        // Mini Bottom Bar: Launch control bar
-                                        Rectangle {
-                                            height: 44px;
-                                            background: #0E1118;
-
-                                            Rectangle {
-                                                y: 0px;
-                                                height: 1px;
-                                                width: 100%;
-                                                background: #1D2332;
-                                            }
-
-                                            HorizontalLayout {
-                                                padding-left: 10px;
-                                                padding-right: 10px;
-                                                alignment: space-between;
-
-                                                Text {
-                                                    text: "● Ready to Launch";
-                                                    color: #8C99B0;
-                                                    font-family: Theme.font-family-mono;
-                                                    font-size: 9px;
-                                                    vertical-alignment: center;
-                                                }
-
-                                                // Glowing Launch Button
-                                                Rectangle {
-                                                    width: 96px;
-                                                    height: 28px;
-                                                    background: Theme.accent;
-                                                    y: (parent.height - self.height) / 2;
-
-                                                    Text {
-                                                        text: "PLAY NOW";
-                                                        color: #0A0C10;
-                                                        font-family: Theme.font-family;
-                                                        font-size: 10px;
-                                                        font-weight: 700;
-                                                        horizontal-alignment: center;
-                                                        vertical-alignment: center;
-                                                    }
-                                                }
-                                            }
-                                        }
+                                    // Dynamic Live Accent Tint Mask
+                                    Image {
+                                        source: @image-url("../../../assets/onboarding/preview_accent_mask.png");
+                                        width: 100%;
+                                        height: 100%;
+                                        image-fit: contain;
+                                        colorize: Theme.accent;
                                     }
                                 }
-
-
                             }
                         }
                     }

@@ -168,22 +168,34 @@ export component Sidebar {
     callback create-account(string);
 
     width: Theme.sidebar-width;
+    height: 100%;
 
     Rectangle {
+        width: 100%;
+        height: 100%;
         background: Theme.sidebar-bg;
 
         // Right border line
         Rectangle {
             x: parent.width - 1px;
             width: 1px;
+            height: 100%;
             background: Theme.border-subtle;
         }
 
-        VerticalLayout {
-            padding: 8px;
-            spacing: 4px;
+        // --- 1. Top Scrollable Navigation Area (Stretches to fill space down to bottom-dock) ---
+        Flickable {
+            x: 8px;
+            y: 8px;
+            width: parent.width - 16px;
+            height: parent.height - 16px - bottom-dock.height;
+            interactive: true;
 
-            // --- Top Account Capsule (Sharp 0px) ---
+                VerticalLayout {
+                    spacing: 4px;
+                    padding-bottom: 6px;
+
+                    // --- Top Account Capsule (Sharp 0px) ---
             Rectangle {
                 height: 52px;
                 background: profile-touch.has-hover ? Theme.sidebar-hover : transparent;
@@ -675,18 +687,28 @@ export component Sidebar {
                 }
             }
 
-            // Expands to push bottom dock down
-            Rectangle {
-                vertical-stretch: 1;
+                }
             }
 
-            // --- Bottom Dock Area ---
+        // --- 2. Bottom Dock Area (Anchored directly to bottom of sidebar) ---
+        bottom-dock := Rectangle {
+            x: 8px;
+            y: parent.height - self.height - 8px;
+            width: parent.width - 16px;
+            height: 168px;
+
             Rectangle {
+                x: 0px;
+                y: 0px;
+                width: parent.width;
                 height: 1px;
                 background: Theme.border-subtle;
             }
 
             VerticalLayout {
+                y: 6px;
+                width: parent.width;
+                height: parent.height - 6px;
                 spacing: 2px;
 
                 NavItem {

@@ -1052,6 +1052,15 @@ fn sync_settings_to_ui(cfg: &ipc::LauncherConfig, win: &MainWindow) {
     if let Some(tray) = cfg.extra.get("minimize_to_tray").and_then(|v| v.as_bool()) {
         win.set_minimize_to_tray(tray);
     }
+    let scale_str = cfg.gui_scale.as_deref()
+        .or_else(|| cfg.extra.get("gui_scale").and_then(|v| v.as_str()))
+        .unwrap_or("100%");
+    let current_scale = win.get_gui_scale();
+    if current_scale.as_str() != scale_str {
+        win.set_gui_scale(scale_str.into());
+        let scale_factor = ipc::parse_gui_scale(scale_str);
+        apply_gui_scale_to_window(&win, scale_factor);
+    }
     if let Some(console) = cfg.extra.get("keep_console_open").and_then(|v| v.as_bool()) {
         win.set_keep_console_open(console);
     }
@@ -1105,6 +1114,23 @@ fn sync_settings_to_ui(cfg: &ipc::LauncherConfig, win: &MainWindow) {
     }
     if let Some(off) = cfg.extra.get("default_offline_name").and_then(|v| v.as_str()) {
         win.set_default_offline_name(off.into());
+    }
+    let msa_prov = if let Some(p) = cfg.extra.get("msa_auth_provider").and_then(|v| v.as_str()) {
+        if p == "Default (NLC)" { "Default(NLC)".to_string() } else { p.to_string() }
+    } else if let Some(msa) = cfg.extra.get("msa_client_id").and_then(|v| v.as_str()) {
+        if msa.is_empty() || msa == "9d6a0dfb-42b0-46a4-a904-1d4557409da7" {
+            "Default(NLC)".to_string()
+        } else if msa == "c36a9fb6-4f2a-41ff-90bd-ae7cc92031eb" {
+            "Prism".to_string()
+        } else {
+            "Custom".to_string()
+        }
+    } else {
+        "Default(NLC)".to_string()
+    };
+    win.set_msa_auth_provider(msa_prov.into());
+    if let Some(msa) = cfg.extra.get("msa_client_id").and_then(|v| v.as_str()) {
+        win.set_msa_client_id(msa.into());
     }
 }
 
@@ -2463,7 +2489,41 @@ mod win32 {
         pub fn SetWindowPos(hWnd: isize, hWndInsertAfter: isize, X: i32, Y: i32, cx: i32, cy: i32, uFlags: u32) -> i32;
         pub fn ShowWindow(hWnd: isize, nCmdShow: i32) -> i32;
         pub fn EnumWindows(lpEnumFunc: unsafe extern "system" fn(isize, isize) -> i32, lParam: isize) -> i32;
-        pub fn GetWindowTextLengthW(hWnd: isize) -> i32;
+        #[allow(dead_code)]
+pub fn GetWindowTextLengthW(hWnd: isize) -> i32;
+        pub fn GetWindowTextW(hWnd: isize, lpString: *mut u16, nMaxCount: i32) -> i32;
+        pub fn GetClassNameW(hWnd: isize, lpClassName: *mut u16, nMaxCount: i32) -> i32;
+        pub fn IsWindowVisible(hWnd: isize) -> i32;
+        #[allow(dead_code)]
+        pub fn IsZoomed(hWnd: isize) -> i32;
+        pub fn SystemParametersInfoW(uiAction: u32, uiParam: u32, pvParam: *mut std::ffi::c_void, fWinIni: u32) -> i32;
+        pub fn GetSystemMetrics(nIndex: i32) -> i32;
+    }
+
+    #[repr(C)]
+    struct RECT {
+        left: i32,
+        top: i32,
+        right: i32,
+        bottom: i32,
+    }
+
+    pub fn get_desktop_work_area() -> (u32, u32) {
+        unsafe {
+            let mut rect = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+            const SPI_GETWORKAREA: u32 = 0x0030;
+            if SystemParametersInfoW(SPI_GETWORKAREA, 0, &mut rect as *mut _ as *mut std::ffi::c_void, 0) != 0 {
+                let width = (rect.right - rect.left).max(800) as u32;
+                let height = (rect.bottom - rect.top).max(600) as u32;
+                return (width, height);
+            }
+            let sm_cx = GetSystemMetrics(0); // SM_CXSCREEN
+            let sm_cy = GetSystemMetrics(1); // SM_CYSCREEN
+            if sm_cx > 0 && sm_cy > 0 {
+                return (sm_cx as u32, sm_cy as u32);
+            }
+        }
+        (1920, 1040)
     }
     #[link(name = "kernel32")]
     extern "system" {
@@ -2482,12 +2542,32 @@ mod win32 {
         GetWindowThreadProcessId(hwnd, &mut pid);
         if pid == GetCurrentProcessId() {
             let state = &mut *(lparam as *mut EnumState);
-            if state.hwnd_any == 0 {
+
+            let mut class_buf = [0u16; 64];
+            let class_len = GetClassNameW(hwnd, class_buf.as_mut_ptr(), 64);
+            let class_name = if class_len > 0 {
+                String::from_utf16_lossy(&class_buf[..class_len as usize])
+            } else {
+                String::new()
+            };
+
+            // Skip OpenGL Pbuffers, IME windows, and hidden message target windows
+            if class_name.contains("NVOpenGL") || class_name.contains("IME") || class_name.contains("Winit Thread") {
+                return 1;
+            }
+
+            if state.hwnd_any == 0 && IsWindowVisible(hwnd) != 0 {
                 state.hwnd_any = hwnd;
             }
-            if GetWindowTextLengthW(hwnd) > 0 {
-                state.hwnd_with_title = hwnd;
-                return 0; // Found main window with non-empty title; stop enum
+
+            let mut title_buf = [0u16; 128];
+            let title_len = GetWindowTextW(hwnd, title_buf.as_mut_ptr(), 128);
+            if title_len > 0 {
+                let title = String::from_utf16_lossy(&title_buf[..title_len as usize]);
+                if title.contains("Ny-Luna") || title.contains("New Launcher") {
+                    state.hwnd_with_title = hwnd;
+                    return 0; // Exactly found the launcher window!
+                }
             }
         }
         1
@@ -2507,6 +2587,36 @@ mod win32 {
         use std::os::windows::ffi::OsStrExt;
         let wide: Vec<u16> = std::ffi::OsStr::new(fallback_title).encode_wide().chain(std::iter::once(0)).collect();
         unsafe { FindWindowW(std::ptr::null(), wide.as_ptr()) }
+    }
+
+    #[allow(dead_code)]
+    pub fn is_maximized() -> bool {
+        let hwnd = find_launcher_hwnd("Ny-Luna");
+        if hwnd != 0 {
+            unsafe { IsZoomed(hwnd) != 0 }
+        } else {
+            false
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn maximize_window() {
+        let hwnd = find_launcher_hwnd("Ny-Luna");
+        if hwnd != 0 {
+            unsafe {
+                ShowWindow(hwnd, 3); // SW_MAXIMIZE
+            }
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn restore_window() {
+        let hwnd = find_launcher_hwnd("Ny-Luna");
+        if hwnd != 0 {
+            unsafe {
+                ShowWindow(hwnd, 9); // SW_RESTORE
+            }
+        }
     }
 
     pub fn refocus_window(title: &str) {
@@ -2539,7 +2649,46 @@ mod win32 {
 
 #[cfg(not(target_os = "windows"))]
 mod win32 {
+    pub fn is_maximized() -> bool { false }
+    pub fn maximize_window() {}
+    pub fn restore_window() {}
     pub fn refocus_window(_title: &str) {}
+    pub fn get_desktop_work_area() -> (u32, u32) { (1920, 1040) }
+}
+
+#[allow(dead_code)]
+pub fn compute_target_window_size(factor: f32) -> (u32, u32) {
+    let (work_w, work_h) = win32::get_desktop_work_area();
+    let max_w = work_w.saturating_sub(40).max(1080);
+    let max_h = work_h.saturating_sub(60).max(720);
+
+    let target_w = (1080.0 * factor).round() as u32;
+    let target_h = (720.0 * factor).round() as u32;
+
+    (target_w.min(max_w), target_h.min(max_h))
+}
+
+pub fn apply_gui_scale_to_window(win: &MainWindow, factor: f32) {
+    let phys_size = win.window().size();
+    let (phys_w, phys_h) = if phys_size.width > 0 && phys_size.height > 0 {
+        (phys_size.width, phys_size.height)
+    } else {
+        (1080, 720)
+    };
+    let logical_size = slint::LogicalSize::new(
+        phys_w as f32 / factor,
+        phys_h as f32 / factor,
+    );
+    win.window().dispatch_event(slint::platform::WindowEvent::ScaleFactorChanged {
+        scale_factor: factor,
+    });
+    win.window().dispatch_event(slint::platform::WindowEvent::Resized {
+        size: logical_size,
+    });
+
+    if win.window().is_maximized() {
+        win.window().set_maximized(true);
+    }
 }
 
 pub fn normalize_launch_progress(raw: f32) -> f32 {
@@ -2785,8 +2934,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let rt = tokio::runtime::Handle::current();
 
+    // Pre-initialize GUI Scale if configured
+    let initial_gui_scale = {
+        let cfg_path = paths::get_config_path();
+        if cfg_path.exists() {
+            if let Ok(bytes) = std::fs::read(&cfg_path) {
+                if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&bytes) {
+                    json.get("gui_scale").and_then(|v| v.as_str()).map(|s| s.to_string())
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }.unwrap_or_else(|| "100%".to_string());
+
+    if std::env::var("SLINT_SCALE_FACTOR").is_err() {
+        let factor = ipc::parse_gui_scale(&initial_gui_scale);
+        std::env::set_var("SLINT_SCALE_FACTOR", format!("{:.2}", factor));
+    }
+
     // 2. Initialize Slint Window
     let main_window = MainWindow::new()?;
+    main_window.set_gui_scale(initial_gui_scale.into());
     #[cfg(target_os = "linux")]
     {
         if let Err(e) = slint::set_xdg_app_id("nlc") {
@@ -2811,8 +2984,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let _anim_controller = _anim_state.as_ref().map(|s| animations::start_animation_controllers(&main_window, s.clone()));
         let tab_name = args[2].clone();
         let out_path = args[3].clone();
+        if let Some(pos) = args.iter().position(|a| a == "--theme") {
+            if let Some(th) = args.get(pos + 1) {
+                apply_theme_palette(&main_window, th, None);
+            }
+        }
         let is_maximized = args.iter().any(|a| a == "--maximized" || a == "-m");
         let mut wait_ms = if is_maximized { 800 } else { 500 };
+        if let Some(pos) = args.iter().position(|a| a == "--scale") {
+            if let Some(sc) = args.get(pos + 1) {
+                main_window.set_gui_scale(sc.clone().into());
+                let factor = ipc::parse_gui_scale(sc);
+                std::env::set_var("SLINT_SCALE_FACTOR", format!("{:.2}", factor));
+                apply_gui_scale_to_window(&main_window, factor);
+            }
+        }
+        if let Some(pos) = args.iter().position(|a| a == "--rescale-after-ms") {
+            if let Some(ms_str) = args.get(pos + 1) {
+                if let Ok(ms) = ms_str.parse::<u64>() {
+                    let target_scale = args.get(pos + 2).cloned().unwrap_or_else(|| "150%".to_string());
+                    let win_rescale = main_window.as_weak();
+                    slint::Timer::single_shot(std::time::Duration::from_millis(ms), move || {
+                        if let Some(w) = win_rescale.upgrade() {
+                            let factor = ipc::parse_gui_scale(&target_scale);
+                            w.set_gui_scale(target_scale.into());
+                            std::env::set_var("SLINT_SCALE_FACTOR", format!("{:.2}", factor));
+                            apply_gui_scale_to_window(&w, factor);
+                        }
+                    });
+                    wait_ms = wait_ms.max(ms + 600);
+                }
+            }
+        }
         if tab_name == "Splash" || tab_name == "Startup" || tab_name == "Loading" {
             main_window.set_startup_splash_active(true);
             main_window.set_startup_splash_ready(false);
@@ -2836,6 +3039,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             main_window.set_is_launching(true);
             main_window.set_launch_progress(27.0);
             main_window.set_launch_log_text("Downloading assets (27/100)...".into());
+        } else if tab_name == "Onboarding" || tab_name == "Onboarding-Step3" {
+            main_window.set_onboarding_wizard_open(true);
+            main_window.set_onboarding_wizard_step(3);
+            wait_ms = 1000;
         } else if tab_name == "AccountModal" || tab_name == "AddAccount" {
             main_window.set_current_tab("Play".into());
             main_window.set_add_account_modal_open(true);
@@ -3093,9 +3300,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             });
             wait_ms = 4000;
-        } else if tab_name == "Settings" || tab_name == "Settings-Memory" || tab_name == "Settings-Close" || tab_name == "Settings-Integrations" || tab_name == "Settings-Discord-Server" || tab_name == "Settings-Discord-Launcher" {
+        } else if tab_name == "Settings" || tab_name == "Settings-Appearance" || tab_name == "Settings-Memory" || tab_name == "Settings-Close" || tab_name == "Settings-Integrations" || tab_name == "Settings-Discord-Server" || tab_name == "Settings-Discord-Launcher" {
             main_window.set_current_tab("Settings".into());
-            if tab_name == "Settings-Memory" {
+            main_window.set_sidebar_mode("settings".into());
+            if tab_name == "Settings-Appearance" {
+                main_window.set_current_settings_cat("Appearance".into());
+            } else if tab_name == "Settings-Memory" {
                 main_window.set_current_settings_cat("Java & Memory".into());
             } else if tab_name == "Settings-Close" {
                 main_window.set_post_launch_action("Close".into());
@@ -3145,6 +3355,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let w = pix.width();
                         let h = pix.height();
                         let raw_bytes: Vec<u8> = pix.as_slice().iter().flat_map(|p| [p.r, p.g, p.b, p.a]).collect();
+                        
+                                                println!("[NLC-Rust] DEBUG: win.window().size()={:?}, snapshot=({}, {})", win.window().size(), w, h);
+
+                        println!("[NLC-Rust] DEBUG: win.window().size()={:?}, snapshot=({}, {})", win.window().size(), w, h);
                         if let Some(img) = image::RgbaImage::from_raw(w, h, raw_bytes) {
                             let _ = img.save(&out_path);
                             println!("[NLC-Rust] Saved snapshot to: {}", out_path);
@@ -3254,11 +3468,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     // 3. Spawn background agent IPC client with immediate visual presentation
+    main_window.window().set_maximized(true);
+
     main_window.set_startup_splash_active(true);
     main_window.set_startup_splash_progress(0.20);
     main_window.set_startup_splash_status("Starting Ny-Luna...".into());
     let _ = main_window.show();
     main_window.window().set_maximized(true);
+
+    let win_weak_max_boot = main_window.as_weak();
+    slint::Timer::single_shot(std::time::Duration::from_millis(50), move || {
+        if let Some(w) = win_weak_max_boot.upgrade() {
+            w.window().set_maximized(true);
+        }
+    });
+
+    let win_weak_max_boot2 = main_window.as_weak();
+    slint::Timer::single_shot(std::time::Duration::from_millis(200), move || {
+        if let Some(w) = win_weak_max_boot2.upgrade() {
+            w.window().set_maximized(true);
+        }
+    });
 
     let agent_result = AgentClient::spawn(project_root.clone()).await;
 
@@ -3918,6 +4148,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     w.set_startup_splash_progress(1.0);
                     w.set_startup_splash_status("Ready!".into());
                     w.set_startup_splash_ready(true);
+                    w.window().set_maximized(true);
                 }
             });
 
@@ -3966,14 +4197,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     if let Ok(res) = agent_up.call::<serde_json::Value>("system_check_updates", serde_json::json!({})).await {
                         let is_update = res.get("update_available").and_then(|v| v.as_bool()).unwrap_or(false);
                         let latest_ver = res.get("latest_version").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                        if is_update && !latest_ver.is_empty() {
-                            let _ = slint::invoke_from_event_loop(move || {
-                                if let Some(w) = win_weak_up.upgrade() {
+                        let up_ver = latest_ver.clone();
+                        let _ = slint::invoke_from_event_loop(move || {
+                            if let Some(w) = win_weak_up.upgrade() {
+                                if is_update && !up_ver.is_empty() {
+                                    w.set_update_status_text(format!("Update Available: v{}", up_ver).into());
+                                    w.set_update_status_description(format!("New version v{} is available for download.", up_ver).into());
                                     push_toast_with_action(
                                         &w,
                                         "updater",
                                         "Update Available!",
-                                        &format!("New version v{} is available.", latest_ver),
+                                        &format!("New version v{} is available.", up_ver),
                                         "info",
                                         "Update",
                                         true,
@@ -3983,13 +4217,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         "updater",
                                         "System",
                                         "Update Available!",
-                                        &format!("New version v{} is available.", latest_ver),
+                                        &format!("New version v{} is available.", up_ver),
                                         "Just now",
                                         false,
                                     );
+                                } else {
+                                    w.set_update_status_text(format!("Up to Date (v{})", env!("CARGO_PKG_VERSION")).into());
+                                    w.set_update_status_description("All core modules and CDC patches up-to-date.".into());
                                 }
-                            });
-                        }
+                            }
+                        });
                     }
                 });
             }
@@ -4430,15 +4667,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let Some(path) = prompt_open_file("Minecraft Skin (*.png)|*.png") {
                     if !path.is_empty() && std::path::Path::new(&path).exists() {
                         if let Some(ref ag) = agent {
-                            let curr_model = {
-                                let s = state.lock().await;
-                                s.model.clone()
-                            };
-                            let _ = ag.call::<serde_json::Value>("skin_set_custom", serde_json::json!({ "skin_path": path.clone(), "model": curr_model })).await;
+                            let res = ag.call::<serde_json::Value>("skin_set_custom", serde_json::json!({ "skin_path": path.clone(), "model": "auto" })).await;
+                            let detected_model = res.ok()
+                                .and_then(|v| v.get("model").and_then(|m| m.as_str()).map(|s| s.to_string()))
+                                .unwrap_or_else(|| "classic".to_string());
                             refresh_locker_presets(ag, win.clone()).await;
                             refresh_accounts_roster(ag, win.clone()).await;
                             if let Ok(skin_res) = ag.get_skin(ipc::GetSkinRequest::default()).await {
-                                let m = skin_res.skin_model.unwrap_or(curr_model);
+                                let m = skin_res.skin_model.unwrap_or(detected_model);
                                 {
                                     let mut s = state.lock().await;
                                     s.skin_path = skin_res.skin_path;
@@ -6020,6 +6256,17 @@ fn apply_mod_filter(
                         w.set_post_launch_action(v_ui.into());
                     }
                 });
+            } else if k == "gui_scale" {
+                let v_ui = v.clone();
+                let factor = ipc::parse_gui_scale(&v);
+                std::env::set_var("SLINT_SCALE_FACTOR", format!("{:.2}", factor));
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(w) = win_weak.upgrade() {
+                        w.set_gui_scale(v_ui.clone().into());
+                        apply_gui_scale_to_window(&w, factor);
+                        push_toast(&w, "gui-scale-changed", "GUI Scale Updated", &format!("Interface zoom set to {}", v_ui), "info");
+                    }
+                });
             } else if k == "discord_detail" || k == "rpc_detail_mode" {
                 let v_ui = v.clone();
                 let _ = slint::invoke_from_event_loop(move || {
@@ -6046,9 +6293,84 @@ fn apply_mod_filter(
                         push_toast(&w, "offline-name", "Offline Name Saved", &format!("Fallback username set to {}", v), "completed");
                     }
                 });
+            } else if k == "msa_auth_provider" {
+                let v_ui = v.clone();
+                if let Some(ref ag) = agent {
+                    let client_id_to_save = match v_ui.as_str() {
+                        "Default(NLC)" | "Default (NLC)" => "",
+                        "Prism" => "c36a9fb6-4f2a-41ff-90bd-ae7cc92031eb",
+                        _ => "",
+                    };
+                    if v_ui != "Custom" {
+                        let _ = ag.set_config(serde_json::json!({ "msa_client_id": client_id_to_save })).await;
+                    }
+                }
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(w) = win_weak.upgrade() {
+                        w.set_msa_auth_provider(v_ui.clone().into());
+                        if v_ui == "Default(NLC)" || v_ui == "Default (NLC)" {
+                            w.set_msa_client_id("".into());
+                            push_toast(&w, "msa-provider", "Microsoft authID", "Switched to Default(NLC) Client ID", "completed");
+                        } else if v_ui == "Prism" {
+                            w.set_msa_client_id("c36a9fb6-4f2a-41ff-90bd-ae7cc92031eb".into());
+                            push_toast(&w, "msa-provider", "Microsoft authID", "Switched to Prism Fallback Client ID", "completed");
+                        } else {
+                            push_toast(&w, "msa-provider", "Microsoft authID", "Custom Client ID mode active", "info");
+                        }
+                    }
+                });
+            } else if k == "msa_client_id" {
+                let v_ui = v.clone();
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(w) = win_weak.upgrade() {
+                        w.set_msa_client_id(v_ui.into());
+                        let status_msg = if v.trim().is_empty() {
+                            "Reset Microsoft Client ID to default".to_string()
+                        } else {
+                            format!("Custom Microsoft Client ID set to {}", v)
+                        };
+                        push_toast(&w, "msa-client-id", "Microsoft authID", &status_msg, "completed");
+                    }
+                });
             }
         });
     });
+
+    // Keyboard zoom controls (Ctrl++, Ctrl+-, Ctrl+0)
+    let setup_zoom = |direction: i32, is_reset: bool| {
+        let win_weak_zoom = main_window.as_weak();
+        let agent_zoom = agent_client.clone();
+        let rt_zoom = rt.clone();
+        move || {
+            if let Some(win) = win_weak_zoom.upgrade() {
+                let current_scale = win.get_gui_scale();
+                let next_scale = if is_reset {
+                    "100%"
+                } else {
+                    ipc::cycle_gui_scale(current_scale.as_str(), direction)
+                };
+                if next_scale != current_scale.as_str() {
+                    let next_str = next_scale.to_string();
+                    win.set_gui_scale(next_scale.into());
+                    let factor = ipc::parse_gui_scale(next_scale);
+                    std::env::set_var("SLINT_SCALE_FACTOR", format!("{:.2}", factor));
+                    apply_gui_scale_to_window(&win, factor);
+                    push_toast(&win, "gui-zoom", "GUI Scale", &format!("Zoom set to {}", next_scale), "info");
+
+                    let agent_c = agent_zoom.clone();
+                    let next_clone = next_str.clone();
+                    rt_zoom.spawn(async move {
+                        if let Some(ref agent) = agent_c {
+                            let _ = agent.set_config(serde_json::json!({ "gui_scale": next_clone })).await;
+                        }
+                    });
+                }
+            }
+        }
+    };
+    main_window.on_zoom_in(setup_zoom(1, false));
+    main_window.on_zoom_out(setup_zoom(-1, false));
+    main_window.on_zoom_reset(setup_zoom(0, true));
 
     let win_weak_b_java = main_window.as_weak();
     let agent_client_b_java = agent_client.clone();
@@ -7024,29 +7346,116 @@ fn apply_mod_filter(
         });
     });
 
+    #[derive(Default, Clone)]
+    #[allow(dead_code)]
+    struct DiagnosticsLogsState {
+        all_text: String,
+        launcher_text: String,
+        game_text: String,
+        error_count: usize,
+        warn_count: usize,
+        total_lines: usize,
+    }
+
+    fn sync_filtered_logs(win: &MainWindow, state: &DiagnosticsLogsState) {
+        let source_filter = win.get_log_source_filter().to_string();
+        let level_filter = win.get_log_level_filter().to_string();
+        let search_query = win.get_log_search_query().to_string().to_lowercase();
+
+        let base_text = match source_filter.as_str() {
+            "launcher" => &state.launcher_text,
+            "game" => &state.game_text,
+            _ => &state.all_text,
+        };
+
+        let mut matching_lines: Vec<&str> = Vec::new();
+        let mut errs = 0;
+        let mut warns = 0;
+
+        for line in base_text.lines() {
+            let line_lower = line.to_lowercase();
+            let is_err = line.contains("[ERROR]") || line.contains("ERROR") || line.contains("Exception") || line.contains("Crash") || line.contains("FATAL");
+            let is_warn = line.contains("[WARN") || line.contains("WARN");
+
+            if is_err { errs += 1; }
+            else if is_warn { warns += 1; }
+
+            let level_match = match level_filter.as_str() {
+                "error" => is_err,
+                "warn" => is_err || is_warn,
+                "info" => line.contains("[INFO") || line.contains("INFO"),
+                _ => true,
+            };
+
+            if !level_match {
+                continue;
+            }
+
+            if !search_query.is_empty() && !line_lower.contains(&search_query) {
+                continue;
+            }
+
+            matching_lines.push(line);
+        }
+
+        let filtered_text = matching_lines.join("\n");
+        let count = matching_lines.len();
+        win.set_logs_text(filtered_text.into());
+        win.set_log_stats_summary(format!("{} lines | {} errors | {} warnings", count, errs, warns).into());
+    }
+
+    let logs_cache = Arc::new(std::sync::Mutex::new(DiagnosticsLogsState::default()));
+
     let agent_client_refresh_logs = agent_client.clone();
     let win_weak_refresh_logs = main_window.as_weak();
     let rt_refresh_logs = rt.clone();
+    let logs_cache_refresh = logs_cache.clone();
     main_window.on_refresh_logs(move || {
         println!("[NLC-Rust] Refreshing launcher diagnostics logs");
         let win_weak = win_weak_refresh_logs.clone();
         let agent = agent_client_refresh_logs.clone();
+        let cache = logs_cache_refresh.clone();
         rt_refresh_logs.spawn(async move {
             if let Some(ref agent) = agent {
-                if let Ok(logs_res) = agent.get_diagnostics_logs().await {
-                    let text = if !logs_res.text.is_empty() {
-                        logs_res.text
-                    } else {
-                        logs_res.lines.join("\n")
+                if let Ok(res) = agent.call::<serde_json::Value>("diagnostics_get_logs", serde_json::json!({})).await {
+                    let all_text = res.get("text").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    let launcher_text = res.get("launcher_text").and_then(|v| v.as_str()).unwrap_or(&all_text).to_string();
+                    let game_text = res.get("game_text").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    let error_count = res.get("error_count").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+                    let warn_count = res.get("warn_count").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+                    let total_lines = res.get("total_lines").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+
+                    let new_state = DiagnosticsLogsState {
+                        all_text,
+                        launcher_text,
+                        game_text,
+                        error_count,
+                        warn_count,
+                        total_lines,
                     };
+
+                    if let Ok(mut c) = cache.lock() {
+                        *c = new_state.clone();
+                    }
+
                     let _ = slint::invoke_from_event_loop(move || {
                         if let Some(w) = win_weak.upgrade() {
-                            w.set_logs_text(text.into());
+                            sync_filtered_logs(&w, &new_state);
                         }
                     });
                 }
             }
         });
+    });
+
+    let win_weak_filter = main_window.as_weak();
+    let logs_cache_filter = logs_cache.clone();
+    main_window.on_log_filter_changed(move || {
+        if let Some(w) = win_weak_filter.upgrade() {
+            if let Ok(c) = logs_cache_filter.lock() {
+                sync_filtered_logs(&w, &c);
+            }
+        }
     });
 
     let agent_client_copy_logs = agent_client.clone();
@@ -7065,7 +7474,27 @@ fn apply_mod_filter(
             if let Some(ref agent) = agent {
                 let _ = agent.copy_clipboard(&logs).await;
             }
+            let _ = slint::invoke_from_event_loop(move || {
+                if let Some(w) = win_weak.upgrade() {
+                    push_toast(&w, "copy-logs", "Logs Copied", "Filtered logs copied to clipboard ✓", "completed");
+                }
+            });
         });
+    });
+
+    let logs_dir_open = paths::get_launcher_data_dir().join("logs");
+    main_window.on_open_logs_folder(move || {
+        println!("[NLC-Rust] Opening logs folder");
+        let _ = std::fs::create_dir_all(&logs_dir_open);
+        open_directory_in_desktop(&logs_dir_open);
+    });
+
+    let win_weak_clear_logs = main_window.as_weak();
+    main_window.on_clear_display_logs(move || {
+        if let Some(w) = win_weak_clear_logs.upgrade() {
+            w.set_logs_text("".into());
+            w.set_log_stats_summary("Display cleared (0 lines)".into());
+        }
     });
 
     let agent_client_clear_cache = agent_client.clone();
@@ -7113,6 +7542,14 @@ fn apply_mod_filter(
         println!("[NLC-Rust] Checking for updates...");
         let win_weak = win_weak_chk_up.clone();
         let agent = agent_client_chk_up.clone();
+        let _ = slint::invoke_from_event_loop({
+            let w_opt = win_weak.clone();
+            move || {
+                if let Some(w) = w_opt.upgrade() {
+                    w.set_is_checking_updates(true);
+                }
+            }
+        });
         rt_chk_up.spawn(async move {
             let mut is_update = false;
             let mut latest_ver = String::from(env!("CARGO_PKG_VERSION"));
@@ -7128,14 +7565,19 @@ fn apply_mod_filter(
             }
             let _ = slint::invoke_from_event_loop(move || {
                 if let Some(w) = win_weak.upgrade() {
+                    w.set_is_checking_updates(false);
                     w.set_toast_visible(true);
                     if is_update {
+                        w.set_update_status_text(format!("Update Available: v{}", latest_ver).into());
+                        w.set_update_status_description(format!("New version v{} is available for download.", latest_ver).into());
                         w.set_toast_title("Update Available!".into());
                         w.set_toast_detail(format!("New version v{} is available.", latest_ver).into());
                         w.set_toast_status("info".into());
                         push_toast_with_action(&w, "updater", "Update Available!", &format!("New version v{} is available.", latest_ver), "info", "Update", true);
                         push_or_update_notification(&w, "updater", "System", "Update Available!", &format!("New version v{} is available.", latest_ver), "Just now", false);
                     } else {
+                        w.set_update_status_text(format!("Up to Date (v{})", latest_ver).into());
+                        w.set_update_status_description("All core modules and CDC patches up-to-date.".into());
                         w.set_toast_title("Launcher is Up to Date".into());
                         w.set_toast_detail(format!("Running latest version (v{}).", latest_ver).into());
                         w.set_toast_status("completed".into());
@@ -7959,6 +8401,74 @@ mod tests {
         let fallback = get_theme_palette("UnknownCustomTheme");
         assert_eq!(fallback.main_bg, "#1E2025");
         assert_eq!(fallback.default_accent, "#2ECC71");
+    }
+
+    #[test]
+    fn test_dynamic_rescaling_logical_size_computation() {
+        let compute_logical = |phys_w: u32, phys_h: u32, factor: f32| -> (f32, f32) {
+            (phys_w as f32 / factor, phys_h as f32 / factor)
+        };
+
+        // Standard unmaximized window (1080x720)
+        let (log_w_100, log_h_100) = compute_logical(1080, 720, 1.0);
+        let (log_w_125, log_h_125) = compute_logical(1080, 720, 1.25);
+        let (log_w_150, log_h_150) = compute_logical(1080, 720, 1.5);
+
+        assert_eq!((log_w_100, log_h_100), (1080.0, 720.0));
+        assert_eq!((log_w_125, log_h_125), (864.0, 576.0));
+        assert_eq!((log_w_150, log_h_150), (720.0, 480.0));
+
+        // When multiplied by factor, physical coverage is invariant (exact physical bounds)
+        assert_eq!(log_w_100 * 1.0, 1080.0);
+        assert_eq!(log_w_125 * 1.25, 1080.0);
+        assert_eq!(log_w_150 * 1.5, 1080.0);
+
+        // Maximized 1080p display (1920x1080)
+        let (max_w_100, max_h_100) = compute_logical(1920, 1080, 1.0);
+        let (max_w_125, max_h_125) = compute_logical(1920, 1080, 1.25);
+        let (max_w_150, max_h_150) = compute_logical(1920, 1080, 1.5);
+
+        assert_eq!((max_w_100, max_h_100), (1920.0, 1080.0));
+        assert_eq!((max_w_125, max_h_125), (1536.0, 864.0));
+        assert_eq!((max_w_150, max_h_150), (1280.0, 720.0));
+
+        assert_eq!(max_w_100 * 1.0, 1920.0);
+        assert_eq!(max_w_125 * 1.25, 1920.0);
+        assert_eq!(max_w_150 * 1.5, 1920.0);
+    }
+
+    #[test]
+    fn test_gui_scale_parsing_and_cycling() {
+        assert_eq!(ipc::parse_gui_scale("100%"), 1.0);
+        assert_eq!(ipc::parse_gui_scale("125%"), 1.25);
+        assert_eq!(ipc::parse_gui_scale("150%"), 1.5);
+        // Obsolete scales fallback to 100% (1.0)
+        assert_eq!(ipc::parse_gui_scale("200%"), 1.0);
+        assert_eq!(ipc::parse_gui_scale("300%"), 1.0);
+        assert_eq!(ipc::parse_gui_scale("invalid"), 1.0);
+
+        // 3-tier cycling (Option A: 100% -> 125% -> 150%)
+        assert_eq!(ipc::cycle_gui_scale("100%", 1), "125%");
+        assert_eq!(ipc::cycle_gui_scale("125%", 1), "150%");
+        assert_eq!(ipc::cycle_gui_scale("150%", 1), "150%");
+
+        assert_eq!(ipc::cycle_gui_scale("150%", -1), "125%");
+        assert_eq!(ipc::cycle_gui_scale("125%", -1), "100%");
+        assert_eq!(ipc::cycle_gui_scale("100%", -1), "100%");
+    }
+
+    #[test]
+    fn test_gui_scale_config_deserialization() {
+        let json_str = r#"{
+            "version": "4.0.6",
+            "gui_scale": "150%",
+            "post_launch_action": "Minimise to tray",
+            "minimize_to_tray": true
+        }"#;
+        let config: ipc::LauncherConfig = serde_json::from_str(json_str).expect("Valid config JSON");
+        assert_eq!(config.gui_scale.as_deref(), Some("150%"));
+        assert_eq!(config.post_launch_action.as_deref(), Some("Minimise to tray"));
+        assert_eq!(config.extra.get("minimize_to_tray").and_then(|v| v.as_bool()), Some(true));
     }
 
     #[test]

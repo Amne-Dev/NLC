@@ -150,6 +150,7 @@ export component InstallationCard {
     horizontal-stretch: 1;
 
     card_bg := Rectangle {
+        clip: true;
         background: card_touch.has-hover ? #181B22 : Theme.card-bg;
         border-width: root.is-active ? 2px : 1px;
         border-color: root.is-active ? Theme.accent : (card_touch.has-hover ? #383E4E : Theme.border);
@@ -200,6 +201,7 @@ export component InstallationCard {
                     spacing: 12px;
                     alignment: start;
                     horizontal-stretch: 1;
+                    min-width: 0px;
 
                     // 44x44 Icon Frame
                     Rectangle {
@@ -225,6 +227,7 @@ export component InstallationCard {
                         alignment: center;
                         spacing: 4px;
                         horizontal-stretch: 1;
+                        min-width: 0px;
 
                         Text {
                             text: root.data.name;
@@ -267,6 +270,7 @@ export component InstallationCard {
                                 color: Theme.text-secondary;
                                 font-family: Theme.font-family;
                                 font-size: 10px;
+                                overflow: elide;
                                 vertical-alignment: center;
                             }
                         }
@@ -454,7 +458,7 @@ export component InstallationsScreen {
     in-out property <string> editing-id: "";
 
     in-out property <bool> animations-enabled: true;
-    property <int> grid-cols: max(1, min(3, floor((root.width - 48px) / 300px)));
+    property <int> grid-cols: max(1, min(3, floor((root.width - 48px) / 440px)));
 
     // Browse Filters
     in-out property <bool> filter-releases: true;
@@ -597,20 +601,36 @@ export component InstallationsScreen {
             padding-bottom: 20px;
             spacing: 16px;
 
-            // --- Top Action & Filter Row ---
-            HorizontalLayout {
-                alignment: space-between;
+            // --- Top Action & Filter Row (Responsive 2-tier layout) ---
+            VerticalLayout {
+                spacing: 10px;
 
-                // Left: Search + 3 Filter Checkboxes
+                // Tier 1: Search + New Installation Button
                 HorizontalLayout {
-                    spacing: 20px;
-                    alignment: start;
+                    alignment: space-between;
+                    spacing: 12px;
 
                     SearchInput {
-                        placeholder: "";
-                        preferred-input-width: 180px;
+                        placeholder: "Search installations...";
+                        preferred-input-width: 220px;
                         text <=> root.search-query;
                     }
+
+                    PixelButton {
+                        text: "New installation";
+                        primary: true;
+                        custom-font-size: 11px;
+                        clicked => {
+                            root.open-editor-for-new();
+                            root.new-installation();
+                        }
+                    }
+                }
+
+                // Tier 2: Filter Checkboxes
+                HorizontalLayout {
+                    spacing: 16px;
+                    alignment: start;
 
                     PixelCheckbox {
                         label: "Releases";
@@ -627,26 +647,17 @@ export component InstallationsScreen {
                         checked <=> root.filter-modded;
                     }
                 }
-
-                // Right: New Installation Button (#00A8FF cyan primary)
-                PixelButton {
-                    text: "New installation";
-                    primary: true;
-                    custom-font-size: 11px;
-                    clicked => {
-                        root.open-editor-for-new();
-                        root.new-installation();
-                    }
-                }
             }
 
             // --- Dynamic Installations Cards Grid (Responsive 1, 2, or 3 columns) ---
             Flickable {
                 interactive: true;
                 vertical-stretch: 1;
+                content-width: self.width;
                 content-height: max(160px, (ceil(root.installations.length / root.grid-cols)) * 166px + 24px);
 
                 GridLayout {
+                    width: 100%;
                     spacing: 12px;
                     padding-bottom: 24px;
 

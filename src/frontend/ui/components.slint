@@ -244,7 +244,8 @@ export component SearchInput {
     callback accepted(string);
 
     height: 28px;
-    min-width: root.preferred-input-width;
+    min-width: min(80px, root.preferred-input-width);
+    max-width: root.preferred-input-width;
     horizontal-stretch: 1;
 
     Rectangle {

@@ -244,12 +244,15 @@ export component ScreenshotsScreen {
             if root.screenshots.length > 0: Flickable {
                 vertical-stretch: 1;
                 interactive: true;
+                content-width: self.width;
 
                 VerticalLayout {
+                    width: 100%;
                     alignment: start;
                     padding-bottom: 20px;
 
                     GridLayout {
+                        width: 100%;
                         spacing: 12px;
 
                         for sc[idx] in root.screenshots: ScreenshotCard {

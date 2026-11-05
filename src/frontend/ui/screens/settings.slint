@@ -1,6 +1,36 @@
 import { Theme } from "../theme.slint";
 
-import { PixelButton, PixelSwitch, RamSlider } from "../components.slint";
+import { PixelButton, PixelSwitch, RamSlider, SearchInput } from "../components.slint";
+component LogFilterPill inherits Rectangle {
+    in property <string> text: "All";
+    in property <bool> is-active: false;
+    callback clicked();
+
+    height: 24px;
+    background: root.is-active ? Theme.accent : (touch.has-hover ? #252834 : #161820);
+    border-width: 1px;
+    border-color: root.is-active ? Theme.accent : #2A2F3D;
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    HorizontalLayout {
+        padding-left: 9px;
+        padding-right: 9px;
+        alignment: center;
+        Text {
+            text: root.text;
+            color: root.is-active ? #FFFFFF : (touch.has-hover ? #FFFFFF : Theme.text-secondary);
+            font-family: Theme.font-family;
+            font-size: 10px;
+            font-weight: 700;
+            vertical-alignment: center;
+        }
+    }
+}
+
 import { ColorPicker } from "../color_picker.slint";
 
 
@@ -259,6 +289,8 @@ component ThemeCard {
 
     min-height: 74px;
 
+    min-width: 0px;
+
     horizontal-stretch: 1;
 
     vertical-stretch: 0;
@@ -321,6 +353,8 @@ component ThemeCard {
 
                     vertical-alignment: center;
 
+                    overflow: elide;
+
                 }
 
             }
@@ -364,11 +398,13 @@ export component SettingsScreen {
 
     in-out property <string> current-category: "General";
 
-    in-out property <string> post-launch-action: "Minimise to taskbar";
+    in-out property <string> post-launch-action: "Minimise to tray";
 
     in-out property <bool> close-on-launch: true;
 
-    in-out property <bool> minimize-to-tray: false;
+    in-out property <bool> minimize-to-tray: true;
+
+    in-out property <string> gui-scale: "100%";
 
     in-out property <bool> keep-console-open: false;
 
@@ -436,14 +472,29 @@ export component SettingsScreen {
     in-out property <bool> streamer-privacy: false;
 
     in-out property <string> default-offline-name: "Steve";
+    in-out property <string> msa-client-id: "";
+    in-out property <string> msa-auth-provider: "Default(NLC)";
+    in-out property <bool> msa-dropdown-open: false;
 
     in-out property <image> active-head-image;
 
     in-out property <bool> has-active-head: false;
 
     in-out property <string> logs-text: "Loading launcher logs...";
+    in-out property <string> log-source-filter: "all";
+    in-out property <string> log-level-filter: "all";
+    in-out property <string> log-search-query: "";
+    in-out property <string> log-stats-summary: "Ready";
+
+    in-out property <string> update-status-text: "Up to Date";
+    in-out property <string> update-status-description: "All core modules and CDC patches up-to-date.";
+    in-out property <bool> is-checking-updates: false;
+    in-out property <string> launcher-version-display: "4.0.6";
 
     callback refresh-logs();
+    callback open-logs-folder();
+    callback clear-display-logs();
+    callback log-filter-changed();
 
 
 
@@ -492,6 +543,8 @@ export component SettingsScreen {
         Flickable {
 
             width: parent.width;
+
+            content-width: self.width;
 
             height: parent.height;
 
@@ -936,6 +989,70 @@ export component SettingsScreen {
 
 
 
+                    // Section: GUI SCALE
+                    Rectangle {
+                        background: Theme.card-bg;
+                        border-width: 1px;
+                        border-color: Theme.border;
+
+                        VerticalLayout {
+                            alignment: start;
+                            padding: 16px;
+                            spacing: 12px;
+
+                            VerticalLayout {
+                                spacing: 3px;
+                                Text {
+                                    text: "GUI SCALE";
+                                    color: #FFFFFF;
+                                    font-family: Theme.font-family;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                }
+                                Text {
+                                    text: "Adjust display scaling and interface zoom level (100% is default).";
+                                    color: Theme.text-secondary;
+                                    font-family: Theme.font-family;
+                                    font-size: 10px;
+                                }
+                            }
+
+                            HorizontalLayout {
+                                spacing: 8px;
+                                for opt in ["100%", "125%", "150%"]: Rectangle {
+                                    height: 28px;
+                                    min-width: 0px;
+                                    horizontal-stretch: 1;
+                                    background: root.gui-scale == opt ? Theme.accent : Theme.button-dark;
+                                    border-width: 1px;
+                                    border-color: root.gui-scale == opt ? Theme.accent-hover : (scale-touch.has-hover ? #3D4556 : Theme.border);
+
+                                    HorizontalLayout {
+                                        padding-left: 12px;
+                                        padding-right: 12px;
+                                        alignment: center;
+                                        Text {
+                                            text: opt;
+                                            color: root.gui-scale == opt ? #FFFFFF : #C0C5D0;
+                                            font-family: Theme.font-family;
+                                            font-size: 10px;
+                                            font-weight: 700;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+
+                                    scale-touch := TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => {
+                                            root.gui-scale = opt;
+                                            root.setting-string-changed("gui_scale", opt);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Section: MOTION & ANIMATIONS
 
                     Rectangle {
@@ -1058,117 +1175,66 @@ export component SettingsScreen {
 
 
                             // Row 1
-
                             HorizontalLayout {
-
                                 spacing: 12px;
-
                                 ThemeCard {
-
                                     name: "Dark Slate";
-
                                     description: "Refined modern graphite slate with emerald accent";
-
                                     dot-color: #2ECC71;
-
                                     bg-color: #1E222A;
-
                                     is-selected: root.selected-theme == "Dark Slate";
-
                                     clicked => { root.selected-theme = "Dark Slate"; root.custom-hex = "#2ECC71"; root.select-theme("Dark Slate"); root.apply-custom-hex("#2ECC71"); }
-
                                 }
-
                                 ThemeCard {
-
                                     name: "OLED Obsidian";
-
                                     description: "True pitch black contrast with neon cyan accent";
-
                                     dot-color: #00A8FF;
-
                                     bg-color: #0E0F12;
-
                                     is-selected: root.selected-theme == "OLED Obsidian";
-
                                     clicked => { root.selected-theme = "OLED Obsidian"; root.custom-hex = "#00E5FF"; root.select-theme("OLED Obsidian"); root.apply-custom-hex("#00E5FF"); }
-
                                 }
-
-                                ThemeCard {
-
-                                    name: "Catppuccin Mocha";
-
-                                    description: "Soothing warm dark aesthetic with soft mauve accent";
-
-                                    dot-color: #CBA6F7;
-
-                                    bg-color: #1E1E2E;
-
-                                    is-selected: root.selected-theme == "Catppuccin Mocha";
-
-                                    clicked => { root.selected-theme = "Catppuccin Mocha"; root.custom-hex = "#CBA6F7"; root.select-theme("Catppuccin Mocha"); root.apply-custom-hex("#CBA6F7"); }
-
-                                }
-
                             }
 
-
-
                             // Row 2
-
                             HorizontalLayout {
-
                                 spacing: 12px;
-
                                 ThemeCard {
-
+                                    name: "Catppuccin Mocha";
+                                    description: "Soothing warm dark aesthetic with soft mauve accent";
+                                    dot-color: #CBA6F7;
+                                    bg-color: #1E1E2E;
+                                    is-selected: root.selected-theme == "Catppuccin Mocha";
+                                    clicked => { root.selected-theme = "Catppuccin Mocha"; root.custom-hex = "#CBA6F7"; root.select-theme("Catppuccin Mocha"); root.apply-custom-hex("#CBA6F7"); }
+                                }
+                                ThemeCard {
                                     name: "Nord Frost";
-
                                     description: "Arctic dusk slate with polar frost blue accent";
-
                                     dot-color: #88C0D0;
-
                                     bg-color: #2E3440;
-
                                     is-selected: root.selected-theme == "Nord Frost";
-
                                     clicked => { root.selected-theme = "Nord Frost"; root.custom-hex = "#88C0D0"; root.select-theme("Nord Frost"); root.apply-custom-hex("#88C0D0"); }
-
                                 }
+                            }
 
+                            // Row 3
+                            HorizontalLayout {
+                                spacing: 12px;
                                 ThemeCard {
-
                                     name: "Dracula Midnight";
-
                                     description: "Deep violet-charcoal with electric purple accent";
-
                                     dot-color: #BD93F9;
-
                                     bg-color: #282A36;
-
                                     is-selected: root.selected-theme == "Dracula Midnight";
-
                                     clicked => { root.selected-theme = "Dracula Midnight"; root.custom-hex = "#BD93F9"; root.select-theme("Dracula Midnight"); root.apply-custom-hex("#BD93F9"); }
-
                                 }
-
                                 ThemeCard {
-
                                     name: "Emerald Pine";
-
                                     description: "Deep evergreen foliage with vibrant pine green accent";
-
                                     dot-color: #2ECC71;
-
                                     bg-color: #1B2B23;
-
                                     is-selected: root.selected-theme == "Emerald Pine";
-
                                     clicked => { root.selected-theme = "Emerald Pine"; root.custom-hex = "#10B981"; root.select-theme("Emerald Pine"); root.apply-custom-hex("#10B981"); }
-
                                 }
-
                             }
 
                         }
@@ -2355,7 +2421,7 @@ export component SettingsScreen {
 
                             SettingActionRow {
 
-                                title: "Launcher Version: 4.0.5";
+                                title: "Launcher Version: " + root.launcher-version-display;
 
                                 description: "Check GitHub for newer releases and download assets.";
 
@@ -3412,9 +3478,225 @@ export component SettingsScreen {
 
                     }
 
+
+                    // Section: Microsoft authID
+                    Rectangle {
+                        background: Theme.card-bg;
+                        border-width: 1px;
+                        border-color: Theme.border;
+
+                        VerticalLayout {
+                            alignment: start;
+                            padding-top: 14px;
+                            padding-bottom: 14px;
+                            spacing: 12px;
+
+                            HorizontalLayout {
+                                padding-left: 16px;
+                                padding-right: 16px;
+                                alignment: start;
+
+                                Text {
+                                    text: "Microsoft authID";
+                                    color: #FFFFFF;
+                                    font-family: Theme.font-family;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                    vertical-alignment: center;
+                                }
+                            }
+
+                            // Provider Selector Dropdown Row
+                            HorizontalLayout {
+                                padding-left: 16px;
+                                padding-right: 16px;
+                                spacing: 12px;
+                                alignment: space-between;
+
+                                VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    spacing: 4px;
+
+                                    Text {
+                                        text: "Authentication ID Provider";
+                                        color: #FFFFFF;
+                                        font-family: Theme.font-family;
+                                        font-size: 11px;
+                                        font-weight: 700;
+                                    }
+
+                                    Text {
+                                        text: "Select which Application Client ID is used for Microsoft and Xbox Live OAuth device authentication.";
+                                        color: Theme.text-muted;
+                                        font-family: Theme.font-family;
+                                        font-size: 10px;
+                                        wrap: word-wrap;
+                                    }
+                                }
+
+                                msa-box := Rectangle {
+                                    height: 30px;
+                                    width: 170px;
+                                    background: msa-touch.has-hover ? Theme.input-bg.brighter(0.1) : Theme.input-bg;
+                                    border-width: 1px;
+                                    border-color: root.msa-dropdown-open ? Theme.accent : Theme.border;
+
+                                    HorizontalLayout {
+                                        padding-left: 12px;
+                                        padding-right: 12px;
+                                        alignment: space-between;
+
+                                        Text {
+                                            text: root.msa-auth-provider;
+                                            color: #FFFFFF;
+                                            font-family: Theme.font-family;
+                                            font-size: 10px;
+                                            font-weight: 700;
+                                            vertical-alignment: center;
+                                        }
+
+                                        Text {
+                                            text: root.msa-dropdown-open ? "▲" : "▼";
+                                            font-family: Theme.font-family;
+                                            font-size: 9px;
+                                            color: root.msa-dropdown-open ? Theme.accent : Theme.text-muted;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+
+                                    msa-touch := TouchArea {
+                                        clicked => {
+                                            msa-popup.show();
+                                        }
+                                    }
+
+                                    msa-popup := PopupWindow {
+                                        x: 0px;
+                                        y: parent.height + 2px;
+                                        width: parent.width;
+                                        close-policy: close-on-click;
+
+                                        Rectangle {
+                                            background: #14161C;
+                                            border-width: 1px;
+                                            border-color: Theme.accent;
+
+                                            VerticalLayout {
+                                                padding: 4px;
+                                                spacing: 2px;
+
+                                                for opt in ["Default(NLC)", "Prism", "Custom"]: Rectangle {
+                                                    height: 28px;
+                                                    background: item-msa-t.has-hover ? Theme.sidebar-active : transparent;
+
+                                                    HorizontalLayout {
+                                                        padding-left: 10px;
+                                                        padding-right: 10px;
+                                                        spacing: 6px;
+                                                        alignment: space-between;
+
+                                                        Text {
+                                                            text: opt;
+                                                            color: root.msa-auth-provider == opt ? Theme.accent : #FFFFFF;
+                                                            font-family: Theme.font-family;
+                                                            font-size: 10px;
+                                                            font-weight: 700;
+                                                            vertical-alignment: center;
+                                                        }
+
+                                                        if root.msa-auth-provider == opt : Text {
+                                                            text: "✓";
+                                                            color: Theme.accent;
+                                                            font-family: Theme.font-family;
+                                                            font-size: 10px;
+                                                            vertical-alignment: center;
+                                                        }
+                                                    }
+
+                                                    item-msa-t := TouchArea {
+                                                        clicked => {
+                                                            root.msa-auth-provider = opt;
+                                                            root.setting-string-changed("msa_auth_provider", opt);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Warning Callout when Custom is selected
+                            if root.msa-auth-provider == "Custom" : Rectangle {
+                                background: #22180B;
+                                border-width: 1px;
+                                border-color: #D97706;
+
+                                HorizontalLayout {
+                                    padding-left: 14px;
+                                    padding-right: 14px;
+                                    padding-top: 8px;
+                                    padding-bottom: 8px;
+                                    spacing: 8px;
+                                    alignment: start;
+
+                                    Text {
+                                        text: "⚠️";
+                                        font-size: 11px;
+                                        vertical-alignment: center;
+                                    }
+
+                                    Text {
+                                        text: "(Do not touch this field unless you know what you're doing)";
+                                        color: #FBBF24;
+                                        font-family: Theme.font-family;
+                                        font-size: 10px;
+                                        font-weight: 700;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+
+                            // Input field row only shown when Custom is selected
+                            if root.msa-auth-provider == "Custom" : HorizontalLayout {
+                                padding-left: 16px;
+                                padding-right: 16px;
+                                spacing: 12px;
+                                alignment: start;
+
+                                VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    spacing: 4px;
+
+                                    Text {
+                                        text: "Application (client) ID";
+                                        color: #FFFFFF;
+                                        font-family: Theme.font-family;
+                                        font-size: 11px;
+                                        font-weight: 700;
+                                    }
+
+                                    Text {
+                                        text: "Configured Azure client ID for Microsoft OAuth Device Code login.";
+                                        color: Theme.text-muted;
+                                        font-family: Theme.font-family;
+                                        font-size: 10px;
+                                        wrap: word-wrap;
+                                    }
+                                }
+
+                                SearchInput {
+                                    text <=> root.msa-client-id;
+                                    placeholder: "e.g. 9d6a0dfb-42b0-46a4-a904-1d4557409da7";
+                                    preferred-input-width: 270px;
+                                    edited(val) => { root.setting-string-changed("msa_client_id", val); }
+                                    accepted(val) => { root.setting-string-changed("msa_client_id", val); }
+                                }
+                            }
+                        }
+                    }
+
                 }
-
-
 
                 // =============================================================
 
@@ -3428,8 +3710,6 @@ export component SettingsScreen {
 
                     spacing: 16px;
 
-
-
                     Rectangle {
 
                         background: Theme.card-bg;
@@ -3437,8 +3717,6 @@ export component SettingsScreen {
                         border-width: 1px;
 
                         border-color: Theme.border;
-
-
 
                         VerticalLayout {
 
@@ -3448,13 +3726,10 @@ export component SettingsScreen {
 
                             spacing: 12px;
 
+                            // Title & Stats Summary Chip
+                            HorizontalLayout {
 
-
-                            VerticalLayout {
-
-                                spacing: 10px;
-
-
+                                alignment: space-between;
 
                                 Text {
 
@@ -3472,51 +3747,39 @@ export component SettingsScreen {
 
                                 }
 
+                                Rectangle {
 
+                                    background: #1C202A;
 
-                                HorizontalLayout {
+                                    border-width: 1px;
 
-                                    spacing: 8px;
+                                    border-color: #2F3646;
 
-                                    alignment: start;
+                                    height: 22px;
 
-                                    PixelButton {
+                                    HorizontalLayout {
 
-                                        text: "Refresh";
+                                        padding-left: 8px;
 
-                                        custom-font-size: 10px;
+                                        padding-right: 8px;
 
-                                        clicked => { root.refresh-logs(); }
+                                        alignment: center;
 
-                                    }
+                                        Text {
 
-                                    PixelButton {
+                                            text: root.log-stats-summary;
 
-                                        text: "Copy Logs";
+                                            color: Theme.accent;
 
-                                        custom-font-size: 10px;
+                                            font-family: Theme.font-family;
 
-                                        clicked => { root.copy-logs(); }
+                                            font-size: 10px;
 
-                                    }
+                                            font-weight: 700;
 
-                                    PixelButton {
+                                            vertical-alignment: center;
 
-                                        text: "Export Diagnostics";
-
-                                        custom-font-size: 10px;
-
-                                        clicked => { root.export-diagnostics(); }
-
-                                    }
-
-                                    PixelButton {
-
-                                        text: "Clear Cache";
-
-                                        custom-font-size: 10px;
-
-                                        clicked => { root.clear-cache(); }
+                                        }
 
                                     }
 
@@ -3524,21 +3787,214 @@ export component SettingsScreen {
 
                             }
 
+                            // Source & Severity Filter Bar
+                            HorizontalLayout {
 
+                                spacing: 12px;
 
+                                alignment: space-between;
+
+                                HorizontalLayout {
+
+                                    spacing: 4px;
+
+                                    alignment: start;
+
+                                    Text {
+
+                                        text: "Source:";
+
+                                        color: Theme.text-muted;
+
+                                        font-family: Theme.font-family;
+
+                                        font-size: 10px;
+
+                                        vertical-alignment: center;
+
+                                    }
+
+                                    LogFilterPill {
+
+                                        text: "All";
+
+                                        is-active: root.log-source-filter == "all";
+
+                                        clicked => { root.log-source-filter = "all"; root.log-filter-changed(); }
+
+                                    }
+
+                                    LogFilterPill {
+
+                                        text: "Launcher";
+
+                                        is-active: root.log-source-filter == "launcher";
+
+                                        clicked => { root.log-source-filter = "launcher"; root.log-filter-changed(); }
+
+                                    }
+
+                                    LogFilterPill {
+
+                                        text: "Game";
+
+                                        is-active: root.log-source-filter == "game";
+
+                                        clicked => { root.log-source-filter = "game"; root.log-filter-changed(); }
+
+                                    }
+
+                                }
+
+                                HorizontalLayout {
+
+                                    spacing: 4px;
+
+                                    alignment: end;
+
+                                    Text {
+
+                                        text: "Level:";
+
+                                        color: Theme.text-muted;
+
+                                        font-family: Theme.font-family;
+
+                                        font-size: 10px;
+
+                                        vertical-alignment: center;
+
+                                    }
+
+                                    LogFilterPill {
+
+                                        text: "All";
+
+                                        is-active: root.log-level-filter == "all";
+
+                                        clicked => { root.log-level-filter = "all"; root.log-filter-changed(); }
+
+                                    }
+
+                                    LogFilterPill {
+
+                                        text: "Errors";
+
+                                        is-active: root.log-level-filter == "error";
+
+                                        clicked => { root.log-level-filter = "error"; root.log-filter-changed(); }
+
+                                    }
+
+                                    LogFilterPill {
+
+                                        text: "Warnings";
+
+                                        is-active: root.log-level-filter == "warn";
+
+                                        clicked => { root.log-level-filter = "warn"; root.log-filter-changed(); }
+
+                                    }
+
+                                    LogFilterPill {
+
+                                        text: "Info";
+
+                                        is-active: root.log-level-filter == "info";
+
+                                        clicked => { root.log-level-filter = "info"; root.log-filter-changed(); }
+
+                                    }
+
+                                }
+
+                            }
+
+                            // Search bar & Action Buttons Bar
+                            HorizontalLayout {
+
+                                spacing: 8px;
+
+                                alignment: start;
+
+                                SearchInput {
+
+                                    text <=> root.log-search-query;
+
+                                    placeholder: "Search logs (e.g. exception, error, crash)...";
+
+                                    preferred-input-width: 240px;
+
+                                    edited(val) => { root.log-filter-changed(); }
+
+                                    accepted(val) => { root.log-filter-changed(); }
+
+                                }
+
+                                PixelButton {
+
+                                    text: "Refresh";
+
+                                    custom-font-size: 10px;
+
+                                    clicked => { root.refresh-logs(); }
+
+                                }
+
+                                PixelButton {
+
+                                    text: "Copy Logs";
+
+                                    custom-font-size: 10px;
+
+                                    clicked => { root.copy-logs(); }
+
+                                }
+
+                                PixelButton {
+
+                                    text: "Open Folder";
+
+                                    custom-font-size: 10px;
+
+                                    clicked => { root.open-logs-folder(); }
+
+                                }
+
+                                PixelButton {
+
+                                    text: "Export";
+
+                                    custom-font-size: 10px;
+
+                                    clicked => { root.export-diagnostics(); }
+
+                                }
+
+                                PixelButton {
+
+                                    text: "Clear Display";
+
+                                    custom-font-size: 10px;
+
+                                    clicked => { root.clear-display-logs(); }
+
+                                }
+
+                            }
+
+                            // Monospace Log Viewport
                             Rectangle {
 
-                                height: 360px;
+                                height: 380px;
 
-                                background: #111216;
+                                background: #0B0C10;
 
                                 border-width: 1px;
 
-                                border-color: #252830;
+                                border-color: #1F2430;
 
                                 clip: true;
-
-
 
                                 Flickable {
 
@@ -3554,8 +4010,6 @@ export component SettingsScreen {
 
                                     content-height: Math.max(parent.height, log_text.preferred-height + 24px);
 
-
-
                                     VerticalLayout {
 
                                         padding: 12px;
@@ -3568,9 +4022,9 @@ export component SettingsScreen {
 
                                             text: root.logs-text;
 
-                                            color: #FFFFFF;
+                                            color: #E2E8F0;
 
-                                            font-family: Theme.font-family;
+                                            font-family: "Consolas, monospace";
 
                                             font-size: 10px;
 
@@ -3660,7 +4114,7 @@ export component SettingsScreen {
 
                                 Text {
 
-                                    text: "Version: 4.0.5  |  Native Rust & Python Core  |  BSD-3-Clause License\nFast, lightweight Minecraft launcher supporting Vanilla, Fabric, Forge, NeoForged, and Modrinth modpacks.";
+                                    text: "Version: 4.0.6  |  Native Rust & Python Core  |  BSD-3-Clause License\nFast, lightweight Minecraft launcher supporting Vanilla, Fabric, Forge, NeoForged, and Modrinth modpacks.";
 
                                     color: Theme.text-secondary;
 
@@ -3740,11 +4194,11 @@ export component SettingsScreen {
 
                             SettingActionRow {
 
-                                title: "Checking for updates...";
+                                title: root.is-checking-updates ? "Checking for updates..." : root.update-status-text;
 
-                                description: "All core modules and CDC patches up-to-date.";
+                                description: root.update-status-description;
 
-                                button-text: "Check Now";
+                                button-text: root.is-checking-updates ? "Checking..." : "Check Now";
 
                                 clicked => { root.check-updates(); }
 

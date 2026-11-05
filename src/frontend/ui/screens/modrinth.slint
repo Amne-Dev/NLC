@@ -270,6 +270,7 @@ component ModrinthCard {
     horizontal-stretch: 1;
 
     Rectangle {
+        clip: true;
         background: card-touch.has-hover ? Theme.card-hover : Theme.card-bg;
         border-width: 1px;
         border-color: card-touch.has-hover ? #383D4D : Theme.border;
@@ -336,6 +337,7 @@ component ModrinthCard {
             // Project Info Details (Left-aligned)
             VerticalLayout {
                 horizontal-stretch: 1;
+                min-width: 0px;
                 spacing: 4px;
                 alignment: start;
 
@@ -447,6 +449,8 @@ component ModrinthCard {
                             font-family: Theme.font-family;
                             font-size: 9px;
                             vertical-alignment: center;
+                            overflow: elide;
+                            max-width: 140px;
                         }
                     }
 
@@ -458,6 +462,8 @@ component ModrinthCard {
                             font-family: Theme.font-family;
                             font-size: 9px;
                             vertical-alignment: center;
+                            overflow: elide;
+                            max-width: 180px;
                         }
                     }
                 }
@@ -719,8 +725,10 @@ export component ModrinthScreen {
             flick := Flickable {
                 interactive: true;
                 vertical-stretch: 1;
+                content-width: self.width;
 
                 VerticalLayout {
+                    width: 100%;
                     spacing: 8px;
 
                     for proj in root.projects: ModrinthCard {
@@ -1393,6 +1401,8 @@ export component ModrinthScreen {
                                     VerticalLayout {
                                         spacing: 2px;
                                         alignment: center;
+                                        horizontal-stretch: 1;
+                                        min-width: 0px;
 
                                         Text {
                                             text: ver.name != "" ? ver.name : ver.version-number;

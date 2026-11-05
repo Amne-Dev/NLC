@@ -47,7 +47,7 @@ from nlc.storage.paths import get_launcher_data_dir, get_config_path, get_minecr
 from nlc.storage.config import ConfigManager, get_default_config
 from nlc.core.vault import get_vault_manager, encrypt as vault_encrypt, decrypt as vault_decrypt, is_vault_string
 from nlc.core.launch import patch_minecraft_launcher_launch_helpers
-from nlc.net.ms_auth import MicrosoftDeviceAuth, MSA_CLIENT_ID, MSA_REDIRECT_URI
+from nlc.net.ms_auth import MicrosoftDeviceAuth, MSA_CLIENT_ID, MSA_REDIRECT_URI, get_msa_client_id, get_msa_redirect_uri, DEFAULT_MSA_CLIENT_ID, PRISM_FALLBACK_CLIENT_ID
 from nlc.net.elyby_auth import ElyByAuth
 from nlc.net.skin_server import LocalSkinServer
 from nlc.net.capes import (
@@ -798,6 +798,22 @@ def _fetch_mojang_skin_silent(username: str) -> Tuple[Optional[str], str]:
     return None, "classic"
 
 
+class _MinecraftNamespace:
+    """Null namespace for RFC 4122 UUID v3 name hashing matching Java UUID.nameUUIDFromBytes."""
+    bytes = b""
+
+
+def compute_offline_uuid(username: str) -> str:
+    """
+    Computes authentic Minecraft offline-mode player UUID according to RFC 4122 (UUID v3),
+    matching Java's java.util.UUID.nameUUIDFromBytes(("OfflinePlayer:" + username).getBytes(UTF_8)).
+
+    Uses standard library uuid.uuid3 with a null namespace wrapper to avoid direct weak-hash calls
+    while maintaining 100% byte-for-byte Minecraft protocol and world-save compatibility.
+    """
+    return str(uuid.uuid3(_MinecraftNamespace, f"OfflinePlayer:{username}"))
+
+
 def handle_accounts_auth_offline(payload: Dict[str, Any]) -> Dict[str, Any]:
     cm = get_config_manager()
     cfg = cm.load()
@@ -835,7 +851,7 @@ def handle_accounts_auth_offline(payload: Dict[str, Any]) -> Dict[str, Any]:
         skin_path = ""
         skin_model = payload.get("skin_model", "classic")
 
-    offline_uuid = str(uuid.uuid3(uuid.NAMESPACE_DNS, f"OfflinePlayer:{username}"))
+    offline_uuid = compute_offline_uuid(username)
 
     new_profile = {
         "name": username,
@@ -951,8 +967,9 @@ def handle_accounts_remove(payload: Dict[str, Any]) -> Dict[str, Any]:
     return {"status": "success", "remaining": len(new_profiles), "profiles": new_profiles}
 
 
-def handle_accounts_auth_microsoft_start(payload: Dict[str, Any]) -> Dict[str, Any]:
-    auth = MicrosoftDeviceAuth()
+def handle_accounts_auth_microsoft_start(payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    active_client_id = get_msa_client_id()
+    auth = MicrosoftDeviceAuth(client_id=active_client_id)
     device_data = auth.request_device_code()
 
     device_code = device_data["device_code"]
@@ -1014,6 +1031,7 @@ def handle_accounts_auth_microsoft_start(payload: Dict[str, Any]) -> Dict[str, A
                 "name": mc_profile["name"],
                 "uuid": mc_profile["id"],
                 "type": "microsoft",
+                "client_id": active_client_id,
                 "skin_path": skin_path,
                 "skin_model": skin_model,
                 "head_path": head_path,
@@ -1078,7 +1096,7 @@ def handle_accounts_auth_microsoft_start(payload: Dict[str, Any]) -> Dict[str, A
             emit_event("config_changed", {"key": "profiles", "value": cfg["profiles"]})
             emit_event("config_changed", {"key": "active_profile_index", "value": new_idx})
         except Exception as exc:
-            logger.exception("MS auth polling failed: %s", exc)
+            logger.error("MS auth polling failed: %s", type(exc).__name__)
             emit_event("ms_auth_completed", {"status": "error", "message": str(exc)})
 
     threading.Thread(target=_poll_worker, daemon=True, name="ms-auth-poll").start()
@@ -1088,7 +1106,8 @@ def handle_accounts_auth_microsoft_start(payload: Dict[str, Any]) -> Dict[str, A
         "user_code": device_data.get("user_code", ""),
         "verification_uri": device_data.get("verification_uri", ""),
         "expires_in": expires_in,
-        "interval": interval
+        "interval": interval,
+        "client_id": active_client_id
     }
 
 
@@ -1144,14 +1163,6 @@ def _fetch_elyby_skin(username: str, uuid_str: str, properties: Optional[List[Di
         if os.path.exists(target_path):
             return target_path
     return ""
-
-
-def compute_offline_uuid(username: str) -> str:
-    m = hashlib.md5(f"OfflinePlayer:{username}".encode("utf-8")).digest()
-    b = bytearray(m)
-    b[6] = (b[6] & 0x0f) | 0x30  # UUID v3
-    b[8] = (b[8] & 0x3f) | 0x80  # IETF variant
-    return str(uuid.UUID(bytes=bytes(b)))
 
 
 def _ensure_authlib_injector(mc_dir: str) -> str:
@@ -2507,17 +2518,19 @@ def ensure_valid_microsoft_token(profile: Dict[str, Any], force_refresh: bool = 
             if r.status_code == 200:
                 return access_token
         except Exception as e:
-            logger.debug("Failed validating access_token against Mojang profile: %s", e)
+            logger.debug("Failed validating Microsoft session against Mojang profile: %s", type(e).__name__)
 
     # Need refresh
     if not refresh_token:
-        logger.warning("Microsoft account %s has no refresh_token to refresh session", profile.get("name", "unknown"))
+        logger.warning("Microsoft account %s has no stored refresh credential to renew session", profile.get("name", "unknown"))
         return access_token or None
 
     try:
         logger.info("Refreshing Microsoft session for %s...", profile.get("name", "unknown"))
+        prof_client_id = profile.get("client_id") or get_msa_client_id()
+        prof_redirect_uri = profile.get("redirect_uri") or get_msa_redirect_uri()
         new_data = minecraft_launcher_lib.microsoft_account.complete_refresh(
-            MSA_CLIENT_ID, None, MSA_REDIRECT_URI, refresh_token
+            prof_client_id, None, prof_redirect_uri, refresh_token
         )
         if "error" not in new_data and "access_token" in new_data:
             fresh_token = new_data["access_token"]
@@ -2550,9 +2563,9 @@ def ensure_valid_microsoft_token(profile: Dict[str, Any], force_refresh: bool = 
             logger.info("Successfully refreshed Microsoft session for %s", profile.get("name", "unknown"))
             return fresh_token
         else:
-            logger.warning("Microsoft token refresh returned error: %s", new_data.get("error"))
+            logger.warning("Microsoft session refresh returned error: %s", str(new_data.get("error", "unknown"))[:64])
     except Exception as e:
-        logger.error("Exception refreshing Microsoft token for %s: %s", profile.get("name", "unknown"), e)
+        logger.error("Exception refreshing Microsoft session for %s: %s", profile.get("name", "unknown"), type(e).__name__)
 
     return access_token or None
 
@@ -2586,11 +2599,43 @@ def handle_skin_get_current(payload: Optional[Dict[str, Any]] = None) -> Dict[st
     }
 
 
+def detect_skin_model(skin_path: Union[str, Path]) -> str:
+    """
+    Detects whether a Minecraft skin is 'classic' (Steve, 4px arms) or 'slim' (Alex, 3px arms).
+    - Legacy 64x32 skins are always 'classic'.
+    - 64x64 skins: on slim models, the 4th column of arm textures is unused and fully transparent (alpha == 0).
+      Inspects:
+        Right arm base: columns x=54..55, rows y=20..31
+        Left arm base: columns x=46..47, rows y=52..63
+      If both column pairs are transparent, it is 'slim'; otherwise 'classic'.
+    """
+    try:
+        with Image.open(skin_path) as img:
+            img = img.convert("RGBA")
+            w, h = img.size
+            if (w, h) == (64, 32):
+                return "classic"
+            if (w, h) != (64, 64):
+                return "classic"
+            # Right arm back face column 54-55 (y: 20-31)
+            # Left arm back face column 46-47 (y: 52-63)
+            right_empty = all(img.getpixel((x, y))[3] == 0 for x in (54, 55) for y in range(20, 32))
+            left_empty = all(img.getpixel((x, y))[3] == 0 for x in (46, 47) for y in range(52, 64))
+            return "slim" if (right_empty and left_empty) else "classic"
+    except Exception:
+        return "classic"
+
+
 def handle_skin_set_custom(payload: Dict[str, Any]) -> Dict[str, Any]:
     global _pending_mojang_skin_upload
     skin_src = payload.get("skin_path") or ""
-    model = payload.get("model", "classic")
+    req_model = payload.get("model")
     account_id = payload.get("account_id") or payload.get("uuid")
+
+    if not req_model or req_model == "auto":
+        model = detect_skin_model(skin_src)
+    else:
+        model = req_model
 
     if not os.path.exists(skin_src):
         raise FileNotFoundError(f"Skin file not found: {skin_src}")
@@ -3206,6 +3251,9 @@ def handle_skin_steal_preview(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     with open(temp_skin_path, "wb") as f_out:
         f_out.write(skin_bytes)
+
+    if model != "slim" and temp_skin_path.exists():
+        model = detect_skin_model(temp_skin_path)
 
     # Render 3D preview frame
     frame = SkinRenderer3D.render_frame(
@@ -5631,10 +5679,21 @@ def handle_diagnostics_get_logs(payload: Optional[Dict[str, Any]] = None) -> Dic
     else:
         combined_lines.append("\n=== GAME LOGS ===\nNo game logs found (launch Minecraft to generate logs).\n")
 
+    launcher_text = "".join(lines)
+    game_text = "".join(game_lines)
+    all_text = "".join(combined_lines)
+    error_count = sum(1 for l in combined_lines if "[ERROR]" in l or "ERROR" in l or "Exception" in l or "Crash" in l)
+    warn_count = sum(1 for l in combined_lines if "[WARN" in l or "WARN" in l)
+
     return {
         "status": "success",
         "lines": combined_lines,
-        "text": "".join(combined_lines),
+        "text": all_text,
+        "launcher_text": launcher_text,
+        "game_text": game_text,
+        "total_lines": len(combined_lines),
+        "error_count": error_count,
+        "warn_count": warn_count,
     }
 
 

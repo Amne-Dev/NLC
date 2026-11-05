@@ -141,6 +141,26 @@ pub struct KillGameRequest {
     pub launch_id: Option<String>,
 }
 
+pub const GUI_SCALE_LEVELS: [&str; 3] = ["100%", "125%", "150%"];
+
+pub fn parse_gui_scale(scale: &str) -> f32 {
+    match scale.trim() {
+        "125%" => 1.25,
+        "150%" => 1.5,
+        _ => 1.0,
+    }
+}
+
+pub fn cycle_gui_scale(current: &str, delta: i32) -> &'static str {
+    let current_idx = match current.trim() {
+        "125%" => 1,
+        "150%" => 2,
+        _ => 0,
+    };
+    let new_idx = (current_idx as i32 + delta).clamp(0, (GUI_SCALE_LEVELS.len() - 1) as i32) as usize;
+    GUI_SCALE_LEVELS[new_idx]
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct LauncherConfig {
     #[serde(default)]
@@ -173,6 +193,8 @@ pub struct LauncherConfig {
     pub rpc_show_server: Option<bool>,
     #[serde(default)]
     pub post_launch_action: Option<String>,
+    #[serde(default)]
+    pub gui_scale: Option<String>,
     #[serde(default)]
     pub active_profile_index: Option<usize>,
     #[serde(default)]

@@ -78,7 +78,7 @@ export component BottomBar {
             // --- Left: Instance Selection Capsule (Sharp 0px) ---
             inst_capsule := Rectangle {
                 x: 20px;
-                width: 230px;
+                width: min(230px, max(110px, play_btn.x - 32px));
                 height: 52px;
                 y: (parent.height - self.height) / 2;
                 background: (inst_popup.is-open || inst-touch.has-hover) ? #1B1E24 : transparent;
@@ -262,7 +262,7 @@ export component BottomBar {
             // --- Center: Composite PLAY / LAUNCHING Button Cluster (Sharp 0px, Absolute Mathematical Centering) ---
             play_btn := Rectangle {
                 x: (parent.width - self.width) / 2;
-                width: 210px;
+                width: parent.width < 680px ? 170px : 210px;
                 height: 48px;
                 y: (parent.height - self.height) / 2;
                 background: root.is-launching ? #1C2028 : Theme.accent;
@@ -444,9 +444,9 @@ export component BottomBar {
 
             // --- Right: Dynamic Launch Logs / Profile (Clamped & Stationary) ---
             Rectangle {
-                x: (parent.width + play_btn.width) / 2 + 16px;
+                x: play_btn.x + play_btn.width + 12px;
                 y: 0px;
-                width: max(160px, (parent.width - play_btn.width) / 2 - 40px);
+                width: max(60px, parent.width - self.x - 20px);
                 height: parent.height;
 
                 VerticalLayout {

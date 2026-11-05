@@ -6,10 +6,71 @@ from nlc.net.http import get_http_session, DEFAULT_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
-MSA_CLIENT_ID = "c36a9fb6-4f2a-41ff-90bd-ae7cc92031eb"
+import os
+
+# Default Microsoft Azure Application Client ID (User-configured with Prism fallback)
+DEFAULT_MSA_CLIENT_ID = "9d6a0dfb-42b0-46a4-a904-1d4557409da7"
+PRISM_FALLBACK_CLIENT_ID = "c36a9fb6-4f2a-41ff-90bd-ae7cc92031eb"
+MSA_CLIENT_ID = DEFAULT_MSA_CLIENT_ID
 MSA_REDIRECT_URI = "https://login.microsoftonline.com/common/oauth2/nativeclient"
 DEVICE_CODE_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode"
 TOKEN_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
+
+
+def get_msa_client_id() -> str:
+    """
+    Resolves the active Microsoft Azure Client ID:
+    1. Environment variable override (NLC_MSA_CLIENT_ID)
+    2. Config provider setting (msa_auth_provider: 'Default(NLC)', 'Prism', 'Custom')
+    3. Config file setting (msa_client_id)
+    4. Default application Client ID (DEFAULT_MSA_CLIENT_ID)
+    """
+    env_id = os.environ.get("NLC_MSA_CLIENT_ID", "").strip()
+    if env_id:
+        return env_id
+    try:
+        from nlc.storage.config import get_config_manager
+        cfg = get_config_manager().load()
+        provider = (cfg.get("msa_auth_provider") or "").strip().lower()
+        if provider in ("default(nlc)", "default (nlc)", "default", "nlc"):
+            return DEFAULT_MSA_CLIENT_ID
+        elif provider == "prism":
+            return PRISM_FALLBACK_CLIENT_ID
+        elif provider == "custom":
+            cfg_id = (cfg.get("msa_client_id") or "").strip()
+            if cfg_id:
+                return cfg_id
+            return DEFAULT_MSA_CLIENT_ID
+
+        cfg_id = (cfg.get("msa_client_id") or cfg.get("microsoft_client_id") or "").strip()
+        if cfg_id:
+            if cfg_id.lower() == "prism" or cfg_id == PRISM_FALLBACK_CLIENT_ID:
+                return PRISM_FALLBACK_CLIENT_ID
+            return cfg_id
+    except Exception:
+        pass
+    return DEFAULT_MSA_CLIENT_ID
+
+
+def get_msa_redirect_uri() -> str:
+    """
+    Resolves the active Microsoft OAuth redirect URI:
+    1. Environment variable override (NLC_MSA_REDIRECT_URI)
+    2. Config file setting (msa_redirect_uri)
+    3. Default native client URI
+    """
+    env_uri = os.environ.get("NLC_MSA_REDIRECT_URI", "").strip()
+    if env_uri:
+        return env_uri
+    try:
+        from nlc.storage.config import get_config_manager
+        cfg = get_config_manager().load()
+        cfg_uri = (cfg.get("msa_redirect_uri") or cfg.get("microsoft_redirect_uri") or "").strip()
+        if cfg_uri:
+            return cfg_uri
+    except Exception:
+        pass
+    return MSA_REDIRECT_URI
 
 import http.server
 import urllib.parse
@@ -49,8 +110,8 @@ class MicrosoftLoginHandler(http.server.BaseHTTPRequestHandler):
         self.send_error(404)
 
 class MicrosoftDeviceAuth:
-    def __init__(self, client_id: str = MSA_CLIENT_ID):
-        self.client_id = client_id
+    def __init__(self, client_id: Optional[str] = None):
+        self.client_id = client_id or get_msa_client_id()
 
     def request_device_code(self, timeout=DEFAULT_TIMEOUT) -> Dict[str, Any]:
         session = get_http_session()
@@ -105,6 +166,6 @@ class MicrosoftDeviceAuth:
                 else:
                     return {"error": err_code, "message": err_json.get("error_description", "Unknown error")}
             except Exception as e:
-                logger.warning("Transient error during token polling: %s", e)
+                logger.warning("Transient error during token polling: %s", type(e).__name__)
 
         return {"error": "timeout", "message": "Login timed out."}

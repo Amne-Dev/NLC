@@ -116,7 +116,7 @@ def clear_active_mojang_cape(access_token: str) -> bool:
 
 def upload_mojang_skin(access_token: str, skin_path: str, model: str = "classic") -> bool:
     if not access_token or not skin_path or not os.path.isfile(skin_path):
-        logger.warning("upload_mojang_skin called with invalid arguments: token=%s, skin_path=%s", bool(access_token), skin_path)
+        logger.warning("upload_mojang_skin called with missing credentials or invalid skin file: %s", skin_path)
         return False
 
     variant = "slim" if str(model).lower() in ("slim", "alex") else "classic"

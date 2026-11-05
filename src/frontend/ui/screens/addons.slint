@@ -755,9 +755,11 @@ component PlaytimeDetailsModal inherits Rectangle {
                 if root.installations.length > 0: Flickable {
                     interactive: true;
                     vertical-stretch: 1;
+                    content-width: self.width;
                     content-height: root.installations.length * 56px;
 
                     VerticalLayout {
+                        width: 100%;
                         spacing: 6px;
                         for inst in root.installations: Rectangle {
                             height: 50px;
@@ -1519,10 +1521,12 @@ export component AddonsScreen {
                 if root.addons.length > 0 || root.show-playtime-hero: Flickable {
                     interactive: true;
                     vertical-stretch: 1;
+                    content-width: self.width;
                     content-height: (root.show-playtime-hero ? 190px : 0px)
                         + (ceil(root.addons.length / root.addons-grid-cols)) * 190px;
 
                     VerticalLayout {
+                        width: 100%;
                         spacing: 12px;
 
                         // Featured 2-Column Playtime Stats Card

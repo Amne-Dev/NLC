@@ -49,9 +49,12 @@ export component MainWindow inherits Window {
 
     in-out property <image> window-icon: root.icon;
 
-    min-width: 960px;
+        
+    
+    
+    min-width: 720px;
 
-    min-height: 600px;
+    min-height: 480px;
 
     preferred-width: 1080px;
 
@@ -199,6 +202,21 @@ export component MainWindow inherits Window {
     in-out property <image> launcher-logo: @image-url("../../../logo.png");
     in-out property <bool> modpack-tutorial-open: false;
 
+    // Updates section state
+    in-out property <string> update-status-text: "Up to Date";
+    in-out property <string> update-status-description: "All core modules and CDC patches up-to-date.";
+    in-out property <bool> is-checking-updates: false;
+    in-out property <string> launcher-version: "4.0.6";
+
+    // Logs & Diagnostics live state
+    in-out property <string> log-source-filter: "all";
+    in-out property <string> log-level-filter: "all";
+    in-out property <string> log-search-query: "";
+    in-out property <string> log-stats-summary: "Ready";
+    callback open-logs-folder();
+    callback clear-display-logs();
+    callback log-filter-changed();
+
     // Onboarding Setup Wizard State
     in-out property <bool> onboarding-wizard-open: false;
     in-out property <int> onboarding-wizard-step: 1;
@@ -281,11 +299,13 @@ export component MainWindow inherits Window {
 
     in-out property <bool> is-pinging-servers: false;
 
-    in-out property <string> post-launch-action: "Minimise to taskbar";
+    in-out property <string> post-launch-action: "Minimise to tray";
 
     in-out property <bool> close-on-launch: true;
 
-    in-out property <bool> minimize-to-tray: false;
+    in-out property <bool> minimize-to-tray: true;
+
+    in-out property <string> gui-scale: "100%";
 
     in-out property <bool> keep-console-open: false;
 
@@ -346,6 +366,8 @@ export component MainWindow inherits Window {
     in-out property <bool> streamer-privacy: false;
 
     in-out property <string> default-offline-name: "Steve";
+    in-out property <string> msa-client-id: "";
+    in-out property <string> msa-auth-provider: "Default(NLC)";
 
     in-out property <string> logs-text: "";
 
@@ -484,6 +506,12 @@ export component MainWindow inherits Window {
     callback cancel-launch();
 
     callback minimize-window();
+
+    callback zoom-in();
+
+    callback zoom-out();
+
+    callback zoom-reset();
 
     callback maximize-window();
 
@@ -687,47 +715,52 @@ export component MainWindow inherits Window {
 
 
 
-    VerticalLayout {
+    forward-focus: key-handler;
 
-        spacing: 0px;
-
-
-
-        // --- Custom Borderless Win32 TitleBar (Sharp 0px) ---
-
-        TitleBar {
-
-            title: "Ny-Luna";
-
-            minimize => { root.minimize-window(); }
-
-            maximize => { root.maximize-window(); }
-
-            close => { root.close-window(); }
-
-            move-window(dx, dy) => { root.move-window(dx, dy); }
-
+    key-handler := FocusScope {
+        key-pressed(event) => {
+            if (event.modifiers.control && (event.text == "=" || event.text == "+")) {
+                root.zoom-in();
+                accept
+            } else if (event.modifiers.control && (event.text == "-" || event.text == "_")) {
+                root.zoom-out();
+                accept
+            } else if (event.modifiers.control && event.text == "0") {
+                root.zoom-reset();
+                accept
+            } else {
+                reject
+            }
         }
+    }
 
+    // --- Custom Borderless Win32 TitleBar (Pinned to top 32px) ---
+    TitleBar {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: 32px;
+        title: "Ny-Luna";
+        minimize => { root.minimize-window(); }
+        maximize => { root.maximize-window(); }
+        close => { root.close-window(); }
+        move-window(dx, dy) => { root.move-window(dx, dy); }
+    }
 
+    // --- Middle Section: 240px Sidebar + Right Content Area (Anchored from y=32px to root.height) ---
+    content-container := Rectangle {
+        x: 0px;
+        y: 32px;
+        width: root.width;
+        height: root.height - 32px;
 
-        // --- Middle Section: 240px Sidebar + Right Content Area ---
-
-        HorizontalLayout {
-
-            spacing: 0px;
-
-            vertical-stretch: 1;
-
-
-
-            // 1:1 Dynamic 240px Sidebar (stretches 100% remaining window height to bottom)
-
-            Sidebar {
-
-                width: 240px;
-
-                username <=> root.username;
+        // 1:1 Dynamic 240px Sidebar (Stretches 100% of content-container height to bottom)
+        Sidebar {
+            x: 0px;
+            y: 0px;
+            width: 240px;
+            height: parent.height;
+            username <=> root.username;
 
                 account-type <=> root.account-type;
 
@@ -911,33 +944,21 @@ export component MainWindow inherits Window {
 
 
 
-            // Right Content Area (Contains Screen Views and BottomBar docked to bottom on Play tab)
+        // Right Content Area (Stretches to fill remaining width and height)
+        Rectangle {
+            x: 240px;
+            y: 0px;
+            width: parent.width - 240px;
+            height: parent.height;
+            clip: true;
 
+            // Screen Views Container (Consumes full height minus 80px BottomBar on Play tab, full height on other tabs)
             Rectangle {
-
-                horizontal-stretch: 1;
-
+                x: 0px;
+                y: 0px;
+                width: parent.width;
+                height: root.current-tab == "Play" ? parent.height - 80px : parent.height;
                 clip: true;
-
-
-
-                VerticalLayout {
-
-                    width: parent.width;
-
-                    height: parent.height;
-
-                    spacing: 0px;
-
-
-
-                    // Screen Views Container (Consumes full height on non-Play tabs)
-
-                    Rectangle {
-
-                        vertical-stretch: 1;
-
-                        clip: true;
 
 
 
@@ -1428,6 +1449,8 @@ export component MainWindow inherits Window {
 
                             post-launch-action <=> root.post-launch-action;
 
+                            gui-scale <=> root.gui-scale;
+
                             close-on-launch <=> root.close-on-launch;
 
                             minimize-to-tray <=> root.minimize-to-tray;
@@ -1493,12 +1516,26 @@ export component MainWindow inherits Window {
                             streamer-privacy <=> root.streamer-privacy;
 
                             default-offline-name <=> root.default-offline-name;
+                            msa-client-id <=> root.msa-client-id;
+                            msa-auth-provider <=> root.msa-auth-provider;
 
                             active-head-image <=> root.active-head-image;
 
                             has-active-head <=> root.has-active-head;
 
                             logs-text <=> root.logs-text;
+                            log-source-filter <=> root.log-source-filter;
+                            log-level-filter <=> root.log-level-filter;
+                            log-search-query <=> root.log-search-query;
+                            log-stats-summary <=> root.log-stats-summary;
+                            update-status-text <=> root.update-status-text;
+                            update-status-description <=> root.update-status-description;
+                            is-checking-updates <=> root.is-checking-updates;
+                            launcher-version-display: root.launcher-version;
+
+                            open-logs-folder => { root.open-logs-folder(); }
+                            clear-display-logs => { root.clear-display-logs(); }
+                            log-filter-changed => { root.log-filter-changed(); }
 
                             setting-toggled(key, val) => { root.setting-changed(key, val); }
 
@@ -1582,108 +1619,64 @@ export component MainWindow inherits Window {
 
 
 
-                    // --- 80px Bottom Launch Bar (EXCLUSIVE TO PLAY HERO TAB, DOCKED WITHIN RIGHT PANE) ---
+            // --- 80px Bottom Launch Bar (EXCLUSIVE TO PLAY HERO TAB, DOCKED WITHIN RIGHT PANE) ---
+            if root.current-tab == "Play": BottomBar {
+                x: 0px;
+                y: parent.height - 80px;
+                width: parent.width;
+                height: 80px;
 
-                    if root.current-tab == "Play": BottomBar {
+                instance-name <=> root.selected-instance;
+                version-id <=> root.selected-version;
+                version-display <=> root.selected-version-display;
+                installation-id <=> root.selected-installation-id;
+                loader <=> root.selected-loader;
+                instance-icon <=> root.selected-instance-icon;
+                profile-name <=> root.username;
+                is-launching <=> root.is-launching;
+                launch-progress: root.launch-progress;
+                launch-log-text: root.launch-log-text;
+                show-launch-logs: root.show-launch-logs;
+                installations <=> root.installations;
 
-                        instance-name <=> root.selected-instance;
-
-                        version-id <=> root.selected-version;
-
-                        version-display <=> root.selected-version-display;
-
-                        installation-id <=> root.selected-installation-id;
-
-                        loader <=> root.selected-loader;
-
-                        instance-icon <=> root.selected-instance-icon;
-
-                        profile-name <=> root.username;
-
-                        is-launching <=> root.is-launching;
-
-                        launch-progress: root.launch-progress;
-
-                        launch-log-text: root.launch-log-text;
-
-                        show-launch-logs: root.show-launch-logs;
-
-                        installations <=> root.installations;
-
-
-
-                        cancel-launch => {
-
-                            root.cancel-launch();
-
-                        }
-
-                        play-clicked => {
-
-                            root.is-launching = true;
-
-                            root.launch-game(root.selected-installation-id, root.selected-version, root.selected-loader);
-
-                        }
-
-                        force-update-and-play => {
-
-                            root.is-launching = true;
-
-                            root.force-update-and-play-game(root.selected-installation-id, root.selected-version, root.selected-loader);
-
-                        }
-
-                        instance-selected(inst, ver, id, ldr) => {
-
-                            root.selected-instance = inst;
-
-                            root.selected-version = ver;
-
-                            root.selected-installation-id = id;
-
-                            root.selected-loader = ldr;
-
-                            root.installation-selected(inst, id);
-
-                        }
-
-                        instance-picker-clicked => { }
-
-                    }
-
+                cancel-launch => {
+                    root.cancel-launch();
                 }
 
-
-
-                // --- Floating Walking Mob Layer (runs across top of 80px bottom bar, clips behind sidebar) ---
-
-                if root.current-tab == "Play" && root.walking-mob-visible: Image {
-
-                    x: root.walking-mob-x;
-
-                    y: parent.height - 80px - self.height + (root.walking-mob-is-flying ? -8px : 1px);
-
-                    width: root.walking-mob-width;
-
-                    height: root.walking-mob-height;
-
-                    source: root.walking-mob-frame;
-
-                    image-fit: contain;
-
-                    image-rendering: pixelated;
-
-
-
-                    animate x { duration: Theme.smooth-animations ? 60ms : 0ms; easing: linear; }
-
+                play-clicked => {
+                    root.is-launching = true;
+                    root.launch-game(root.selected-installation-id, root.selected-version, root.selected-loader);
                 }
 
+                force-update-and-play => {
+                    root.is-launching = true;
+                    root.force-update-and-play-game(root.selected-installation-id, root.selected-version, root.selected-loader);
+                }
+
+                instance-selected(inst, ver, id, ldr) => {
+                    root.selected-instance = inst;
+                    root.selected-version = ver;
+                    root.selected-installation-id = id;
+                    root.selected-loader = ldr;
+                    root.installation-selected(inst, id);
+                }
+
+                instance-picker-clicked => { }
             }
 
-        }
+            // --- Floating Walking Mob Layer (runs across top of 80px bottom bar, clips behind sidebar) ---
+            if root.current-tab == "Play" && root.walking-mob-visible: Image {
+                x: root.walking-mob-x;
+                y: parent.height - 80px - self.height + (root.walking-mob-is-flying ? -8px : 1px);
+                width: root.walking-mob-width;
+                height: root.walking-mob-height;
+                source: root.walking-mob-frame;
+                image-fit: contain;
+                image-rendering: pixelated;
 
+                animate x { duration: Theme.smooth-animations ? 60ms : 0ms; easing: linear; }
+            }
+        }
     }
 
 
@@ -2012,7 +2005,7 @@ export component MainWindow inherits Window {
 
     // --- Full-Window Startup Splash Overlay (Pulsating Logo & Progress Indicator) ---
 
-    StartupSplash {
+    if root.startup-splash-active: StartupSplash {
 
         x: 0px;
 

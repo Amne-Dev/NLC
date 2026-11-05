@@ -49,5 +49,5 @@ class ElyByAuth:
             return {"error": f"Authentication failed: {msg}"}
 
         except Exception as e:
-            logger.error("Ely.by authentication network error: %s", e)
-            return {"error": f"Network error contacting Ely.by: {e}"}
+            logger.error("Ely.by authentication network error: %s", type(e).__name__)
+            return {"error": f"Network error contacting Ely.by: {type(e).__name__}"}

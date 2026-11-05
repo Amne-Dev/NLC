@@ -359,7 +359,7 @@ class VaultManager:
                 logger.warning("Local AES-GCM decryption failed: %s", exc)
                 return ""
 
-        logger.warning("Unknown vault prefix for ciphertext: %s", ciphertext[:20])
+        logger.warning("Unknown vault prefix for ciphertext (length=%d)", len(ciphertext) if ciphertext else 0)
         return ""
 
 

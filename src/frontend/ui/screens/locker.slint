@@ -398,7 +398,8 @@ export component LockerScreen {
     in-out property <[CapeData]> capes: [];
     in-out property <[WallpaperData]> wallpapers: [];
     in-out property <bool> animations-enabled: true;
-    property <int> wardrobe-grid-cols: max(2, floor((root.width - 420px) / 160px));
+    property <int> wardrobe-grid-cols: max(1, floor((root.width - (root.width < 680px ? 290px : 432px)) / 150px));
+    property <int> wallpaper-grid-cols: max(1, min(3, floor((root.width - 48px) / 260px)));
 
     in-out property <bool> steal-modal-open: false;
     in-out property <string> steal-username-input: "";
@@ -530,7 +531,7 @@ export component LockerScreen {
 
                     // --- LEFT COLUMN: 3D SHOWCASE STAGE ("THE PEDESTAL") ---
                     Rectangle {
-                        width: 340px;
+                        width: root.width < 680px ? (root.width < 560px ? 220px : 260px) : 340px;
                         height: parent.height;
                         background: Theme.card-bg;
                         border-width: 1px;
@@ -1086,9 +1087,11 @@ export component LockerScreen {
                         if root.presets.length > 0: Flickable {
                             interactive: true;
                             vertical-stretch: 1;
+                            content-width: self.width;
                             content-height: (ceil(root.presets.length / root.wardrobe-grid-cols)) * 230px;
 
                             GridLayout {
+                                width: 100%;
                                 spacing: 10px;
                                 for preset[idx] in root.presets: SkinCard {
                                     data: preset;
@@ -1186,15 +1189,17 @@ export component LockerScreen {
                     if root.wallpapers.length > 0: Flickable {
                         interactive: true;
                         vertical-stretch: 1;
-                        content-height: (ceil(root.wallpapers.length / 3)) * 192px;
+                        content-width: self.width;
+                        content-height: (ceil(root.wallpapers.length / root.wallpaper-grid-cols)) * 192px;
 
                         GridLayout {
+                            width: 100%;
                             spacing: 12px;
                             for wp[idx] in root.wallpapers: WallpaperCard {
                                 data: wp;
                                 animations-enabled: root.animations-enabled;
-                                row: idx / 3;
-                                col: mod(idx, 3);
+                                row: idx / root.wallpaper-grid-cols;
+                                col: mod(idx, root.wallpaper-grid-cols);
                                 equip => { root.equip-wallpaper(wp.path); }
                                 delete => { root.delete-wallpaper(wp.path != "" ? wp.path : wp.id); }
                                 download => { root.download-wallpaper(wp.id); }

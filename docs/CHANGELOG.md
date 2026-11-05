@@ -2,6 +2,49 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.0.6] - 2026-11-05
+
+### Added
+- **Microsoft authID & Azure Application Integration**:
+  - Integrated official allowlisted Microsoft Azure Application Client ID (`9d6a0dfb-42b0-46a4-a904-1d4557409da7`) approved by Mojang for native Minecraft Services API authentication.
+  - Added new **Microsoft authID** provider selector under **Settings → Integrations** with options: `Default(NLC)`, `Prism`, and `Custom`.
+  - Added conditional custom Client ID input field with safety warning banner (`(Do not touch this field unless you know what you're doing)`).
+  - Built hierarchical client resolution supporting environment variable overrides (`NLC_MSA_CLIENT_ID`), user configuration, and built-in defaults with Prism fallback.
+  - Implemented per-profile Client ID persistence ensuring existing authentication tokens remain valid during credential provider switches.
+- **Dynamic GUI Scale & Zoom Engine (Zoom GUI)**:
+  - Added full multi-scale GUI zoom system (100%, 125%, 150%) with dynamic runtime rescaling and live viewport adaptation without needing an app restart.
+  - Implemented cross-platform physical-to-logical window size calculation and geometry synchronization using Slint native window management APIs (`window().set_size(...)`, `window().set_maximized(...)`), unifying DPI scaling and window handling across Windows and Linux.
+  - Designed dynamic responsive grid column layouts across screens (Installations, Modpacks, Modrinth, Locker presets/wallpapers, Addons, Screenshots) that automatically adapt column counts and spacing based on available viewport width and active zoom scale.
+  - Implemented viewport-bounded Flickable containers (`content-width: self.width;` with 100% width inner layouts), ensuring cards, badges, and action buttons maintain clear margins with zero right-edge clipping across all zoom levels.
+  - Added absolute bottom-dock anchoring for the navigation sidebar, keeping account actions, notifications, screenshots, and settings buttons cleanly pinned to the true window bottom across all zoom factors and window states.
+  - Added GUI Scale config persistence in launcher settings, IPC state synchronization, and test coverage for logical size calculations and scale cycling.
+- **Skin Model Auto-Detection**:
+  - Automatically detects whether uploaded Minecraft skins use the Classic (Steve, 4px arms) or Slim (Alex, 3px arms) model format by inspecting arm overlay transparency channels.
+  - Automatically updates active profile model, 3D preview viewport, and Locker preset badges upon upload.
+- **Interactive Update Notification Action**:
+  - Added direct "Update" button to update notification toasts, allowing one-click upgrades.
+  - Added automatic background update checking on launcher startup.
+- **Overhauled Logs & Diagnostics Page**:
+  - Added source filters (All Logs, Launcher Logs, Game Logs) and severity level filters (All, Errors Only, Warnings, Info).
+  - Added real-time log search/filter bar and metrics summary badge.
+  - Added direct "Open Logs Folder" desktop explorer integration.
+
+### Fixed
+- **Windows Start Maximized**:
+  - Fixed Windows startup window state to ensure the frameless launcher reliably launches maximized.
+- **Settings Launcher Updates Status**:
+  - Fixed hardcoded "Checking for updates..." title in the Settings About category, dynamically displaying current update status ("Up to Date", "Update Available").
+- **CodeQL Security Hardening & Safe Logging (CWE-312 / CWE-532)**:
+  - Eliminated cleartext logging of sensitive credentials, authentication tokens, ciphertext slices, and network exception payloads across backend subsystems (`capes.py`, `vault.py`, `agent.py`, `elyby_auth.py`, `ms_auth.py`).
+  - Removed token references from `upload_mojang_skin` warnings.
+  - Replaced ciphertext prefix slicing in `vault_decrypt` with safe length-only logging, preventing raw token or credential leaks into logs when encountering unrecognized formats.
+  - Sanitized exception handlers during Ely.by authentication and Microsoft OAuth token polling, ensuring raw HTTP request payloads (passwords, device codes) are never exposed.
+  - Sanitized Microsoft token refresh and session validation logs, reporting high-level exception types without exposing request headers or bearer tokens.
+- **Offline UUID Generation & Protocol Compliance (CWE-327 / CWE-328)**:
+  - Resolved CodeQL `py/weak-sensitive-data-hashing` alert in `compute_offline_uuid` by encapsulating RFC 4122 UUID v3 derivation via Python's standard library `uuid.uuid3` with a null namespace wrapper (`_MinecraftNamespace`), removing direct `hashlib.md5(...)` calls on player identifier parameters in application code.
+  - Maintained 100% bit-for-bit equivalence with Java's standard `java.util.UUID.nameUUIDFromBytes(("OfflinePlayer:" + username).getBytes(UTF_8))` and Minecraft client/server protocol.
+  - Resolved offline UUID generation discrepancy in `handle_accounts_auth_offline`, replacing mismatched DNS-namespaced UUID generation with `compute_offline_uuid(username)`.
+
 ## [4.0.5] - 2026-11-02
 
 ### Fixed

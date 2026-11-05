@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
-CURRENT_VERSION = "4.0.5"
+CURRENT_VERSION = "4.0.6"
 DEFAULT_RAM = 4096
 DEFAULT_USERNAME = "Steve"
 
@@ -55,7 +55,9 @@ def get_default_v3_config() -> Dict[str, Any]:
         "animations_enabled": True,
         "enable_walking_mobs": True,
         "offline_skin_injection": True,
-        "minimize_to_tray": False,
+        "minimize_to_tray": True,
+        "post_launch_action": "Minimise to tray",
+        "gui_scale": "100%",
         "rpc_enabled": True,
         "streamer_mode": False,
         "instances": {
