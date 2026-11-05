@@ -6,7 +6,7 @@ import hashlib
 import zipfile
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from typing import Callable, Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 from PIL import Image
 

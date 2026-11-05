@@ -2,7 +2,7 @@ import os
 import time
 import math
 import logging
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Tuple
 import numpy as np
 from PIL import Image, ImageDraw
 

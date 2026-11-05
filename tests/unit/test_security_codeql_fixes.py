@@ -41,9 +41,9 @@ def test_compute_offline_uuid_unicode():
 
 def test_handle_accounts_auth_offline_matches_compute_offline_uuid(tmp_path, monkeypatch):
     """Verify handle_accounts_auth_offline creates accounts with identical UUIDs to compute_offline_uuid."""
-    config_file = tmp_path / "config.json"
+    config_file = tmp_path / "launcher_config.json"
     config_file.write_text('{"profiles": [], "accounts": []}', encoding="utf-8")
-    monkeypatch.setattr("agent.get_config_path", lambda: config_file)
+    monkeypatch.setattr("agent.get_config_dir", lambda: str(tmp_path))
 
     res = handle_accounts_auth_offline({"username": "TestPlayer", "skin_model": "classic"})
     assert res["status"] == "success"

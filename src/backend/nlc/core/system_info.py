@@ -6,7 +6,7 @@ import platform
 import subprocess
 import glob
 from pathlib import Path
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional
 
 def get_total_ram_mb() -> int:
     # 1. Linux / Android

@@ -1,6 +1,5 @@
 
 import os
-import sys
 from pathlib import Path
 from typing import Optional
 from nlc.storage.paths import get_launcher_data_dir

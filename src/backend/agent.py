@@ -43,11 +43,11 @@ import socket
 import struct
 
 # Import backend NLC subsystems
-from nlc.storage.paths import get_launcher_data_dir, get_config_path, get_minecraft_dir
+from nlc.storage.paths import get_launcher_data_dir, get_minecraft_dir
 from nlc.storage.config import ConfigManager, get_default_config
-from nlc.core.vault import get_vault_manager, encrypt as vault_encrypt, decrypt as vault_decrypt, is_vault_string
+from nlc.core.vault import encrypt as vault_encrypt, decrypt as vault_decrypt
 from nlc.core.launch import patch_minecraft_launcher_launch_helpers
-from nlc.net.ms_auth import MicrosoftDeviceAuth, MSA_CLIENT_ID, MSA_REDIRECT_URI, get_msa_client_id, get_msa_redirect_uri, DEFAULT_MSA_CLIENT_ID, PRISM_FALLBACK_CLIENT_ID
+from nlc.net.ms_auth import MicrosoftDeviceAuth, get_msa_client_id, get_msa_redirect_uri
 from nlc.net.elyby_auth import ElyByAuth
 from nlc.net.skin_server import LocalSkinServer
 from nlc.net.capes import (
@@ -58,7 +58,7 @@ from nlc.net.capes import (
     upload_mojang_skin,
 )
 from nlc.core.instances import sync_instance_assets
-from nlc.core.skins import deduplicate_and_reroute_skin, cleanup_duplicate_skins, compute_skin_hash, is_subpath
+from nlc.core.skins import deduplicate_and_reroute_skin, cleanup_duplicate_skins, is_subpath
 from nlc.core.discord_rpc import DiscordRPCManager, sync_discord_avatar
 class _LazyMinecraftLauncherLib:
     def __getattr__(self, name):

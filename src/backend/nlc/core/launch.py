@@ -6,7 +6,7 @@ import re
 import shutil
 import stat
 import zipfile
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 import minecraft_launcher_lib
 
 logger = logging.getLogger(__name__)

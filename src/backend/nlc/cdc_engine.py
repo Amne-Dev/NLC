@@ -7,9 +7,8 @@ import hashlib
 import json
 import logging
 import os
-import shutil
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
 
 import requests
 from cryptography.exceptions import InvalidSignature

@@ -44,6 +44,9 @@ All notable changes to this project will be documented in this file.
   - Resolved CodeQL `py/weak-sensitive-data-hashing` alert in `compute_offline_uuid` by encapsulating RFC 4122 UUID v3 derivation via Python's standard library `uuid.uuid3` with a null namespace wrapper (`_MinecraftNamespace`), removing direct `hashlib.md5(...)` calls on player identifier parameters in application code.
   - Maintained 100% bit-for-bit equivalence with Java's standard `java.util.UUID.nameUUIDFromBytes(("OfflinePlayer:" + username).getBytes(UTF_8))` and Minecraft client/server protocol.
   - Resolved offline UUID generation discrepancy in `handle_accounts_auth_offline`, replacing mismatched DNS-namespaced UUID generation with `compute_offline_uuid(username)`.
+- **Codebase Cleanup & Dead Import Removal**:
+  - Pruned 15 residual unused imports and unreferenced type hints across `src/backend/agent.py` and `src/backend/nlc/` (`cdc_engine.py`, `instances.py`, `launch.py`, `skins.py`, `skin_renderer.py`, `system_info.py`, `mod_icons.py`, `lock.py`).
+  - Verified dependency graphs against all CI/CD workflows, PyInstaller packaging specs, and test suites with 0 functional regressions across all 388 unit test cases.
 
 ## [4.0.5] - 2026-11-02
 
