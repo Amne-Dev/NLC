@@ -25,6 +25,7 @@ if str(PKG_WIN) not in sys.path:
 
 from build_installers import (
     build_signtool_command,
+    find_libunwind,
     find_signtool,
     get_signing_config,
     mask_command_secrets,
@@ -411,5 +412,13 @@ def test_bundled_wallpapers_dir_resolution(monkeypatch, tmp_path):
 
     resolved_installed = agent.get_bundled_wallpapers_dir()
     assert resolved_installed.resolve() == installed_wp_dir.resolve()
+
+
+def test_find_libunwind_resolution():
+    found = find_libunwind()
+    assert found is not None
+    assert found.is_file()
+    assert found.name == "libunwind.dll"
+
 
 

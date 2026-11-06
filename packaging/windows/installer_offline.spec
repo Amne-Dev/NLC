@@ -18,7 +18,7 @@ a = Analysis(
         (str(REPO_ROOT / 'dist' / 'NyLuna.exe'), 'payload'),
 
         (str(REPO_ROOT / 'dist' / 'agent.exe'), 'payload'),
-    ] + ([(str(REPO_ROOT / 'dist' / 'libunwind.dll'), 'payload')] if (REPO_ROOT / 'dist' / 'libunwind.dll').is_file() else []) + [
+    ] + ([(str(REPO_ROOT / 'dist' / 'libunwind.dll'), 'payload')] if (REPO_ROOT / 'dist' / 'libunwind.dll').is_file() else ([(str(REPO_ROOT / 'packaging' / 'windows' / 'libunwind.dll'), 'payload')] if (REPO_ROOT / 'packaging' / 'windows' / 'libunwind.dll').is_file() else [])) + [
         (str(REPO_ROOT / 'icons'), 'payload/icons'),
         (str(REPO_ROOT / 'wallpapers'), 'payload/wallpapers'),
         (str(REPO_ROOT / 'skins'), 'payload/skins'),

@@ -197,7 +197,13 @@ def sign_binary(
 
 
 def find_libunwind() -> Path | None:
-    """Finds libunwind.dll from PATH or toolchain directories."""
+    """Finds libunwind.dll from packaging, dist, PATH, or toolchain directories."""
+    repo_pkg = REPO_ROOT / "packaging" / "windows" / "libunwind.dll"
+    if repo_pkg.is_file():
+        return repo_pkg
+    dist_candidate = REPO_ROOT / "dist" / "libunwind.dll"
+    if dist_candidate.is_file():
+        return dist_candidate
     for p in os.environ.get("PATH", "").split(os.path.pathsep):
         candidate = Path(p) / "libunwind.dll"
         if candidate.is_file():
