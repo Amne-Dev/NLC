@@ -60,17 +60,76 @@
     </nav>
 
     <main class="terms-container">
-        <h1>Security / Vulnerability Disclosure</h1>
-        <p class="last-updated">Last Updated: 2026-01-20</p>
+        <h1>Security Policy &amp; Vulnerability Disclosure</h1>
+        <p class="last-updated">Last Updated: 2026-11-06</p>
 
         <section>
-            <h2>Reporting Security Issues</h2>
-            <p>To report a security vulnerability, please open a private issue or contact the maintainers directly via the contact method listed in the repository. If you must use a public issue, avoid posting exploit code or sensitive details publicly.</p>
+            <h2>Supported Versions</h2>
+            <p>Security updates, vulnerability patches, and integrity fixes are actively maintained for the following versions:</p>
+            <div style="overflow-x: auto; margin: 15px 0;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid rgba(255, 255, 255, 0.1);">
+                            <th style="padding: 10px;">Version</th>
+                            <th style="padding: 10px;">Supported</th>
+                            <th style="padding: 10px;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                            <td style="padding: 10px;">4.0.x</td>
+                            <td style="padding: 10px;">✅ Supported</td>
+                            <td style="padding: 10px;">Current active release line</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 10px;">&lt; 4.0.0</td>
+                            <td style="padding: 10px;">❌ Unsupported</td>
+                            <td style="padding: 10px;">End of Life (Legacy Tkinter architecture)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </section>
 
         <section>
-            <h2>Responsible Disclosure</h2>
-            <p>We ask that reporters follow responsible disclosure practices: provide enough detail to reproduce, avoid public disclosure until a fix is available, and allow maintainers reasonable time to respond.</p>
+            <h2>Security Architecture &amp; Safeguards</h2>
+            <p>Ny-Luna Core is engineered with defensive security layers designed to safeguard player credentials and runtime integrity:</p>
+            <ul style="line-height: 1.8; margin-left: 20px;">
+                <li><strong>Credential Vault &amp; OS-Level Encryption:</strong> Authentication tokens are never stored in cleartext. Secrets are secured using hardware-backed platform encryption (Windows DPAPI on Windows and Keyring/SecretService on Linux), reinforced by AES-256-GCM cipher encryption. Diagnostic logs automatically redact authorization headers, tokens, and credentials.</li>
+                <li><strong>IPC Process Isolation:</strong> The frontend native UI (Rust / Slint) communicates with the backend daemon (Python) strictly over a local loopback boundary (<code>127.0.0.1</code>) with typed message framing and exception sanitization.</li>
+                <li><strong>Archive Extraction &amp; Zip-Slip Defense:</strong> Modpack and addon extractors strictly validate canonical paths, preventing directory traversal attacks (Zip Slip) outside target instance directories.</li>
+                <li><strong>Cryptographic Signature Verification:</strong> Differential updates and FastCDC recipes are cryptographically verified using Ed25519 digital signatures before any binary patching occurs. Binary releases are published alongside verifiable SHA-256 checksums.</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Reporting a Vulnerability</h2>
+            <p>If you discover a security vulnerability or exploit within Ny-Luna Core, please disclose it privately. <strong>Please do not submit public GitHub issues or disclose sensitive details in community chat channels.</strong></p>
+            <ul style="line-height: 1.8; margin-left: 20px;">
+                <li><strong>GitHub Security Advisories (Recommended):</strong> Submit a confidential report via our <a href="https://github.com/Amne-Dev/NLC/security/advisories/new" target="_blank" rel="noopener">GitHub Vulnerability Reporting Portal</a>.</li>
+                <li><strong>Discord Community:</strong> Reach out directly to a verified project maintainer via direct message on our <a href="https://discord.gg/2CSGqYz9ms" target="_blank" rel="noopener">Discord Support Server</a>.</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>What to Include in Your Report</h2>
+            <p>To help us triage and resolve the issue quickly, please include:</p>
+            <ul style="line-height: 1.8; margin-left: 20px;">
+                <li>The vulnerability category and potential impact (e.g., token leakage, path traversal, RCE).</li>
+                <li>The affected component and software version (e.g., v4.0.6).</li>
+                <li>Step-by-step reproduction instructions or a minimal proof-of-concept (PoC).</li>
+                <li>Any suggested remediation steps or code diffs, if available.</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Response &amp; Disclosure Timeline</h2>
+            <p>Our team adheres to responsible coordinated disclosure:</p>
+            <ul style="line-height: 1.8; margin-left: 20px;">
+                <li><strong>Acknowledgment:</strong> We aim to acknowledge receipt of security reports within <strong>48 to 72 hours</strong>.</li>
+                <li><strong>Triage &amp; Fix:</strong> We validate the report, assign severity, and develop a patch in a private security branch with adversarial regression tests.</li>
+                <li><strong>Public Release:</strong> Once a patched release is published, a public advisory will be issued with full attribution to the researcher (unless anonymity is requested).</li>
+            </ul>
         </section>
 
     </main>

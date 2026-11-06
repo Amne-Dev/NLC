@@ -130,7 +130,7 @@ Open **Settings** to adjust Java memory, launcher behavior, and optional integra
 - [Credits & Third-Party Notices](docs/CREDITS.md)
 - [Frequently asked questions](web/faq.html)
 - [Report a bug or request a feature](https://github.com/Amne-Dev/NLC/issues)
-- [Security policy](web/security.html)
+- [Security policy](SECURITY.md) ([Web version](web/security.html))
 
 ## Build From Source
 
