@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.0.7] - 2026-11-08
+
+### Fixed
+- **Minecraft Game Launch Crash (Argument Parsing for Modloaders & Snapshots)**:
+  - Resolved a critical game crash on startup occurring when launching modloaders (such as Fabric 26.2, Quilt, or modern manifests) that format rule-based arguments with the `'values'` key (plural list of arguments) rather than `'value'`.
+  - Previously, `safe_get_minecraft_arguments` discarded all argument entries missing the singular `'value'` key, inadvertently stripping the classpath (`-cp`), JVM arguments, natives directory flags, and game arguments (`--username`, `--gameDir`, etc.), which caused Java to immediately exit with `ClassNotFoundException`.
+  - Added support in `safe_get_minecraft_arguments` for both `'value'` (string or list) and `'values'` (list of strings) argument dictionaries, with strict type filtering to ignore malformed entries without crashing.
+  - Added recursive parent inheritance resolution in `safe_inherit_json` to cleanly handle multi-level inherited version manifests (`child` -> `parent` -> `base`).
+  - Added comprehensive automated unit tests covering argument parsing, OS-specific rule evaluation, multi-level JSON inheritance, and end-to-end command generation.
+
 ## [4.0.6] - 2026-11-05
 
 ### Added

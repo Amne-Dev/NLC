@@ -33,6 +33,9 @@ def safe_inherit_json(original_data: Dict[str, Any], path: str) -> Dict[str, Any
     with open(parent_json_path, encoding="utf-8") as f:
         new_data = json.load(f)
 
+    if new_data.get("inheritsFrom"):
+        new_data = safe_inherit_json(new_data, path)
+
     original_libs = {}
     for current_lib in original_data.get("libraries", []):
         lib_name = _get_lib_name_without_version(current_lib)
@@ -79,17 +82,21 @@ def safe_get_minecraft_arguments(data, version_data, path, options, classpath) -
             )
             continue
 
+        if not isinstance(entry, dict):
+            logger.warning("Skipping non-dict/non-string argument for %s: %r", version_id, entry)
+            continue
+
         if "compatibilityRules" in entry and not minecraft_launcher_lib.command.parse_rule_list(entry["compatibilityRules"], options):
             continue
 
         if "rules" in entry and not minecraft_launcher_lib.command.parse_rule_list(entry["rules"], options):
             continue
 
-        if "value" not in entry:
-            logger.warning("Skipping argument without 'value' for %s: %s", version_id, entry)
+        if "value" not in entry and "values" not in entry:
+            logger.warning("Skipping argument without 'value'/'values' for %s: %s", version_id, entry)
             continue
 
-        arg_val = entry.get("value")
+        arg_val = entry.get("value") if "value" in entry else entry.get("values")
         if isinstance(arg_val, str):
             arglist.append(
                 minecraft_launcher_lib.command.replace_arguments(
@@ -100,11 +107,14 @@ def safe_get_minecraft_arguments(data, version_data, path, options, classpath) -
 
         if isinstance(arg_val, list):
             for v in arg_val:
-                arglist.append(
-                    minecraft_launcher_lib.command.replace_arguments(
-                        v, version_data, path, options, classpath
+                if isinstance(v, str):
+                    arglist.append(
+                        minecraft_launcher_lib.command.replace_arguments(
+                            v, version_data, path, options, classpath
+                        )
                     )
-                )
+                else:
+                    logger.warning("Skipping non-string item in argument value list for %s: %r", version_id, v)
             continue
 
         logger.warning("Skipping malformed argument value for %s: %r", version_id, arg_val)

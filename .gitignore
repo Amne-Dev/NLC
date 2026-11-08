@@ -73,6 +73,7 @@ temp_community_repo/
 !/tests/unit/test_modpack_mods_management.py
 !/tests/unit/test_skin_preset_and_mod_consistency.py
 !/tests/unit/test_wallpapers_and_modpacks.py
+!/tests/unit/test_launch_arguments.py
 !/tests/unit/test_security_codeql_fixes.py
 !/tests/unit/test_skin_auto_detection.py
 !/tests/unit/test_updater.py
