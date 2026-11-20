@@ -132,8 +132,9 @@ def main() -> int:
     ).strip()
 
     binaries = ["NyLuna.exe", "agent.exe"]
+    direct_files = []
     if (dist_dir / "libunwind.dll").is_file():
-        binaries.append("libunwind.dll")
+        direct_files.append("libunwind.dll")
     release_manifest: Dict[str, Any] = {
         "version": args.version,
         "repo": args.repo,
@@ -157,6 +158,18 @@ def main() -> int:
             }
         else:
             print(f"[!] Warning: {b_name} not found in {dist_dir}")
+
+    for d_name in direct_files:
+        p = dist_dir / d_name
+        if p.is_file():
+            found += 1
+            data = p.read_bytes()
+            release_manifest["files"][d_name] = {
+                "size": len(data),
+                "sha256": hashlib.sha256(data).hexdigest(),
+                "download_url": f"{base_url}/{d_name}",
+            }
+            print(f"[+] Added {d_name} as direct binary (FastCDC bypassed)")
 
     if found == 0:
         print("[-] No target binaries found to slice.", file=sys.stderr)

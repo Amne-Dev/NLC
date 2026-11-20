@@ -3,7 +3,7 @@ setlocal
 cd /d "%~dp0..\.."
 
 echo ========================================================
-echo   Building Ny-Luna Core v4.0.8 (Rust UI + Python Agent)
+echo   Building Ny-Luna Core v4.1.0 (Rust UI + Python Agent)
 echo ========================================================
 
 python packaging\windows\build_installers.py --all %*

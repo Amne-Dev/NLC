@@ -539,7 +539,7 @@ async fn refresh_screenshots_gallery(agent: Option<&ipc::AgentClient>, root_dir:
 }
 
 fn sync_modrinth_destinations(w: &MainWindow, modpacks: &[ModpackData]) {
-    let mut dests: Vec<slint::SharedString> = vec!["Global (.minecraft)".into()];
+    let mut dests: Vec<slint::SharedString> = vec!["None".into(), "Global (.minecraft)".into()];
     if !modpacks.is_empty() {
         for mp in modpacks {
             if !mp.name.is_empty() && !dests.iter().any(|d| d.as_str() == mp.name.as_str()) {
@@ -1394,9 +1394,13 @@ fn map_modrinth_hit(hit: &ipc::ModrinthHit, default_type: &str, root: &std::path
         follows: flws.into(),
         project_type: p_type.to_string().into(),
         loaders: loaders.into(),
+        loader_list: std::rc::Rc::new(slint::VecModel::from(
+            loader_labels.iter().map(|s| slint::SharedString::from(s.as_str())).collect::<Vec<_>>()
+        )).into(),
         versions: vers.into(),
         icon_url: hit.icon_url.clone().unwrap_or_default().into(),
         install_status: "idle".into(),
+        has_multiple_loaders: loader_labels.len() > 1,
         has_icon,
         icon,
     }
@@ -2202,12 +2206,18 @@ struct ToastItem {
     error_payload: String,
     has_action: bool,
     action_label: String,
+    is_download: bool,
 }
 
 static GLOBAL_TOAST_TRACKER: std::sync::OnceLock<Arc<std::sync::Mutex<Vec<ToastItem>>>> = std::sync::OnceLock::new();
+static DISMISSED_TOAST_IDS: std::sync::OnceLock<Arc<std::sync::Mutex<std::collections::HashSet<String>>>> = std::sync::OnceLock::new();
 
 fn get_toast_tracker() -> Arc<std::sync::Mutex<Vec<ToastItem>>> {
     GLOBAL_TOAST_TRACKER.get_or_init(|| Arc::new(std::sync::Mutex::new(Vec::new()))).clone()
+}
+
+fn get_dismissed_toast_ids() -> Arc<std::sync::Mutex<std::collections::HashSet<String>>> {
+    DISMISSED_TOAST_IDS.get_or_init(|| Arc::new(std::sync::Mutex::new(std::collections::HashSet::new()))).clone()
 }
 
 fn sync_toasts_to_ui(win: &MainWindow, list: &[ToastItem]) {
@@ -2225,6 +2235,8 @@ fn sync_toasts_to_ui(win: &MainWindow, list: &[ToastItem]) {
             error_payload: t.error_payload.clone().into(),
             has_action: t.has_action,
             action_label: t.action_label.clone().into(),
+            is_download: t.is_download,
+            is_paused: t.is_paused,
         })
         .collect();
     win.set_active_toasts(std::rc::Rc::new(slint::VecModel::from(slint_items)).into());
@@ -2243,6 +2255,12 @@ fn show_toast_notification_with_action(
     has_action: bool,
     action_label: &str,
 ) {
+    if let Ok(dismissed) = get_dismissed_toast_ids().lock() {
+        if dismissed.contains(id) {
+            return;
+        }
+    }
+
     if let Ok(mut list) = tracker.lock() {
         let total_ms = match status {
             "error" => 7000,
@@ -2256,6 +2274,7 @@ fn show_toast_notification_with_action(
         } else {
             error_payload.to_string()
         };
+        let is_download = id.starts_with("dl-");
 
         if let Some(existing) = list.iter_mut().find(|t| t.id == id) {
             existing.title = title.to_string();
@@ -2267,6 +2286,7 @@ fn show_toast_notification_with_action(
             existing.error_payload = err_str;
             existing.has_action = has_action;
             existing.action_label = action_label.to_string();
+            existing.is_download = is_download;
             if !is_sticky {
                 existing.total_ms = total_ms;
                 existing.remaining_ms = total_ms;
@@ -2291,6 +2311,7 @@ fn show_toast_notification_with_action(
                 error_payload: err_str,
                 has_action,
                 action_label: action_label.to_string(),
+                is_download,
             });
         }
         sync_toasts_to_ui(win, &list);
@@ -3103,9 +3124,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     follows: "156K".into(),
                     project_type: "mod".into(),
                     loaders: "fabric, quilt".into(),
+                    loader_list: std::rc::Rc::new(slint::VecModel::from(vec!["FABRIC".into(), "QUILT".into()])).into(),
                     versions: "1.21.4, 1.21.3".into(),
                     icon_url: "".into(),
                     install_status: "idle".into(),
+                    has_multiple_loaders: true,
                     has_icon: false,
                     icon: slint::Image::default(),
                 },
@@ -3119,9 +3142,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     follows: "98K".into(),
                     project_type: "mod".into(),
                     loaders: "fabric, quilt".into(),
+                    loader_list: std::rc::Rc::new(slint::VecModel::from(vec!["FABRIC".into(), "QUILT".into()])).into(),
                     versions: "1.21.4, 1.21.3".into(),
                     icon_url: "".into(),
                     install_status: "installed".into(),
+                    has_multiple_loaders: true,
                     has_icon: false,
                     icon: slint::Image::default(),
                 },
@@ -3872,10 +3897,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 let total_files = event.payload.get("total_files").and_then(|v| v.as_i64()).unwrap_or(0);
                                 let detail = event.payload.get("detail").and_then(|v| v.as_str()).unwrap_or("").to_string();
 
-                                let notif_id = if !task_id.is_empty() {
-                                    format!("dl-task-{}", task_id)
-                                } else if !project_id.is_empty() {
+                                let notif_id = if !project_id.is_empty() {
                                     format!("dl-proj-{}", project_id)
+                                } else if !task_id.is_empty() {
+                                    if task_id.starts_with("dl-") {
+                                        task_id.clone()
+                                    } else {
+                                        format!("dl-task-{}", task_id)
+                                    }
                                 } else {
                                     format!("dl-file-{}", filename)
                                 };
@@ -3892,6 +3921,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 };
 
                                 let win_weak = win_weak_inner.clone();
+                                let notif_id_cloned = notif_id.clone();
                                 let _ = slint::invoke_from_event_loop(move || {
                                     if let Some(win) = win_weak.upgrade() {
                                         let is_sticky = status != "completed" && status != "error" && status != "failed";
@@ -3929,36 +3959,48 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             (d.clone(), d)
                                         };
 
-                                        push_toast_with_progress(
-                                            &win,
-                                            &notif_id,
-                                            &display_title,
-                                            &toast_detail,
-                                            toast_status,
-                                            pct as f32,
-                                            is_sticky,
-                                            &err_msg,
-                                        );
+                                        let is_dismissed = if let Ok(dismissed) = get_dismissed_toast_ids().lock() {
+                                            dismissed.contains(&notif_id_cloned)
+                                        } else {
+                                            false
+                                        };
 
-                                        // Keep legacy toast properties populated for fallback
-                                        win.set_toast_visible(true);
-                                        win.set_toast_title(display_title.clone().into());
-                                        win.set_toast_detail(toast_detail.clone().into());
-                                        win.set_toast_progress(pct as f32);
-                                        win.set_toast_status(toast_status.into());
-
-                                        // Update Notification Center (aggregated: single card updated in-place)
-                                        if status == "completed" || status == "error" || status == "failed" || total_files > 1 {
-                                            push_or_update_notification(
-                                                &win,
-                                                &notif_id,
-                                                "Downloads",
-                                                &display_title,
-                                                &notif_desc,
-                                                "Just now",
-                                                false,
-                                            );
+                                        if status == "completed" || status == "error" || status == "failed" {
+                                            if let Ok(mut dismissed) = get_dismissed_toast_ids().lock() {
+                                                dismissed.remove(&notif_id_cloned);
+                                            }
                                         }
+
+                                        if !is_dismissed {
+                                            push_toast_with_progress(
+                                                &win,
+                                                &notif_id_cloned,
+                                                &display_title,
+                                                &toast_detail,
+                                                toast_status,
+                                                pct as f32,
+                                                is_sticky,
+                                                &err_msg,
+                                            );
+
+                                            // Keep legacy toast properties populated for fallback
+                                            win.set_toast_visible(true);
+                                            win.set_toast_title(display_title.clone().into());
+                                            win.set_toast_detail(toast_detail.clone().into());
+                                            win.set_toast_progress(pct as f32);
+                                            win.set_toast_status(toast_status.into());
+                                        }
+
+                                        // Update Notification Center dynamically for all downloads
+                                        push_or_update_notification(
+                                            &win,
+                                            &notif_id_cloned,
+                                            "Downloads",
+                                            &display_title,
+                                            &notif_desc,
+                                            "Just now",
+                                            false,
+                                        );
                                         if status == "completed" {
                                             win.set_modrinth_status_text(format!("Downloaded {} ✓", display_title).into());
                                             win.set_modrinth_details_install_status("installed".into());
@@ -8003,8 +8045,9 @@ fn apply_mod_filter(
     let agent_client_mr_inst = agent_client.clone();
     let win_weak_mr_inst = main_window.as_weak();
     let rt_mr_inst = rt.clone();
-    main_window.on_modrinth_install(move |project_id, project_type, target_dest, version_id| {
+    main_window.on_modrinth_install(move |project_id, project_title, project_type, target_dest, version_id| {
         let p_id = project_id.to_string();
+        let p_title = project_title.to_string();
         let p_type = project_type.to_string();
         let target = target_dest.to_string();
 
@@ -8059,19 +8102,20 @@ fn apply_mod_filter(
 
         let final_target = if is_real_dest { target } else { "".to_string() };
         let v_id = if version_id.is_empty() { None } else { Some(version_id.to_string()) };
-        println!("[NLC-Rust] Modrinth install: id='{}', type='{}', target='{}', ver='{:?}'", p_id, p_type, final_target, v_id);
+        println!("[NLC-Rust] Modrinth install: id='{}', title='{}', type='{}', target='{}', ver='{:?}'", p_id, p_title, p_type, final_target, v_id);
 
         let agent = agent_client_mr_inst.clone();
         let win_weak = win_weak_mr_inst.clone();
         rt_mr_inst.spawn(async move {
             if let Some(ref agent) = agent {
-                let title_opt = if let Some(w) = win_weak.upgrade() {
+                let display_title = if !p_title.is_empty() {
+                    p_title.clone()
+                } else if let Some(w) = win_weak.upgrade() {
                     let t = w.get_modrinth_details_title().to_string();
-                    if !t.is_empty() { Some(t) } else { None }
+                    if !t.is_empty() { t } else { p_id.clone() }
                 } else {
-                    None
+                    p_id.clone()
                 };
-                let display_title = title_opt.clone().unwrap_or_else(|| p_id.clone());
 
                 let _ = slint::invoke_from_event_loop({
                     let win = win_weak.clone();
@@ -8092,10 +8136,92 @@ fn apply_mod_filter(
                         }
                     }
                 });
-                let res = agent.install_modrinth_artifact(&p_id, &p_type, &final_target, v_id.as_deref(), None, None, title_opt.as_deref()).await;
+                let res = agent.install_modrinth_artifact(&p_id, &p_type, &final_target, v_id.as_deref(), None, None, Some(&display_title)).await;
                 match res {
                     Ok(_) => {
                         println!("[NLC-Rust] Successfully installed {}", p_id);
+                        if let Ok(packs) = agent.list_modpacks().await {
+                            let win_weak_packs = win_weak.clone();
+                            let _ = slint::invoke_from_event_loop(move || {
+                                if let Some(w) = win_weak_packs.upgrade() {
+                                    let slint_packs: Vec<ModpackData> = packs.iter().map(map_modpack).collect();
+                                    sync_modrinth_destinations(&w, &slint_packs);
+                                    w.set_modpacks(std::rc::Rc::new(slint::VecModel::from(slint_packs)).into());
+                                }
+                            });
+                        }
+                        let _ = slint::invoke_from_event_loop(move || {
+                            if let Some(w) = win_weak.upgrade() {
+                                w.set_modrinth_status_text(format!("Installed {} successfully! ✓", display_title).into());
+                                w.set_modrinth_details_install_status("installed".into());
+                            }
+                        });
+                    }
+                    Err(e) => {
+                        let err_msg = e.to_string();
+                        eprintln!("[NLC-Rust] Failed to install {}: {}", p_id, err_msg);
+                        let _ = slint::invoke_from_event_loop(move || {
+                            if let Some(w) = win_weak.upgrade() {
+                                w.set_modrinth_status_text(format!("Install error: {}", err_msg).into());
+                                w.set_modrinth_details_install_status("idle".into());
+                                w.set_toast_status("error".into());
+                                w.set_toast_detail(err_msg.into());
+                            }
+                        });
+                    }
+                }
+            }
+        });
+    });
+
+    let win_weak_mr_inst_ldr = main_window.as_weak();
+    let agent_client_mr_inst_ldr = agent_client.clone();
+    let rt_mr_inst_ldr = rt.clone();
+    main_window.on_modrinth_install_with_loader(move |project_id, project_title, project_type, target_instance, version_id, loader| {
+        let p_id = project_id.to_string();
+        let p_title = project_title.to_string();
+        let p_type = project_type.to_string();
+        let target = target_instance.to_string();
+        let ldr = loader.to_string();
+        let v_id = if version_id.is_empty() { None } else { Some(version_id.to_string()) };
+
+        let agent = agent_client_mr_inst_ldr.clone();
+        let win_weak = win_weak_mr_inst_ldr.clone();
+        rt_mr_inst_ldr.spawn(async move {
+            if let Some(ref agent) = agent {
+                let display_title = if !p_title.is_empty() {
+                    p_title.clone()
+                } else if let Some(w) = win_weak.upgrade() {
+                    let t = w.get_modrinth_details_title().to_string();
+                    if !t.is_empty() { t } else { p_id.clone() }
+                } else {
+                    p_id.clone()
+                };
+
+                let _ = slint::invoke_from_event_loop({
+                    let win = win_weak.clone();
+                    let pid = p_id.clone();
+                    let title = display_title.clone();
+                    let loader_tag = ldr.clone();
+                    move || {
+                        if let Some(w) = win.upgrade() {
+                            w.set_modrinth_status_text(format!("Installing {} ({})...", title, loader_tag).into());
+                            w.set_modrinth_details_install_status("installing".into());
+                            if !w.get_notifications_open() {
+                                w.set_toast_visible(true);
+                            }
+                            w.set_toast_title(title.clone().into());
+                            w.set_toast_detail(format!("Starting download ({})...", loader_tag).into());
+                            w.set_toast_progress(0.0);
+                            w.set_toast_status("normal".into());
+                            push_toast_with_progress(&w, &format!("dl-proj-{}", pid), &title, &format!("Starting download ({})...", loader_tag), "normal", 0.0, true, "");
+                        }
+                    }
+                });
+                let res = agent.install_modrinth_artifact_with_loader(&p_id, &p_type, &target, v_id.as_deref(), None, None, Some(&display_title), Some(&ldr)).await;
+                match res {
+                    Ok(_) => {
+                        println!("[NLC-Rust] Successfully installed {} with loader {}", p_id, ldr);
                         if let Ok(packs) = agent.list_modpacks().await {
                             let win_weak_packs = win_weak.clone();
                             let _ = slint::invoke_from_event_loop(move || {
@@ -8250,12 +8376,66 @@ fn apply_mod_filter(
     let win_weak_dismiss_toast = main_window.as_weak();
     main_window.on_dismiss_toast(move |id| {
         let id_str = id.to_string();
+        if let Ok(mut dismissed) = get_dismissed_toast_ids().lock() {
+            dismissed.insert(id_str.clone());
+        }
         if let Ok(mut list) = get_toast_tracker().lock() {
             list.retain(|t| t.id != id_str);
             if let Some(win) = win_weak_dismiss_toast.upgrade() {
                 sync_toasts_to_ui(&win, &list);
             }
         }
+    });
+
+    let win_weak_cancel_dl = main_window.as_weak();
+    let agent_client_cancel_dl = agent_client.clone();
+    let rt_cancel_dl = rt.clone();
+    main_window.on_cancel_download(move |id| {
+        let id_str = id.to_string();
+        let target = id_str.strip_prefix("dl-proj-").or_else(|| id_str.strip_prefix("dl-task-")).unwrap_or(&id_str).to_string();
+        if let Ok(mut dismissed) = get_dismissed_toast_ids().lock() {
+            dismissed.insert(id_str.clone());
+        }
+        if let Ok(mut list) = get_toast_tracker().lock() {
+            list.retain(|t| t.id != id_str);
+            if let Some(w) = win_weak_cancel_dl.upgrade() {
+                sync_toasts_to_ui(&w, &list);
+            }
+        }
+        let agent = agent_client_cancel_dl.clone();
+        rt_cancel_dl.spawn(async move {
+            if let Some(ref a) = agent {
+                let _ = a.download_cancel(&target).await;
+            }
+        });
+    });
+
+    let win_weak_pause_dl = main_window.as_weak();
+    let agent_client_pause_dl = agent_client.clone();
+    let rt_pause_dl = rt.clone();
+    main_window.on_toggle_pause_download(move |id| {
+        let id_str = id.to_string();
+        let target = id_str.strip_prefix("dl-proj-").or_else(|| id_str.strip_prefix("dl-task-")).unwrap_or(&id_str).to_string();
+        let mut is_now_paused = false;
+        if let Ok(mut list) = get_toast_tracker().lock() {
+            if let Some(t) = list.iter_mut().find(|t| t.id == id_str) {
+                t.is_paused = !t.is_paused;
+                is_now_paused = t.is_paused;
+            }
+            if let Some(w) = win_weak_pause_dl.upgrade() {
+                sync_toasts_to_ui(&w, &list);
+            }
+        }
+        let agent = agent_client_pause_dl.clone();
+        rt_pause_dl.spawn(async move {
+            if let Some(ref a) = agent {
+                if is_now_paused {
+                    let _ = a.download_pause(&target).await;
+                } else {
+                    let _ = a.download_resume(&target).await;
+                }
+            }
+        });
     });
 
     let win_weak_copy_toast = main_window.as_weak();

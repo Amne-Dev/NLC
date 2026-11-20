@@ -78,6 +78,12 @@ export component MainWindow inherits Window {
 
     in-out property <string> sidebar-mode: "main";
 
+    in-out property <bool> modrinth-tree-expanded: false;
+
+    in-out property <bool> addons-tree-expanded: false;
+
+    in-out property <bool> settings-tree-expanded: false;
+
     in-out property <string> current-modrinth-mode: "mod";
 
     in-out property <string> current-settings-cat: "General";
@@ -435,9 +441,9 @@ export component MainWindow inherits Window {
 
     in-out property <string> modrinth-view-mode: "browse";
 
-    in-out property <string> modrinth-selected-destination: "Global (.minecraft)";
+    in-out property <string> modrinth-selected-destination: "None";
 
-    in-out property <[string]> modrinth-destinations: ["Global (.minecraft)"];
+    in-out property <[string]> modrinth-destinations: ["None"];
 
     in-out property <string> modrinth-selected-version: "All";
 
@@ -625,7 +631,13 @@ export component MainWindow inherits Window {
 
     callback modrinth-open-details(string);
 
-    callback modrinth-install(string, string, string, string);
+    callback modrinth-install(string, string, string, string, string);
+
+    callback modrinth-install-with-loader(string, string, string, string, string, string);
+
+    callback cancel-download(string);
+
+    callback toggle-pause-download(string);
 
     callback modrinth-load-more();
 
@@ -768,6 +780,12 @@ export component MainWindow inherits Window {
 
                 sidebar-mode <=> root.sidebar-mode;
 
+                modrinth-tree-expanded <=> root.modrinth-tree-expanded;
+
+                addons-tree-expanded <=> root.addons-tree-expanded;
+
+                settings-tree-expanded <=> root.settings-tree-expanded;
+
                 current-modrinth-mode <=> root.current-modrinth-mode;
 
                 current-settings-cat <=> root.current-settings-cat;
@@ -789,6 +807,12 @@ export component MainWindow inherits Window {
                 select-tab(tab) => {
 
                     root.current-tab = tab;
+
+                    if (tab != "Mods" && tab != "Modrinth" && tab != "Addons" && tab != "Settings") {
+                        root.modrinth-tree-expanded = false;
+                        root.addons-tree-expanded = false;
+                        root.settings-tree-expanded = false;
+                    }
 
                     if (tab == "Addons") {
 
@@ -880,37 +904,45 @@ export component MainWindow inherits Window {
 
                     if (item == "settings") {
 
-                        root.sidebar-mode = "settings";
+                        root.settings-tree-expanded = true;
+                        root.modrinth-tree-expanded = false;
+                        root.addons-tree-expanded = false;
 
                         root.current-tab = "Settings";
 
                         root.tab-changed("Settings");
 
-                    } else if (item == "screenshots") {
-
-                        root.sidebar-mode = "main";
-
-                        root.current-tab = "Screenshots";
-
-                        root.refresh-screenshots();
-
-                        root.tab-changed("Screenshots");
-
-                    } else if (item == "notifications") {
-
-                        root.notifications-open = !root.notifications-open;
-
-                        if (root.notifications-open) {
-
-                            root.toast-visible = false;
-
-                        }
-
-                        root.open-dock(item);
-
                     } else {
 
-                        root.open-dock(item);
+                        root.modrinth-tree-expanded = false;
+                        root.addons-tree-expanded = false;
+                        root.settings-tree-expanded = false;
+
+                        if (item == "screenshots") {
+
+                            root.current-tab = "Screenshots";
+
+                            root.refresh-screenshots();
+
+                            root.tab-changed("Screenshots");
+
+                        } else if (item == "notifications") {
+
+                            root.notifications-open = !root.notifications-open;
+
+                            if (root.notifications-open) {
+
+                                root.toast-visible = false;
+
+                            }
+
+                            root.open-dock(item);
+
+                        } else {
+
+                            root.open-dock(item);
+
+                        }
 
                     }
 
@@ -1138,6 +1170,10 @@ export component MainWindow inherits Window {
 
                             projects <=> root.modrinth-projects;
 
+                            share-resource-packs <=> root.share-resource-packs;
+
+                            share-shader-packs <=> root.share-shader-packs;
+
                             installations <=> root.compatible-installations;
 
                             modpacks <=> root.modpacks;
@@ -1190,9 +1226,15 @@ export component MainWindow inherits Window {
 
                             }
 
-                            install-artifact(id, p_type, target, v_id) => {
+                            install-artifact(id, title, p_type, target, v_id) => {
 
-                                root.modrinth-install(id, p_type, target, v_id);
+                                root.modrinth-install(id, title, p_type, target, v_id);
+
+                            }
+
+                            install-artifact-with-loader(id, title, p_type, target, v_id, loader) => {
+
+                                root.modrinth-install-with-loader(id, title, p_type, target, v_id, loader);
 
                             }
 
@@ -1770,6 +1812,18 @@ export component MainWindow inherits Window {
         action-clicked(id) => {
 
             root.toast-action-clicked(id);
+
+        }
+
+        cancel-download(id) => {
+
+            root.cancel-download(id);
+
+        }
+
+        toggle-pause-download(id) => {
+
+            root.toggle-pause-download(id);
 
         }
 

@@ -31,7 +31,7 @@ from nlc.core.updater import apply_patch
 
 
 APP_NAME = "Ny-Luna Core"
-APP_VERSION = "4.0.8"
+APP_VERSION = "4.1.0"
 APP_PUBLISHER = "@amne-dev on github"
 APP_EXE = "NyLuna.exe"
 LEGACY_EXE = "NewLauncher.exe"
@@ -149,6 +149,45 @@ def unblock_file(path: str) -> None:
         os.chmod(path, 0o777)
     except Exception:
         pass
+
+
+def kill_named_processes_safely(proc_names=(APP_EXE, AGENT_EXE), on_stop_cb=None) -> None:
+    """Terminates processes by name safely without killing the current process."""
+    if os.name != "nt":
+        return
+    current_pid = os.getpid()
+    for proc_name in proc_names:
+        try:
+            res = subprocess.run(
+                ["tasklist", "/FI", f"IMAGENAME eq {proc_name}", "/FO", "CSV", "/NH"],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=5,
+                stdin=subprocess.DEVNULL,
+                close_fds=True,
+                cwd=os.environ.get("SystemRoot", r"C:\Windows"),
+            )
+            stopped = False
+            for line in (res.stdout or "").strip().splitlines():
+                parts = [p.strip(' "\t') for p in line.split(",")]
+                if len(parts) >= 2 and parts[1].isdigit():
+                    pid = int(parts[1])
+                    if pid != current_pid:
+                        subprocess.run(
+                            ["taskkill", "/PID", str(pid), "/F"],
+                            capture_output=True,
+                            check=False,
+                            timeout=8,
+                            stdin=subprocess.DEVNULL,
+                            close_fds=True,
+                            cwd=os.environ.get("SystemRoot", r"C:\Windows"),
+                        )
+                        stopped = True
+            if stopped and on_stop_cb:
+                on_stop_cb(proc_name)
+        except Exception:
+            pass
 
 
 def launch_installed_app(app_path: str, target_dir: str) -> bool:
@@ -531,11 +570,7 @@ def run_uninstall(target_dir: str, quiet: bool = False, remove_data: Optional[bo
         wipe_user_data = bool(remove_data)
 
     # 1. Stop running processes
-    for process_name in (APP_EXE, AGENT_EXE):
-        try:
-            subprocess.run(["taskkill", "/IM", process_name, "/F"], capture_output=True, check=False, timeout=8)
-        except Exception:
-            pass
+    kill_named_processes_safely((APP_EXE, AGENT_EXE))
 
     # 2. Delete files and subfolders
     files_to_remove = [
@@ -679,7 +714,10 @@ def download_web_payload(
     if mirror_url or os.environ.get("NLC_UPDATE_BASE_URL"):
         for fname, finfo in manifest.get("files", {}).items():
             finfo["download_url"] = f"{base_url}/{fname}"
-            finfo["cdc_url"] = f"{base_url}/{fname}.cdc.json"
+            if fname != "libunwind.dll" and "cdc_url" in finfo:
+                finfo["cdc_url"] = f"{base_url}/{fname}.cdc.json"
+            else:
+                finfo.pop("cdc_url", None)
         if "assets" in manifest and isinstance(manifest["assets"], dict):
             manifest["assets"]["download_url"] = f"{base_url}/assets.zip"
 
@@ -818,16 +856,7 @@ def run_silent_install(target_dir: str = "", mirror: str = "") -> int:
         if missing:
             raise RuntimeError("Installer payload is incomplete. Missing: " + ", ".join(missing))
 
-    for process_name in (APP_EXE, AGENT_EXE):
-        try:
-            subprocess.run(
-                ["taskkill", "/IM", process_name, "/F"],
-                capture_output=True,
-                check=False,
-                timeout=8,
-            )
-        except (OSError, subprocess.TimeoutExpired):
-            pass
+    kill_named_processes_safely((APP_EXE, AGENT_EXE))
 
     os.makedirs(target_dir, exist_ok=True)
     if is_offline_installer():
@@ -868,16 +897,7 @@ def run_patch(package_path: str, target_dir: str = "") -> int:
     can_write, reason = check_write_access(target_dir)
     if not can_write:
         raise PermissionError(reason)
-    for process_name in (APP_EXE, AGENT_EXE):
-        try:
-            subprocess.run(
-                ["taskkill", "/IM", process_name, "/F"],
-                capture_output=True,
-                check=False,
-                timeout=8,
-            )
-        except (OSError, subprocess.TimeoutExpired):
-            pass
+    kill_named_processes_safely((APP_EXE, AGENT_EXE))
     apply_patch(package_path, target_dir)
     install_payload_directories(target_dir)
     if ConfigHealer:
@@ -1796,24 +1816,10 @@ class InstallerApp:
     def _stop_running_instances(self) -> None:
         if os.name != "nt":
             return
-        for proc_name in (APP_EXE, AGENT_EXE):
-            try:
-                result = subprocess.run(
-                    ["taskkill", "/IM", proc_name, "/F"],
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                    timeout=8,
-                    stdin=subprocess.DEVNULL,
-                    close_fds=True,
-                    cwd=os.environ.get("SystemRoot", r"C:\Windows"),
-                )
-                if result.returncode == 0:
-                    self.root.after(0, lambda p=proc_name: self._append_log(f"Stopped {p}."))
-            except subprocess.TimeoutExpired:
-                self.root.after(0, lambda p=proc_name: self._append_log(f"Stop timeout for {p}; continuing."))
-            except Exception:
-                pass
+        kill_named_processes_safely(
+            (APP_EXE, AGENT_EXE),
+            on_stop_cb=lambda p: self.root.after(0, lambda name=p: self._append_log(f"Stopped {name}.")),
+        )
 
     @staticmethod
     def _is_process_running(proc_name: str) -> bool:
@@ -1942,4 +1948,8 @@ if __name__ == "__main__":
         except Exception as exc:
             print(f"Silent installation failed: {exc}", file=sys.stderr)
             raise SystemExit(1)
-    InstallerApp(target_dir=cli.target, mirror=cli.mirror).run()
+    app = InstallerApp(target_dir=cli.target, mirror=cli.mirror)
+    if cli.update:
+        app.is_update_mode = True
+        app.root.after(200, app._start_install)
+    app.run()

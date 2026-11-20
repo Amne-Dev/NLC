@@ -2,6 +2,46 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.1.0] - 2026-11-20
+
+### Added
+
+- **Permanent Tree Sidebar Navigation & Upward Settings Expansion**:
+  - Replaced dynamic sub-sidebar screen replacement (which replaced the entire sidebar with sub-sidebars and `← Back` buttons) with a unified, persistent tree structure in the sidebar.
+  - Added smooth, fluid expand/collapse clipping animations (`height` and `opacity` transitions) across all tree sections (Modrinth, Addons, Settings) and top navigation Flickable resizing.
+  - Integrated full compliance with the app's animation preferences (`Theme.smooth-animations` / `root.smooth-animations`): transitions run over a calibrated 180ms when enabled and snap instantaneously (0ms) when disabled in Settings.
+  - Enforced mutual exclusion across sidebar tree expansion: expanding one section (Modrinth, Addons, or Settings) automatically collapses the others.
+  - Automatically collapses any open sidebar tree (Modrinth, Addons, or Settings) when selecting navigation options with no sub-pages (Minecraft Java, Installations, Modpacks, Locker, Screenshots, Notifications, GitHub), preserving fluid 180ms ease-in-out animations.
+  - Sub-items active cyan accent indicator bar is indented (`x: 16px`), visually subordinating children under the parent group header.
+- **Modrinth Destination Picker Modal & "None" Default Destination**:
+  - Changed default destination from `"Global (.minecraft)"` to `"None"`.
+  - When no destination is selected, clicking `"Select Destination"` on mod cards or version items opens an interactive modal picker to choose an installed modpack or instance as destination.
+- **Modrinth Dynamic Destination Selector for Resource Packs & Shaders**:
+  - Bound `share-resource-packs` and `share-shader-packs` properties to `ModrinthScreen`, dynamically displaying or hiding the destination selector dropdown depending on whether global resource pack or shader pack sharing toggles are disabled or enabled.
+- **Dynamic Multi-Modloader Modpack Picker Modal**:
+  - For modpacks that support multiple modloaders (e.g. Fabric, Forge, NeoForge, Quilt), clicking "Install Pack" opens a modal picker dynamically populated with the exact loaders supported by that specific modpack.
+  - Automatically filters Modrinth version manifests to match the selected loader before initiating download.
+- **Enlarged Pixel-Art Download Notifications (Pause, Resume, Cancel & Live Notification Center)**:
+  - Enlarged toast notification cards to `380px` width with `34×34px` status icon boxes and crisp typography for improved readability.
+  - Replaced Unicode emojis with dedicated pixel art icon assets (`icon_pause.png`, `icon_play.png`, `PixelCloseIcon`) and a clean `"Copy"` button.
+  - Connected download actions to backend chunk-level download cancellation and pause events with thread-safe IPC handlers (`download_cancel`, `download_pause`, `download_resume`).
+  - Streamed real-time download progress directly into the Notification Center for all downloads (including single `.mrpack` modpack and `.jar` mod files).
+- **FastCDC Optimization for Lightweight Binaries**:
+  - Excluded lightweight runtime binaries (`libunwind.dll`) from differential FastCDC chunking and `.cdc.json` metadata requirements, downloading them directly with SHA-256 integrity verification.
+- **Process Grouping in Windows Task Manager & Linux System Monitors**:
+  - Configured shared Explicit `AppUserModelID` (`AmneDev.NyLuna.Core`) across the Rust UI frontend (`main.rs`) and Python backend (`agent.py`).
+  - Added `prctl(PR_SET_NAME, "nyluna-agent")` and process group sharing on Linux, cleanly grouping background agent processes under the main launcher app entry.
+
+### Fixed
+
+- **Duplicate Download Notifications & Raw Project ID Display**:
+  - Passed human-readable project titles directly through all Slint install callbacks, IPC channels, and backend download event streams, eliminating raw project IDs (e.g. `rQiXuLhB`) from notification titles.
+  - Unified toast IDs under single canonical keys (`dl-proj-{id}`) and guarded with persistent `DISMISSED_TOAST_IDS` tracking so dismissing (`[x]`) permanently closes the card without being resurrected by subsequent progress ticks.
+- **In-App Updater Self-Termination**:
+  - Resolved an issue where the updater runner terminated its own process (`installer_app.exe` / `patch_runner.py`) while killing existing launcher processes, preventing updates from completing.
+  - Added PID-safe process termination (`kill_named_processes_safely`) filtering out `os.getpid()`.
+  - Configured Windows Job Object flags with `JOB_OBJECT_LIMIT_BREAKAWAY_OK` on the parent UI job and `CREATE_BREAKAWAY_FROM_JOB` (`0x01000000`) when spawning updater processes, ensuring the update runner survives parent termination.
+
 ## [4.0.8] - 2026-11-20
 
 ### Fixed

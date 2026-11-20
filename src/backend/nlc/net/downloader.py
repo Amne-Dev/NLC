@@ -15,6 +15,7 @@ def download_file(
     destination: Path,
     *,
     cancel_event=None,
+    pause_event=None,
     chunk_size: int = 64 * 1024,
     progress: Optional[Callable[[int, int], None]] = None,
     headers: Optional[dict] = None,
@@ -40,6 +41,11 @@ def download_file(
                 for chunk in response.iter_content(chunk_size=chunk_size):
                     if cancel_event is not None and cancel_event.is_set():
                         raise RuntimeError("Download cancelled by user.")
+                    if pause_event is not None:
+                        while not pause_event.is_set():
+                            if cancel_event is not None and cancel_event.is_set():
+                                raise RuntimeError("Download cancelled by user.")
+                            time.sleep(0.1)
                     if not chunk:
                         continue
                     out_f.write(chunk)

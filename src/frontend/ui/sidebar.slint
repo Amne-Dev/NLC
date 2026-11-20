@@ -8,13 +8,15 @@ component NavItem {
     in-out property <string> icon-font: Theme.icon-font-family;
     in-out property <bool> colorize-icon: false;
     in-out property <bool> is-active: false;
+    in-out property <bool> is-expanded: false;
+    in-out property <bool> is-child: false;
     in-out property <bool> smooth-animations: Theme.smooth-animations;
     callback clicked();
 
     height: 38px;
 
     Rectangle {
-        background: root.is-active ? Theme.sidebar-active : (touch.has-hover ? Theme.sidebar-hover : transparent);
+        background: root.is-active ? Theme.sidebar-active : (root.is-expanded ? #202532 : (touch.has-hover ? Theme.sidebar-hover : transparent));
 
         animate background {
             duration: root.smooth-animations ? 150ms : 0ms;
@@ -23,7 +25,7 @@ component NavItem {
 
         // Left Cyan Accent Indicator Bar (exact 3px width) with animated slide and opacity
         Rectangle {
-            x: root.is-active ? 0px : -3px;
+            x: root.is-active ? (root.is-child ? 16px : 0px) : (root.is-child ? 13px : -3px);
             width: root.is-active ? 3px : 0px;
             height: parent.height - 12px;
             y: 6px;
@@ -37,7 +39,7 @@ component NavItem {
         }
 
         HorizontalLayout {
-            padding-left: 14px;
+            padding-left: root.is-child ? 34px : 14px;
             padding-right: 14px;
             spacing: 12px;
             alignment: start;
@@ -89,10 +91,10 @@ component NavItem {
 
             Text {
                 text: root.text;
-                color: root.is-active ? #FFFFFF : (touch.has-hover ? #FFFFFF : Theme.text-secondary);
+                color: (root.is-active || root.is-expanded) ? #FFFFFF : (touch.has-hover ? #FFFFFF : Theme.text-secondary);
                 font-family: Theme.font-family;
                 font-size: 11px;
-                font-weight: root.is-active ? 700 : 400;
+                font-weight: (root.is-active || root.is-expanded) ? 700 : 400;
                 vertical-alignment: center;
                 overflow: elide;
 
@@ -148,6 +150,9 @@ export component Sidebar {
     in-out property <string> current-modrinth-mode: "mod";
     in-out property <string> current-settings-cat: "General";
     in-out property <string> current-addons-source: "all"; // "all", "local", "community", "builtin"
+    in-out property <bool> modrinth-tree-expanded: false;
+    in-out property <bool> addons-tree-expanded: false;
+    in-out property <bool> settings-tree-expanded: false;
     in-out property <bool> account-drawer-open: false;
     in-out property <bool> notifications-open: false;
     in-out property <[AccountData]> accounts: [];
@@ -190,6 +195,11 @@ export component Sidebar {
             width: parent.width - 16px;
             height: parent.height - 16px - bottom-dock.height;
             interactive: true;
+
+            animate height {
+                duration: root.smooth-animations ? 180ms : 0ms;
+                easing: ease-in-out;
+            }
 
                 VerticalLayout {
                     spacing: 4px;
@@ -470,8 +480,8 @@ export component Sidebar {
                 background: Theme.border-subtle;
             }
 
-            // --- Dynamic Navigation Area ---
-            if root.sidebar-mode == "main": VerticalLayout {
+            // --- Unified Tree Navigation Area ---
+            VerticalLayout {
                 spacing: 2px;
 
                 CategoryHeader { title: "GAMES"; }
@@ -480,21 +490,36 @@ export component Sidebar {
                     text: "Minecraft Java";
                     icon: @image-url("../../../icons/2x/grass_block_side.png");
                     is-active: root.current-tab == "Play";
-                    clicked => { root.select-tab("Play"); }
+                    clicked => {
+                        root.modrinth-tree-expanded = false;
+                        root.addons-tree-expanded = false;
+                        root.settings-tree-expanded = false;
+                        root.select-tab("Play");
+                    }
                 }
 
                 NavItem {
                     text: "Installations";
                     icon: @image-url("../../../icons/2x/crafting_table_front.png");
                     is-active: root.current-tab == "Installations";
-                    clicked => { root.select-tab("Installations"); }
+                    clicked => {
+                        root.modrinth-tree-expanded = false;
+                        root.addons-tree-expanded = false;
+                        root.settings-tree-expanded = false;
+                        root.select-tab("Installations");
+                    }
                 }
 
                 NavItem {
                     text: "Modpacks";
                     icon: @image-url("../../../icons/2x/shulker_box.png");
                     is-active: root.current-tab == "Modpacks";
-                    clicked => { root.select-tab("Modpacks"); }
+                    clicked => {
+                        root.modrinth-tree-expanded = false;
+                        root.addons-tree-expanded = false;
+                        root.settings-tree-expanded = false;
+                        root.select-tab("Modpacks");
+                    }
                 }
 
                 CategoryHeader { title: "DISCOVER"; }
@@ -503,9 +528,76 @@ export component Sidebar {
                     text: "Modrinth";
                     icon: @image-url("../../../icons/2x/crafting_table_top.png");
                     is-active: root.current-tab == "Mods" || root.current-tab == "Modrinth";
+                    is-expanded: root.modrinth-tree-expanded;
                     clicked => {
-                        root.set-sidebar-mode("modrinth");
-                        root.select-modrinth(root.current-modrinth-mode != "" ? root.current-modrinth-mode : "mod");
+                        root.modrinth-tree-expanded = !root.modrinth-tree-expanded;
+                        if root.modrinth-tree-expanded {
+                            root.addons-tree-expanded = false;
+                            root.settings-tree-expanded = false;
+                        }
+                        if root.current-tab != "Mods" && root.current-tab != "Modrinth" {
+                            root.select-tab("Mods");
+                            root.select-modrinth(root.current-modrinth-mode != "" ? root.current-modrinth-mode : "mod");
+                        }
+                    }
+                }
+
+                Rectangle {
+                    clip: true;
+                    height: root.modrinth-tree-expanded ? 158px : 0px;
+                    opacity: root.modrinth-tree-expanded ? 1.0 : 0.0;
+
+                    animate height, opacity {
+                        duration: root.smooth-animations ? 180ms : 0ms;
+                        easing: ease-in-out;
+                    }
+
+                    VerticalLayout {
+                        spacing: 2px;
+
+                        NavItem {
+                            text: "Mods";
+                            icon: @image-url("../../../icons/2x/comparator_on.png");
+                            is-child: true;
+                            is-active: (root.current-tab == "Mods" || root.current-tab == "Modrinth") && root.current-modrinth-mode == "mod";
+                            clicked => {
+                                root.select-tab("Mods");
+                                root.select-modrinth("mod");
+                            }
+                        }
+
+                        NavItem {
+                            text: "Resource Packs";
+                            icon: @image-url("../../../icons/2x/painting.png");
+                            is-child: true;
+                            is-active: (root.current-tab == "Mods" || root.current-tab == "Modrinth") && root.current-modrinth-mode == "resourcepack";
+                            clicked => {
+                                root.select-tab("Mods");
+                                root.select-modrinth("resourcepack");
+                            }
+                        }
+
+                        NavItem {
+                            text: "Modpacks";
+                            icon: @image-url("../../../icons/2x/shulker_box.png");
+                            is-child: true;
+                            is-active: (root.current-tab == "Mods" || root.current-tab == "Modrinth") && root.current-modrinth-mode == "modpack";
+                            clicked => {
+                                root.select-tab("Mods");
+                                root.select-modrinth("modpack");
+                            }
+                        }
+
+                        NavItem {
+                            text: "Shaders";
+                            icon: @image-url("../../../icons/2x/glowstone.png");
+                            is-child: true;
+                            is-active: (root.current-tab == "Mods" || root.current-tab == "Modrinth") && root.current-modrinth-mode == "shader";
+                            clicked => {
+                                root.select-tab("Mods");
+                                root.select-modrinth("shader");
+                            }
+                        }
                     }
                 }
 
@@ -513,9 +605,75 @@ export component Sidebar {
                     text: "Addons";
                     icon: @image-url("../../../icons/2x/beacon.png");
                     is-active: root.current-tab == "Addons";
+                    is-expanded: root.addons-tree-expanded;
                     clicked => {
-                        root.set-sidebar-mode("addons");
-                        root.select-tab("Addons");
+                        root.addons-tree-expanded = !root.addons-tree-expanded;
+                        if root.addons-tree-expanded {
+                            root.modrinth-tree-expanded = false;
+                            root.settings-tree-expanded = false;
+                        }
+                        if root.current-tab != "Addons" {
+                            root.select-tab("Addons");
+                        }
+                    }
+                }
+
+                Rectangle {
+                    clip: true;
+                    height: root.addons-tree-expanded ? 158px : 0px;
+                    opacity: root.addons-tree-expanded ? 1.0 : 0.0;
+
+                    animate height, opacity {
+                        duration: root.smooth-animations ? 180ms : 0ms;
+                        easing: ease-in-out;
+                    }
+
+                    VerticalLayout {
+                        spacing: 2px;
+
+                        NavItem {
+                            text: "All Addons";
+                            icon: @image-url("../../../icons/2x/beacon.png");
+                            is-child: true;
+                            is-active: root.current-tab == "Addons" && root.current-addons-source == "all";
+                            clicked => {
+                                root.select-tab("Addons");
+                                root.select-addons-source("all");
+                            }
+                        }
+
+                        NavItem {
+                            text: "Installed / Local";
+                            icon: @image-url("../../../icons/2x/bookshelf.png");
+                            is-child: true;
+                            is-active: root.current-tab == "Addons" && (root.current-addons-source == "local" || root.current-addons-source == "installed");
+                            clicked => {
+                                root.select-tab("Addons");
+                                root.select-addons-source("local");
+                            }
+                        }
+
+                        NavItem {
+                            text: "Community Addons";
+                            icon: @image-url("../../../icons/icon_puzzle_16.png");
+                            is-child: true;
+                            is-active: root.current-tab == "Addons" && (root.current-addons-source == "community" || root.current-addons-source == "discover" || root.current-addons-source == "modrinth");
+                            clicked => {
+                                root.select-tab("Addons");
+                                root.select-addons-source("community");
+                            }
+                        }
+
+                        NavItem {
+                            text: "Built-in Tools";
+                            icon: @image-url("../../../icons/2x/repeater.png");
+                            is-child: true;
+                            is-active: root.current-tab == "Addons" && root.current-addons-source == "builtin";
+                            clicked => {
+                                root.select-tab("Addons");
+                                root.select-addons-source("builtin");
+                            }
+                        }
                     }
                 }
 
@@ -523,179 +681,29 @@ export component Sidebar {
                     text: "Locker";
                     icon: @image-url("../../../icons/2x/enchanting_table_side.png");
                     is-active: root.current-tab == "Locker";
-                    clicked => { root.select-tab("Locker"); }
-                }
-            }
-
-            if root.sidebar-mode == "modrinth": VerticalLayout {
-                spacing: 2px;
-
-                NavItem {
-                    text: "← Back";
-                    icon: @image-url("../../../icons/2x/observer_back.png");
-                    is-active: false;
                     clicked => {
-                        root.set-sidebar-mode("main");
-                        root.select-tab("Play");
+                        root.modrinth-tree-expanded = false;
+                        root.addons-tree-expanded = false;
+                        root.settings-tree-expanded = false;
+                        root.select-tab("Locker");
                     }
                 }
-
-                CategoryHeader { title: "MODRINTH NETWORK"; }
-
-                NavItem {
-                    text: "Mods";
-                    icon: @image-url("../../../icons/2x/comparator_on.png");
-                    is-active: root.current-modrinth-mode == "mod";
-                    clicked => { root.select-modrinth("mod"); }
-                }
-
-                NavItem {
-                    text: "Resource Packs";
-                    icon: @image-url("../../../icons/2x/painting.png");
-                    is-active: root.current-modrinth-mode == "resourcepack";
-                    clicked => { root.select-modrinth("resourcepack"); }
-                }
-
-                NavItem {
-                    text: "Modpacks";
-                    icon: @image-url("../../../icons/2x/shulker_box.png");
-                    is-active: root.current-modrinth-mode == "modpack";
-                    clicked => { root.select-modrinth("modpack"); }
-                }
-
-                NavItem {
-                    text: "Shaders";
-                    icon: @image-url("../../../icons/2x/glowstone.png");
-                    is-active: root.current-modrinth-mode == "shader";
-                    clicked => { root.select-modrinth("shader"); }
-                }
-            }
-
-            if root.sidebar-mode == "settings": VerticalLayout {
-                spacing: 2px;
-
-                NavItem {
-                    text: "← Back";
-                    icon: @image-url("../../../icons/2x/observer_back.png");
-                    is-active: false;
-                    clicked => {
-                        root.set-sidebar-mode("main");
-                        root.select-tab("Play");
-                    }
-                }
-
-                CategoryHeader { title: "SETTINGS"; }
-
-                NavItem {
-                    text: "General";
-                    has-icon: false;
-                    is-active: root.current-settings-cat == "General";
-                    clicked => { root.select-settings-cat("General"); }
-                }
-
-                NavItem {
-                    text: "Appearance";
-                    has-icon: false;
-                    is-active: root.current-settings-cat == "Appearance";
-                    clicked => { root.select-settings-cat("Appearance"); }
-                }
-
-                NavItem {
-                    text: "Modpacks & Instances";
-                    has-icon: false;
-                    is-active: root.current-settings-cat == "Modpacks & Instances";
-                    clicked => { root.select-settings-cat("Modpacks & Instances"); }
-                }
-
-                NavItem {
-                    text: "Java & Memory";
-                    has-icon: false;
-                    is-active: root.current-settings-cat == "Java & Memory";
-                    clicked => { root.select-settings-cat("Java & Memory"); }
-                }
-
-                NavItem {
-                    text: "Downloads";
-                    has-icon: false;
-                    is-active: root.current-settings-cat == "Downloads";
-                    clicked => { root.select-settings-cat("Downloads"); }
-                }
-
-                NavItem {
-                    text: "Integrations";
-                    has-icon: false;
-                    is-active: root.current-settings-cat == "Integrations";
-                    clicked => { root.select-settings-cat("Integrations"); }
-                }
-
-                NavItem {
-                    text: "Logs & Diagnostics";
-                    has-icon: false;
-                    is-active: root.current-settings-cat == "Logs & Diagnostics";
-                    clicked => { root.select-settings-cat("Logs & Diagnostics"); }
-                }
-
-                NavItem {
-                    text: "About & Reset";
-                    has-icon: false;
-                    is-active: root.current-settings-cat == "About & Reset";
-                    clicked => { root.select-settings-cat("About & Reset"); }
-                }
-            }
-
-            if root.sidebar-mode == "addons": VerticalLayout {
-                spacing: 2px;
-
-                NavItem {
-                    text: "← Back";
-                    icon: @image-url("../../../icons/2x/observer_back.png");
-                    is-active: false;
-                    clicked => {
-                        root.set-sidebar-mode("main");
-                        root.select-tab("Play");
-                    }
-                }
-
-                CategoryHeader { title: "ADDON SOURCES"; }
-
-                NavItem {
-                    text: "All Addons";
-                    icon: @image-url("../../../icons/2x/beacon.png");
-                    is-active: root.current-addons-source == "all";
-                    clicked => { root.select-addons-source("all"); }
-                }
-
-                NavItem {
-                    text: "Installed / Local";
-                    icon: @image-url("../../../icons/2x/bookshelf.png");
-                    is-active: root.current-addons-source == "local" || root.current-addons-source == "installed";
-                    clicked => { root.select-addons-source("local"); }
-                }
-
-                NavItem {
-                    text: "Community Addons";
-                    icon: @image-url("../../../icons/icon_puzzle_16.png");
-                    is-active: root.current-addons-source == "community" || root.current-addons-source == "discover" || root.current-addons-source == "modrinth";
-                    clicked => { root.select-addons-source("community"); }
-                }
-
-                NavItem {
-                    text: "Built-in Tools";
-                    icon: @image-url("../../../icons/2x/repeater.png");
-                    is-active: root.current-addons-source == "builtin";
-                    clicked => { root.select-addons-source("builtin"); }
-                }
             }
 
                 }
             }
 
-        // --- 2. Bottom Dock Area (Anchored directly to bottom of sidebar) ---
+        // --- 2. Bottom Dock Area (Anchored directly to bottom of sidebar, expands upwards) ---
         bottom-dock := Rectangle {
             x: 8px;
             y: parent.height - self.height - 8px;
             width: parent.width - 16px;
-            height: 168px;
+            height: root.settings-tree-expanded ? min(parent.height - 180px, 340px) : 166px;
+
+            animate height, y {
+                duration: root.smooth-animations ? 180ms : 0ms;
+                easing: ease-in-out;
+            }
 
             Rectangle {
                 x: 0px;
@@ -712,34 +720,180 @@ export component Sidebar {
                 spacing: 2px;
 
                 NavItem {
-                    text: "GitHub";
-                    icon: @image-url("../../../icons/2x/chiseled_bookshelf_occupied.png");
-                    is-active: false;
-                    clicked => { root.open-dock("github"); }
-                }
-
-                NavItem {
-                    text: "Screenshots";
-                    icon: @image-url("../../../icons/2x/jukebox_side.png");
-                    is-active: root.current-tab == "Screenshots";
-                    clicked => { root.open-dock("screenshots"); }
-                }
-
-                NavItem {
-                    text: "Notifications";
-                    icon: @image-url("../../../icons/2x/bell_side.png");
-                    is-active: root.notifications-open;
-                    clicked => { root.open-dock("notifications"); }
-                }
-
-                NavItem {
                     text: "Settings";
                     icon: @image-url("../../../icons/2x/gear.png");
                     colorize-icon: true;
                     is-active: root.current-tab == "Settings";
+                    is-expanded: root.settings-tree-expanded;
                     clicked => {
-                        root.set-sidebar-mode("settings");
-                        root.select-tab("Settings");
+                        root.settings-tree-expanded = !root.settings-tree-expanded;
+                        if root.settings-tree-expanded {
+                            root.modrinth-tree-expanded = false;
+                            root.addons-tree-expanded = false;
+                        }
+                        if root.current-tab != "Settings" {
+                            root.select-tab("Settings");
+                        }
+                    }
+                }
+
+                Rectangle {
+                    clip: true;
+                    height: root.settings-tree-expanded ? max(0px, parent.height - 46px) : 0px;
+                    opacity: root.settings-tree-expanded ? 1.0 : 0.0;
+
+                    animate height, opacity {
+                        duration: root.smooth-animations ? 180ms : 0ms;
+                        easing: ease-in-out;
+                    }
+
+                    Flickable {
+                        width: 100%;
+                        height: 100%;
+                        interactive: true;
+
+                        VerticalLayout {
+                            spacing: 2px;
+
+                            NavItem {
+                                text: "General";
+                                has-icon: false;
+                                is-child: true;
+                                is-active: root.current-tab == "Settings" && root.current-settings-cat == "General";
+                                clicked => {
+                                    root.select-tab("Settings");
+                                    root.select-settings-cat("General");
+                                }
+                            }
+
+                            NavItem {
+                                text: "Appearance";
+                                has-icon: false;
+                                is-child: true;
+                                is-active: root.current-tab == "Settings" && root.current-settings-cat == "Appearance";
+                                clicked => {
+                                    root.select-tab("Settings");
+                                    root.select-settings-cat("Appearance");
+                                }
+                            }
+
+                            NavItem {
+                                text: "Modpacks & Instances";
+                                has-icon: false;
+                                is-child: true;
+                                is-active: root.current-tab == "Settings" && root.current-settings-cat == "Modpacks & Instances";
+                                clicked => {
+                                    root.select-tab("Settings");
+                                    root.select-settings-cat("Modpacks & Instances");
+                                }
+                            }
+
+                            NavItem {
+                                text: "Java & Memory";
+                                has-icon: false;
+                                is-child: true;
+                                is-active: root.current-tab == "Settings" && root.current-settings-cat == "Java & Memory";
+                                clicked => {
+                                    root.select-tab("Settings");
+                                    root.select-settings-cat("Java & Memory");
+                                }
+                            }
+
+                            NavItem {
+                                text: "Downloads";
+                                has-icon: false;
+                                is-child: true;
+                                is-active: root.current-tab == "Settings" && root.current-settings-cat == "Downloads";
+                                clicked => {
+                                    root.select-tab("Settings");
+                                    root.select-settings-cat("Downloads");
+                                }
+                            }
+
+                            NavItem {
+                                text: "Integrations";
+                                has-icon: false;
+                                is-child: true;
+                                is-active: root.current-tab == "Settings" && root.current-settings-cat == "Integrations";
+                                clicked => {
+                                    root.select-tab("Settings");
+                                    root.select-settings-cat("Integrations");
+                                }
+                            }
+
+                            NavItem {
+                                text: "Logs & Diagnostics";
+                                has-icon: false;
+                                is-child: true;
+                                is-active: root.current-tab == "Settings" && root.current-settings-cat == "Logs & Diagnostics";
+                                clicked => {
+                                    root.select-tab("Settings");
+                                    root.select-settings-cat("Logs & Diagnostics");
+                                }
+                            }
+
+                            NavItem {
+                                text: "About & Reset";
+                                has-icon: false;
+                                is-child: true;
+                                is-active: root.current-tab == "Settings" && root.current-settings-cat == "About & Reset";
+                                clicked => {
+                                    root.select-tab("Settings");
+                                    root.select-settings-cat("About & Reset");
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    clip: true;
+                    height: !root.settings-tree-expanded ? 118px : 0px;
+                    opacity: !root.settings-tree-expanded ? 1.0 : 0.0;
+
+                    animate height, opacity {
+                        duration: root.smooth-animations ? 180ms : 0ms;
+                        easing: ease-in-out;
+                    }
+
+                    VerticalLayout {
+                        spacing: 2px;
+
+                        NavItem {
+                            text: "GitHub";
+                            icon: @image-url("../../../icons/2x/chiseled_bookshelf_occupied.png");
+                            is-active: false;
+                            clicked => {
+                                root.modrinth-tree-expanded = false;
+                                root.addons-tree-expanded = false;
+                                root.settings-tree-expanded = false;
+                                root.open-dock("github");
+                            }
+                        }
+
+                        NavItem {
+                            text: "Screenshots";
+                            icon: @image-url("../../../icons/2x/jukebox_side.png");
+                            is-active: root.current-tab == "Screenshots";
+                            clicked => {
+                                root.modrinth-tree-expanded = false;
+                                root.addons-tree-expanded = false;
+                                root.settings-tree-expanded = false;
+                                root.open-dock("screenshots");
+                            }
+                        }
+
+                        NavItem {
+                            text: "Notifications";
+                            icon: @image-url("../../../icons/2x/bell_side.png");
+                            is-active: root.notifications-open;
+                            clicked => {
+                                root.modrinth-tree-expanded = false;
+                                root.addons-tree-expanded = false;
+                                root.settings-tree-expanded = false;
+                                root.open-dock("notifications");
+                            }
+                        }
                     }
                 }
             }

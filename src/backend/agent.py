@@ -1572,6 +1572,20 @@ def _safe_extract_zip(archive_path: str, destination_dir: str) -> None:
         zf.extractall(dest_path)
 
 
+class DownloadHandle:
+    def __init__(self, task_id: str, project_id: str, title: str = ""):
+        self.task_id = task_id
+        self.project_id = project_id
+        self.title = title
+        self.cancel_event = threading.Event()
+        self.pause_event = threading.Event()
+        self.pause_event.set()
+        self.is_paused = False
+
+_ACTIVE_DOWNLOADS: Dict[str, DownloadHandle] = {}
+_ACTIVE_DOWNLOADS_LOCK = threading.Lock()
+
+
 def _download_file_atomic(
     url: str,
     destination: Any,
@@ -1579,6 +1593,7 @@ def _download_file_atomic(
     expected_sha1: Optional[str] = None,
     task_id: str = "",
     project_id: str = "",
+    title: Optional[str] = None,
     filename: Optional[str] = None,
     project_type: str = "mod",
     progress_offset: float = 0.0,
@@ -1594,6 +1609,17 @@ def _download_file_atomic(
     started_at = time.monotonic()
     last_emit = [0.0]
 
+    handle = None
+    with _ACTIVE_DOWNLOADS_LOCK:
+        if task_id:
+            handle = _ACTIVE_DOWNLOADS.get(task_id)
+        if not handle and project_id:
+            handle = _ACTIVE_DOWNLOADS.get(project_id)
+
+    cancel_event = handle.cancel_event if handle else None
+    pause_event = handle.pause_event if handle else None
+    display_title = title or (handle.title if handle and handle.title else None) or file_name
+
     def _progress_cb(downloaded: int, total_size: int):
         now = time.monotonic()
         if now - last_emit[0] >= 0.1 or (total_size and downloaded >= total_size):
@@ -1605,6 +1631,7 @@ def _download_file_atomic(
             emit_event("download_progress", {
                 "task_id": task_id,
                 "project_id": project_id,
+                "title": display_title,
                 "filename": file_name,
                 "project_type": project_type,
                 "status": "downloading",
@@ -1623,6 +1650,8 @@ def _download_file_atomic(
     return download_file(
         url,
         dest_path,
+        cancel_event=cancel_event,
+        pause_event=pause_event,
         chunk_size=64 * 1024,
         progress=_progress_cb,
         headers=headers,
@@ -1936,14 +1965,21 @@ def handle_modrinth_install_artifact(payload: Dict[str, Any]) -> Dict[str, Any]:
     url = payload.get("url") or payload.get("download_url")
     filename = payload.get("filename")
     expected_sha1 = payload.get("sha1") or (payload.get("hashes") or {}).get("sha1")
-    task_id = str(payload.get("task_id") or f"dl-{uuid.uuid4().hex[:8]}")
+    task_id = str(payload.get("task_id") or (f"proj-{project_id}" if project_id else f"dl-{uuid.uuid4().hex[:8]}"))
     title = str(payload.get("title") or payload.get("name") or payload.get("pack_name") or project_id or "artifact")
+    preferred_loader = str(payload.get("preferred_loader") or payload.get("loader") or "").strip().lower()
 
     if not project_id and not url:
         return {"status": "error", "success": False, "task_id": task_id, "msg": "Missing project_id or url"}
 
     session = get_session()
     headers = {"User-Agent": "AmneDev/NewLauncher/1.8.2"}
+
+    dl_handle = DownloadHandle(task_id, project_id)
+    with _ACTIVE_DOWNLOADS_LOCK:
+        _ACTIVE_DOWNLOADS[task_id] = dl_handle
+        if project_id:
+            _ACTIVE_DOWNLOADS[project_id] = dl_handle
 
     try:
         # Mock mode for testing
@@ -2006,10 +2042,12 @@ def handle_modrinth_install_artifact(payload: Dict[str, Any]) -> Dict[str, Any]:
                 or proj_meta.get("slug")
                 or project_id
             )
+            dl_handle.title = project_display_title
 
             emit_event("download_progress", {
                 "task_id": task_id,
                 "project_id": project_id,
+                "title": project_display_title,
                 "filename": filename or f"{project_id}.mrpack",
                 "project_type": "modpack",
                 "status": "queued",
@@ -2034,6 +2072,10 @@ def handle_modrinth_install_artifact(payload: Dict[str, Any]) -> Dict[str, Any]:
                 mr_versions = [v for v in versions if any(f.get("filename", "").endswith(".mrpack") for f in v.get("files", []))]
                 if not mr_versions:
                     raise Exception(f"No installable .mrpack versions found for modpack '{project_id}'")
+                if preferred_loader and preferred_loader not in ("all", "any"):
+                    matching_versions = [v for v in mr_versions if preferred_loader in [l.lower() for l in v.get("loaders", [])]]
+                    if matching_versions:
+                        mr_versions = matching_versions
                 best_ver = mr_versions[0]
                 if version_id:
                     for v in mr_versions:
@@ -2057,6 +2099,7 @@ def handle_modrinth_install_artifact(payload: Dict[str, Any]) -> Dict[str, Any]:
                     expected_sha1=expected_sha1,
                     task_id=task_id,
                     project_id=project_id,
+                    title=project_display_title,
                     filename=filename,
                     project_type="modpack",
                     progress_offset=0.0,
@@ -2066,7 +2109,7 @@ def handle_modrinth_install_artifact(payload: Dict[str, Any]) -> Dict[str, Any]:
                 emit_event("download_progress", {
                     "task_id": task_id,
                     "project_id": project_id,
-                "title": title,
+                    "title": project_display_title,
                     "filename": filename,
                     "project_type": "modpack",
                     "status": "extracting",
@@ -2119,6 +2162,7 @@ def handle_modrinth_install_artifact(payload: Dict[str, Any]) -> Dict[str, Any]:
                         expected_sha1=f_sha1,
                         task_id=task_id,
                         project_id=project_id,
+                        title=project_display_title,
                         filename=os.path.basename(f_path),
                         project_type="modpack",
                         progress_offset=cur_offset,
@@ -2129,7 +2173,7 @@ def handle_modrinth_install_artifact(payload: Dict[str, Any]) -> Dict[str, Any]:
                 emit_event("download_progress", {
                     "task_id": task_id,
                     "project_id": project_id,
-                "title": title,
+                    "title": project_display_title,
                     "filename": filename,
                     "project_type": "modpack",
                     "status": "installing",
@@ -2239,6 +2283,7 @@ def handle_modrinth_install_artifact(payload: Dict[str, Any]) -> Dict[str, Any]:
                 emit_event("download_progress", {
                     "task_id": task_id,
                     "project_id": project_id,
+                    "title": project_display_title,
                     "filename": filename,
                     "project_type": "modpack",
                     "status": "completed",
@@ -2345,6 +2390,7 @@ def handle_modrinth_install_artifact(payload: Dict[str, Any]) -> Dict[str, Any]:
             emit_event("download_progress", {
                 "task_id": task_id,
                 "project_id": project_id,
+                "title": title,
                 "filename": filename,
                 "project_type": "mod",
                 "status": "completed",
@@ -2431,6 +2477,7 @@ def handle_modrinth_install_artifact(payload: Dict[str, Any]) -> Dict[str, Any]:
             emit_event("download_progress", {
                 "task_id": task_id,
                 "project_id": project_id,
+                "title": title,
                 "filename": filename,
                 "project_type": project_type,
                 "status": "completed",
@@ -2483,6 +2530,67 @@ def handle_modrinth_install_artifact(payload: Dict[str, Any]) -> Dict[str, Any]:
             "task_id": task_id,
             "msg": str(exc),
         }
+    finally:
+        with _ACTIVE_DOWNLOADS_LOCK:
+            _ACTIVE_DOWNLOADS.pop(task_id, None)
+            if project_id:
+                _ACTIVE_DOWNLOADS.pop(project_id, None)
+
+
+def handle_download_cancel(payload: Dict[str, Any]) -> Dict[str, Any]:
+    target = str(payload.get("task_id") or payload.get("project_id") or payload.get("id") or "").strip()
+    with _ACTIVE_DOWNLOADS_LOCK:
+        handle = _ACTIVE_DOWNLOADS.get(target)
+    if handle:
+        handle.cancel_event.set()
+        handle.pause_event.set()
+        emit_event("download_progress", {
+            "task_id": handle.task_id,
+            "project_id": handle.project_id,
+            "title": handle.title or "",
+            "status": "error",
+            "percentage": 0.0,
+            "progress": 0.0,
+            "detail": "Download cancelled by user",
+        })
+        return {"status": "success", "message": f"Download {target} cancelled"}
+    return {"status": "not_found", "message": f"Download {target} not active"}
+
+
+def handle_download_pause(payload: Dict[str, Any]) -> Dict[str, Any]:
+    target = str(payload.get("task_id") or payload.get("project_id") or payload.get("id") or "").strip()
+    with _ACTIVE_DOWNLOADS_LOCK:
+        handle = _ACTIVE_DOWNLOADS.get(target)
+    if handle:
+        handle.pause_event.clear()
+        handle.is_paused = True
+        emit_event("download_progress", {
+            "task_id": handle.task_id,
+            "project_id": handle.project_id,
+            "title": handle.title or "",
+            "status": "paused",
+            "detail": "Download paused",
+        })
+        return {"status": "success", "message": f"Download {target} paused"}
+    return {"status": "not_found", "message": f"Download {target} not active"}
+
+
+def handle_download_resume(payload: Dict[str, Any]) -> Dict[str, Any]:
+    target = str(payload.get("task_id") or payload.get("project_id") or payload.get("id") or "").strip()
+    with _ACTIVE_DOWNLOADS_LOCK:
+        handle = _ACTIVE_DOWNLOADS.get(target)
+    if handle:
+        handle.pause_event.set()
+        handle.is_paused = False
+        emit_event("download_progress", {
+            "task_id": handle.task_id,
+            "project_id": handle.project_id,
+            "title": handle.title or "",
+            "status": "downloading",
+            "detail": "Resuming download...",
+        })
+        return {"status": "success", "message": f"Download {target} resumed"}
+    return {"status": "not_found", "message": f"Download {target} not active"}
 
 
 # Skin & Cape Management Handlers
@@ -5562,7 +5670,9 @@ def handle_system_apply_update(payload: Optional[Dict[str, Any]] = None) -> Dict
             popen_kwargs = {"cwd": launcher_dir, "close_fds": True}
             if sys.platform == "win32":
                 popen_kwargs["creationflags"] = (
-                    getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+                    getattr(subprocess, "DETACHED_PROCESS", 0)
+                    | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+                    | 0x01000000  # CREATE_BREAKAWAY_FROM_JOB so updater is not killed on launcher exit
                 )
             else:
                 popen_kwargs["start_new_session"] = True
@@ -6894,6 +7004,9 @@ ACTION_HANDLERS = {
     "modrinth_search": handle_modrinth_search,
     "modrinth_project_details": handle_modrinth_project_details,
     "modrinth_install_artifact": handle_modrinth_install_artifact,
+    "download_cancel": handle_download_cancel,
+    "download_pause": handle_download_pause,
+    "download_resume": handle_download_resume,
     "search_mods": handle_search_mods,
 
     # Locker: Skins, Capes & Wallpapers
@@ -6995,6 +7108,21 @@ def _execute_async_action(handler, req_id, payload, action):
 
 def main():
     global _in_request_handling
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("AmneDev.NyLuna.Core")
+        except Exception:
+            pass
+    elif sys.platform.startswith("linux"):
+        try:
+            import ctypes
+            libc = ctypes.CDLL("libc.so.6")
+            PR_SET_NAME = 15
+            libc.prctl(PR_SET_NAME, b"nyluna-agent\0", 0, 0, 0)
+        except Exception:
+            pass
+
     init_agent_logging()
     repair_modpack_icons()
     init_discord_rpc()

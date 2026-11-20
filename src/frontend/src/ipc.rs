@@ -797,6 +797,7 @@ fn assign_to_kill_on_close_job(child: &Child) {
     }
 
     const JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE: DWORD = 0x2000;
+    const JOB_OBJECT_LIMIT_BREAKAWAY_OK: DWORD = 0x0800;
     const JOB_OBJECT_EXTENDED_LIMIT_INFORMATION: u32 = 9;
 
     extern "system" {
@@ -809,6 +810,7 @@ fn assign_to_kill_on_close_job(child: &Child) {
         ) -> BOOL;
         fn AssignProcessToJobObject(hJob: HANDLE, hProcess: HANDLE) -> BOOL;
         fn OpenProcess(dwDesiredAccess: DWORD, bInheritHandle: BOOL, dwProcessId: DWORD) -> HANDLE;
+        fn GetCurrentProcess() -> HANDLE;
         fn CloseHandle(hObject: HANDLE) -> BOOL;
     }
 
@@ -817,7 +819,7 @@ fn assign_to_kill_on_close_job(child: &Child) {
             let job = CreateJobObjectW(std::ptr::null_mut(), std::ptr::null());
             if !job.is_null() {
                 let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
-                info.basic_limit_information.limit_flags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+                info.basic_limit_information.limit_flags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_BREAKAWAY_OK;
                 let res = SetInformationJobObject(
                     job,
                     JOB_OBJECT_EXTENDED_LIMIT_INFORMATION,
@@ -825,6 +827,10 @@ fn assign_to_kill_on_close_job(child: &Child) {
                     std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as DWORD,
                 );
                 if res != 0 {
+                    // Group UI process and agent process in the same Job Object
+                    let cur_proc = GetCurrentProcess();
+                    let _ = AssignProcessToJobObject(job, cur_proc);
+
                     const PROCESS_SET_QUOTA: DWORD = 0x0100;
                     const PROCESS_TERMINATE: DWORD = 0x0001;
                     let h_proc = OpenProcess(PROCESS_SET_QUOTA | PROCESS_TERMINATE, 0, pid);
@@ -832,7 +838,7 @@ fn assign_to_kill_on_close_job(child: &Child) {
                         let assigned = AssignProcessToJobObject(job, h_proc);
                         CloseHandle(h_proc);
                         if assigned != 0 {
-                            println!("[NLC-Rust] Bound agent.exe (PID {}) to Windows KillOnJobClose Job Object", pid);
+                            println!("[NLC-Rust] Bound NyLuna & agent.exe (PID {}) to Windows KillOnJobClose + Breakaway Job Object", pid);
                             let _ = job; // Keep handle open for the lifetime of this process
                         } else {
                             CloseHandle(job);
@@ -1542,6 +1548,20 @@ impl AgentClient {
         filename: Option<&str>,
         title: Option<&str>,
     ) -> Result<Value, IpcError> {
+        self.install_modrinth_artifact_with_loader(project_id, project_type, target_id, version_id, url, filename, title, None).await
+    }
+
+    pub async fn install_modrinth_artifact_with_loader(
+        &self,
+        project_id: &str,
+        project_type: &str,
+        target_id: &str,
+        version_id: Option<&str>,
+        url: Option<&str>,
+        filename: Option<&str>,
+        title: Option<&str>,
+        preferred_loader: Option<&str>,
+    ) -> Result<Value, IpcError> {
         let mut payload = serde_json::json!({
             "project_id": project_id,
             "project_type": project_type,
@@ -1555,7 +1575,24 @@ impl AgentClient {
                 payload["title"] = serde_json::Value::String(t.to_string());
             }
         }
+        if let Some(l) = preferred_loader {
+            if !l.is_empty() {
+                payload["preferred_loader"] = serde_json::Value::String(l.to_string());
+            }
+        }
         self.call("modrinth_install_artifact", payload).await
+    }
+
+    pub async fn download_cancel(&self, target_id: &str) -> Result<Value, IpcError> {
+        self.call("download_cancel", serde_json::json!({ "id": target_id, "task_id": target_id, "project_id": target_id })).await
+    }
+
+    pub async fn download_pause(&self, target_id: &str) -> Result<Value, IpcError> {
+        self.call("download_pause", serde_json::json!({ "id": target_id, "task_id": target_id, "project_id": target_id })).await
+    }
+
+    pub async fn download_resume(&self, target_id: &str) -> Result<Value, IpcError> {
+        self.call("download_resume", serde_json::json!({ "id": target_id, "task_id": target_id, "project_id": target_id })).await
     }
 
     pub async fn update_modpack(

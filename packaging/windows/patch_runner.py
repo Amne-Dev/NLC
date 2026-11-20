@@ -68,13 +68,28 @@ def _launcher_is_running(pid):
 
 
 def _stop_agent():
+    if os.name != "nt":
+        return
+    current_pid = os.getpid()
     try:
-        subprocess.run(
-            ["taskkill", "/IM", AGENT_EXE, "/F"],
+        res = subprocess.run(
+            ["tasklist", "/FI", f"IMAGENAME eq {AGENT_EXE}", "/FO", "CSV", "/NH"],
             capture_output=True,
+            text=True,
             check=False,
-            timeout=8,
+            timeout=5,
         )
+        for line in res.stdout.strip().splitlines():
+            parts = [p.strip(' "\t') for p in line.split(",")]
+            if len(parts) >= 2 and parts[1].isdigit():
+                pid = int(parts[1])
+                if pid != current_pid:
+                    subprocess.run(
+                        ["taskkill", "/PID", str(pid), "/F"],
+                        capture_output=True,
+                        check=False,
+                        timeout=8,
+                    )
     except (OSError, subprocess.TimeoutExpired):
         pass
 

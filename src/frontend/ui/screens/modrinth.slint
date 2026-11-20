@@ -1,5 +1,5 @@
 import { Theme } from "../theme.slint";
-import { PixelButton, SearchInput } from "../components.slint";
+import { PixelButton, SearchInput, PixelCloseIcon } from "../components.slint";
 import { InstallationChoice, ModpackData } from "modpacks.slint";
 import { LoadingSpinner } from "../loading_spinner.slint";
 
@@ -13,9 +13,11 @@ export struct ModrinthProjectData {
     follows: string,
     project-type: string,
     loaders: string,
+    loader-list: [string],
     versions: string,
     icon-url: string,
     install-status: string,
+    has-multiple-loaders: bool,
     has-icon: bool,
     icon: image,
 }
@@ -251,7 +253,7 @@ component ModrinthCardSkeleton {
 // -----------------------------------------------------------------------------
 component ModrinthCard {
     in-out property <ModrinthProjectData> data;
-    in-out property <string> destination: "Global (.minecraft)";
+    in-out property <string> destination: "None";
     in-out property <string> current-mode: "mod";
     in-out property <string> selected-loader: "All";
     property <bool> show-loader-badge: (root.current-mode == "modpack" || root.data.project-type == "modpack")
@@ -262,9 +264,10 @@ component ModrinthCard {
     property <bool> requires-destination: root.data.project-type == "mod"
         || (root.data.project-type == "resourcepack" && !root.share-resource-packs)
         || (root.data.project-type == "shader" && !root.share-shader-packs);
-    property <bool> can-install: !root.requires-destination || (root.destination != "Global (.minecraft)" && root.destination != "Global" && root.destination != "");
+    property <bool> can-install: !root.requires-destination || (root.destination != "None" && root.destination != "" && root.destination != "Global (.minecraft)" && root.destination != "Global");
     callback open-details();
     callback install();
+    callback select-destination-requested();
 
     height: 94px;
     horizontal-stretch: 1;
@@ -530,7 +533,266 @@ component ModrinthCard {
                     text: !root.can-install ? "Select Destination" :
                           (root.data.project-type == "modpack" ? "Install Pack" : "Install");
                     primary: root.can-install;
-                    clicked => { root.install(); }
+                    clicked => {
+                        if (!root.can-install) {
+                            root.select-destination-requested();
+                        } else {
+                            root.install();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Component: ModpackPickerModal (Modal for choosing an installation destination)
+// -----------------------------------------------------------------------------
+component ModpackPickerModal inherits Rectangle {
+    in-out property <bool> is-open: false;
+    in-out property <[string]> options: [];
+    callback select-destination(string);
+    callback close();
+
+    x: 0px;
+    y: 0px;
+    width: 100%;
+    height: 100%;
+    background: #000000.with-alpha(0.80);
+
+    TouchArea {
+        clicked => { root.close(); }
+    }
+
+    Rectangle {
+        width: 440px;
+        height: min(380px, parent.height - 40px);
+        background: #15171D;
+        border-width: 1px;
+        border-color: #2E3342;
+        clip: true;
+
+        TouchArea {}
+
+        VerticalLayout {
+            padding: 20px;
+            spacing: 14px;
+
+            HorizontalLayout {
+                height: 24px;
+                alignment: space-between;
+                Text {
+                    text: "SELECT DESTINATION";
+                    color: Theme.accent;
+                    font-family: Theme.font-family;
+                    font-size: 13px;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                }
+                Rectangle {
+                    width: 22px;
+                    height: 22px;
+                    background: close-touch-1.has-hover ? Theme.input-bg : transparent;
+                    close-touch-1 := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.close(); }
+                    }
+                    PixelCloseIcon {
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        icon-color: close-touch-1.has-hover ? #FFFFFF : Theme.text-secondary;
+                    }
+                }
+            }
+
+            Text {
+                text: "Select an installed modpack or instance as destination:";
+                color: Theme.text-secondary;
+                font-family: Theme.font-family;
+                font-size: 10px;
+                wrap: word-wrap;
+            }
+
+            Flickable {
+                vertical-stretch: 1;
+
+                VerticalLayout {
+                    spacing: 6px;
+                    alignment: start;
+
+                    for dest in root.options: Rectangle {
+                        if dest != "None": Rectangle {
+                            height: 32px;
+                            background: dest-touch.has-hover ? #252A36 : #1B1E26;
+                            border-width: 1px;
+                            border-color: dest-touch.has-hover ? Theme.accent : #282D37;
+
+                            dest-touch := TouchArea {
+                                clicked => {
+                                    root.select-destination(dest);
+                                }
+                            }
+
+                            HorizontalLayout {
+                                padding-left: 12px;
+                                padding-right: 12px;
+                                alignment: space-between;
+
+                                Text {
+                                    text: dest;
+                                    color: Theme.text-primary;
+                                    font-family: Theme.font-family;
+                                    font-size: 11px;
+                                    font-weight: 700;
+                                    vertical-alignment: center;
+                                }
+
+                                Text {
+                                    text: "Select →";
+                                    color: dest-touch.has-hover ? Theme.accent : Theme.text-secondary;
+                                    font-family: Theme.font-family;
+                                    font-size: 9px;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                alignment: end;
+                PixelButton {
+                    text: "Cancel";
+                    custom-font-size: 10px;
+                    clicked => { root.close(); }
+                }
+            }
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Component: ModloaderPickerModal (Modal for choosing modloader for multi-loader packs)
+// -----------------------------------------------------------------------------
+component ModloaderPickerModal inherits Rectangle {
+    in-out property <bool> is-open: false;
+    in-out property <string> pack-name: "";
+    in-out property <[string]> loaders: ["Fabric", "Forge", "NeoForge", "Quilt"];
+    callback select-loader(string);
+    callback close();
+
+    x: 0px;
+    y: 0px;
+    width: 100%;
+    height: 100%;
+    background: #000000.with-alpha(0.80);
+
+    TouchArea {
+        clicked => { root.close(); }
+    }
+
+    Rectangle {
+        width: 420px;
+        height: min(340px, parent.height - 40px);
+        background: #15171D;
+        border-width: 1px;
+        border-color: #2E3342;
+        clip: true;
+
+        TouchArea {}
+
+        VerticalLayout {
+            padding: 20px;
+            spacing: 14px;
+
+            HorizontalLayout {
+                height: 24px;
+                alignment: space-between;
+                Text {
+                    text: "CHOOSE MODLOADER";
+                    color: Theme.accent;
+                    font-family: Theme.font-family;
+                    font-size: 13px;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                }
+                Rectangle {
+                    width: 22px;
+                    height: 22px;
+                    background: close-touch-2.has-hover ? Theme.input-bg : transparent;
+                    close-touch-2 := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.close(); }
+                    }
+                    PixelCloseIcon {
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        icon-color: close-touch-2.has-hover ? #FFFFFF : Theme.text-secondary;
+                    }
+                }
+            }
+
+            Text {
+                text: "This modpack supports multiple modloaders.\nSelect which one you want to install:";
+                color: Theme.text-secondary;
+                font-family: Theme.font-family;
+                font-size: 10px;
+                wrap: word-wrap;
+            }
+
+            Flickable {
+                vertical-stretch: 1;
+
+                VerticalLayout {
+                    spacing: 8px;
+                    alignment: start;
+
+                    for ldr in root.loaders: Rectangle {
+                        height: 34px;
+                        background: ldr-touch.has-hover ? #252A36 : #1B1E26;
+                        border-width: 1px;
+                        border-color: ldr-touch.has-hover ? Theme.accent : #282D37;
+
+                        ldr-touch := TouchArea {
+                            clicked => {
+                                root.select-loader(ldr);
+                            }
+                        }
+
+                        HorizontalLayout {
+                            padding-left: 14px;
+                            padding-right: 14px;
+                            alignment: space-between;
+
+                            Text {
+                                text: ldr;
+                                color: Theme.text-primary;
+                                font-family: Theme.font-family;
+                                font-size: 11px;
+                                font-weight: 700;
+                                vertical-alignment: center;
+                            }
+
+                            Text {
+                                text: "Install →";
+                                color: ldr-touch.has-hover ? Theme.accent : Theme.text-secondary;
+                                font-family: Theme.font-family;
+                                font-size: 9px;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                alignment: end;
+                PixelButton {
+                    text: "Cancel";
+                    custom-font-size: 10px;
+                    clicked => { root.close(); }
                 }
             }
         }
@@ -546,7 +808,7 @@ export component ModrinthScreen {
     in-out property <bool> share-shader-packs: true;
     in-out property <string> view-mode: "browse"; // "browse", "details"
     in-out property <string> search-query: "";
-    in-out property <string> selected-destination: "Global (.minecraft)";
+    in-out property <string> selected-destination: "None";
     in-out property <string> selected-version: "All";
     in-out property <string> selected-loader: "All";
     in-out property <string> selected-sort: "Relevance";
@@ -558,10 +820,25 @@ export component ModrinthScreen {
     in-out property <[ModrinthProjectData]> projects: [];
     in-out property <[InstallationChoice]> installations: [];
     in-out property <[ModpackData]> modpacks: [];
-    in-out property <[string]> destination-options: ["Global (.minecraft)"];
+    in-out property <[string]> destination-options: ["None"];
     in-out property <[string]> available-versions: ["All", "26.3", "26.2", "26.1", "1.21.4", "1.21.3", "1.21.1", "1.20.4", "1.20.1", "1.19.4", "1.18.2", "1.16.5", "1.12.2", "1.8.9"];
     in-out property <[string]> available-loaders: ["All", "fabric", "forge", "neoforge", "quilt"];
     in-out property <[string]> sort-options: ["Relevance", "Downloads", "Follows", "Newest", "Updated"];
+
+    // Modal state for Destination Picker
+    in-out property <bool> destination-modal-open: false;
+    in-out property <string> pending-install-project-id: "";
+    in-out property <string> pending-install-project-title: "";
+    in-out property <string> pending-install-project-type: "";
+    in-out property <string> pending-install-version-id: "";
+
+    // Modal state for Multi-Modloader Picker
+    in-out property <bool> modloader-modal-open: false;
+    in-out property <string> pending-loader-project-id: "";
+    in-out property <string> pending-loader-project-type: "";
+    in-out property <string> pending-loader-pack-name: "";
+    in-out property <string> pending-loader-loaders: "";
+    in-out property <[string]> pending-loader-options: [];
 
     // Project Details Data
     in-out property <string> details-project-id: "";
@@ -586,7 +863,8 @@ export component ModrinthScreen {
     callback search(string, string, string, string, string); // query, mode, loader, version, sort
     callback open-details(string); // project_id
     callback close-details();
-    callback install-artifact(string, string, string, string); // project_id, project_type, target_id, version_id
+    callback install-artifact(string, string, string, string, string); // project_id, project_title, project_type, target_id, version_id
+    callback install-artifact-with-loader(string, string, string, string, string, string); // project_id, project_title, project_type, target_id, version_id, loader
     callback select-mode(string); // "mod", "resourcepack", "modpack", "shader"
     callback load-more();
     callback load-details-versions(string); // project_id (on-demand version loader)
@@ -736,13 +1014,31 @@ export component ModrinthScreen {
                         destination: root.selected-destination;
                         current-mode: root.current-mode;
                         selected-loader: root.selected-loader;
+                        share-resource-packs: root.share-resource-packs;
+                        share-shader-packs: root.share-shader-packs;
                         open-details => {
                             root.details-has-icon = proj.has-icon;
                             root.details-icon = proj.icon;
                             root.open-details(proj.id);
                         }
+                        select-destination-requested => {
+                            root.pending-install-project-id = proj.id;
+                            root.pending-install-project-title = proj.title;
+                            root.pending-install-project-type = proj.project-type;
+                            root.pending-install-version-id = "";
+                            root.destination-modal-open = true;
+                        }
                         install => {
-                            root.install-artifact(proj.id, proj.project-type, root.selected-destination, "");
+                            if (proj.project-type == "modpack" && proj.has-multiple-loaders && (root.selected-loader == "All" || root.selected-loader == "all" || root.selected-loader == "")) {
+                                root.pending-loader-project-id = proj.id;
+                                root.pending-loader-project-type = proj.project-type;
+                                root.pending-loader-pack-name = proj.title;
+                                root.pending-loader-loaders = proj.loaders;
+                                root.pending-loader-options = proj.loader-list;
+                                root.modloader-modal-open = true;
+                            } else {
+                                root.install-artifact(proj.id, proj.title, proj.project-type, root.selected-destination, "");
+                            }
                         }
                     }
 
@@ -1014,12 +1310,20 @@ export component ModrinthScreen {
                     }
 
                     if root.details-install-status != "installing" && root.details-install-status != "installed": PixelButton {
-                        text: ((root.details-project-type == "mod" || (root.details-project-type == "resourcepack" && !root.share-resource-packs) || (root.details-project-type == "shader" && !root.share-shader-packs)) && (root.selected-destination == "Global (.minecraft)" || root.selected-destination == "Global" || root.selected-destination == "")) ? "Select Destination" :
+                        text: ((root.details-project-type == "mod" || (root.details-project-type == "resourcepack" && !root.share-resource-packs) || (root.details-project-type == "shader" && !root.share-shader-packs)) && (root.selected-destination == "None" || root.selected-destination == "Global (.minecraft)" || root.selected-destination == "Global" || root.selected-destination == "")) ? "Select Destination" :
                               (root.details-project-type == "modpack" ? "Install Latest Pack" : "Install Latest");
-                        primary: (!(root.details-project-type == "mod" || (root.details-project-type == "resourcepack" && !root.share-resource-packs) || (root.details-project-type == "shader" && !root.share-shader-packs))) || (root.selected-destination != "Global (.minecraft)" && root.selected-destination != "Global" && root.selected-destination != "");
+                        primary: (!(root.details-project-type == "mod" || (root.details-project-type == "resourcepack" && !root.share-resource-packs) || (root.details-project-type == "shader" && !root.share-shader-packs))) || (root.selected-destination != "None" && root.selected-destination != "Global (.minecraft)" && root.selected-destination != "Global" && root.selected-destination != "");
                         custom-font-size: 12px;
                         clicked => {
-                            root.install-artifact(root.details-project-id, root.details-project-type, root.selected-destination, "");
+                            if ((root.details-project-type == "mod" || (root.details-project-type == "resourcepack" && !root.share-resource-packs) || (root.details-project-type == "shader" && !root.share-shader-packs)) && (root.selected-destination == "None" || root.selected-destination == "Global (.minecraft)" || root.selected-destination == "Global" || root.selected-destination == "")) {
+                                root.pending-install-project-id = root.details-project-id;
+                                root.pending-install-project-title = root.details-title;
+                                root.pending-install-project-type = root.details-project-type;
+                                root.pending-install-version-id = "";
+                                root.destination-modal-open = true;
+                            } else {
+                                root.install-artifact(root.details-project-id, root.details-title, root.details-project-type, root.selected-destination, "");
+                            }
                         }
                     }
                 }
@@ -1466,11 +1770,19 @@ export component ModrinthScreen {
                                         }
 
                                         if ver.install-status != "installed": PixelButton {
-                                            text: ((root.details-project-type == "mod" || (root.details-project-type == "resourcepack" && !root.share-resource-packs) || (root.details-project-type == "shader" && !root.share-shader-packs)) && (root.selected-destination == "Global (.minecraft)" || root.selected-destination == "Global" || root.selected-destination == "")) ? "Select Destination" : "Install";
-                                            primary: (!(root.details-project-type == "mod" || (root.details-project-type == "resourcepack" && !root.share-resource-packs) || (root.details-project-type == "shader" && !root.share-shader-packs))) || (root.selected-destination != "Global (.minecraft)" && root.selected-destination != "Global" && root.selected-destination != "");
+                                            text: ((root.details-project-type == "mod" || (root.details-project-type == "resourcepack" && !root.share-resource-packs) || (root.details-project-type == "shader" && !root.share-shader-packs)) && (root.selected-destination == "None" || root.selected-destination == "Global (.minecraft)" || root.selected-destination == "Global" || root.selected-destination == "")) ? "Select Destination" : "Install";
+                                            primary: (!(root.details-project-type == "mod" || (root.details-project-type == "resourcepack" && !root.share-resource-packs) || (root.details-project-type == "shader" && !root.share-shader-packs))) || (root.selected-destination != "None" && root.selected-destination != "Global (.minecraft)" && root.selected-destination != "Global" && root.selected-destination != "");
                                             custom-font-size: 9px;
                                             clicked => {
-                                                root.install-artifact(root.details-project-id, root.details-project-type, root.selected-destination, ver.id);
+                                                if ((root.details-project-type == "mod" || (root.details-project-type == "resourcepack" && !root.share-resource-packs) || (root.details-project-type == "shader" && !root.share-shader-packs)) && (root.selected-destination == "None" || root.selected-destination == "Global (.minecraft)" || root.selected-destination == "Global" || root.selected-destination == "")) {
+                                                    root.pending-install-project-id = root.details-project-id;
+                                                    root.pending-install-project-title = root.details-title;
+                                                    root.pending-install-project-type = root.details-project-type;
+                                                    root.pending-install-version-id = ver.id;
+                                                    root.destination-modal-open = true;
+                                                } else {
+                                                    root.install-artifact(root.details-project-id, root.details-title, root.details-project-type, root.selected-destination, ver.id);
+                                                }
                                             }
                                         }
                                     }
@@ -1479,6 +1791,52 @@ export component ModrinthScreen {
                         }
                     }
                 }
+            }
+        }
+
+        // DESTINATION PICKER MODAL OVERLAY
+        if root.destination-modal-open: ModpackPickerModal {
+            is-open: root.destination-modal-open;
+            options: root.destination-options;
+            select-destination(chosen) => {
+                root.selected-destination = chosen;
+                root.destination-modal-open = false;
+                if (root.pending-install-project-id != "") {
+                    root.install-artifact(root.pending-install-project-id, root.pending-install-project-title, root.pending-install-project-type, chosen, root.pending-install-version-id);
+                    root.pending-install-project-id = "";
+                    root.pending-install-project-title = "";
+                    root.pending-install-project-type = "";
+                    root.pending-install-version-id = "";
+                }
+            }
+            close => {
+                root.destination-modal-open = false;
+                root.pending-install-project-id = "";
+                root.pending-install-project-title = "";
+                root.pending-install-project-type = "";
+                root.pending-install-version-id = "";
+            }
+        }
+
+        // MODLOADER PICKER MODAL OVERLAY
+        if root.modloader-modal-open: ModloaderPickerModal {
+            is-open: root.modloader-modal-open;
+            pack-name: root.pending-loader-pack-name;
+            loaders: root.pending-loader-options.length > 0 ? root.pending-loader-options : ["Fabric", "Forge", "NeoForge", "Quilt"];
+            select-loader(chosen) => {
+                root.modloader-modal-open = false;
+                root.install-artifact-with-loader(root.pending-loader-project-id, root.pending-loader-pack-name, root.pending-loader-project-type, root.selected-destination, "", chosen);
+                root.pending-loader-project-id = "";
+                root.pending-loader-project-type = "";
+                root.pending-loader-pack-name = "";
+                root.pending-loader-options = [];
+            }
+            close => {
+                root.modloader-modal-open = false;
+                root.pending-loader-project-id = "";
+                root.pending-loader-project-type = "";
+                root.pending-loader-pack-name = "";
+                root.pending-loader-options = [];
             }
         }
     }
