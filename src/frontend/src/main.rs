@@ -2668,19 +2668,38 @@ pub fn compute_target_window_size(factor: f32) -> (u32, u32) {
     (target_w.min(max_w), target_h.min(max_h))
 }
 
+static BASE_SCALE_FACTOR: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+pub fn set_base_scale_factor(scale: f32) {
+    if scale > 0.1 && scale.is_finite() {
+        BASE_SCALE_FACTOR.store(scale.to_bits(), std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+pub fn get_base_scale_factor() -> f32 {
+    let bits = BASE_SCALE_FACTOR.load(std::sync::atomic::Ordering::SeqCst);
+    if bits == 0 {
+        1.0
+    } else {
+        f32::from_bits(bits)
+    }
+}
+
 pub fn apply_gui_scale_to_window(win: &MainWindow, factor: f32) {
+    let base_scale = get_base_scale_factor();
+    let effective_scale = (base_scale * factor).max(0.5);
     let phys_size = win.window().size();
     let (phys_w, phys_h) = if phys_size.width > 0 && phys_size.height > 0 {
         (phys_size.width, phys_size.height)
     } else {
-        (1080, 720)
+        ((1080.0 * effective_scale).round() as u32, (720.0 * effective_scale).round() as u32)
     };
     let logical_size = slint::LogicalSize::new(
-        phys_w as f32 / factor,
-        phys_h as f32 / factor,
+        phys_w as f32 / effective_scale,
+        phys_h as f32 / effective_scale,
     );
     win.window().dispatch_event(slint::platform::WindowEvent::ScaleFactorChanged {
-        scale_factor: factor,
+        scale_factor: effective_scale,
     });
     win.window().dispatch_event(slint::platform::WindowEvent::Resized {
         size: logical_size,
@@ -2952,14 +2971,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }.unwrap_or_else(|| "100%".to_string());
 
-    if std::env::var("SLINT_SCALE_FACTOR").is_err() {
-        let factor = ipc::parse_gui_scale(&initial_gui_scale);
-        std::env::set_var("SLINT_SCALE_FACTOR", format!("{:.2}", factor));
-    }
-
     // 2. Initialize Slint Window
     let main_window = MainWindow::new()?;
+    let native_scale = main_window.window().scale_factor();
+    set_base_scale_factor(native_scale);
+    println!("[NLC-Rust] Native display monitor DPI scale factor: {:.2}", native_scale);
+
+    let init_factor = ipc::parse_gui_scale(&initial_gui_scale);
     main_window.set_gui_scale(initial_gui_scale.into());
+    if (init_factor - 1.0).abs() > 0.01 {
+        apply_gui_scale_to_window(&main_window, init_factor);
+    }
     #[cfg(target_os = "linux")]
     {
         if let Err(e) = slint::set_xdg_app_id("nlc") {
@@ -2995,7 +3017,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let Some(sc) = args.get(pos + 1) {
                 main_window.set_gui_scale(sc.clone().into());
                 let factor = ipc::parse_gui_scale(sc);
-                std::env::set_var("SLINT_SCALE_FACTOR", format!("{:.2}", factor));
                 apply_gui_scale_to_window(&main_window, factor);
             }
         }
@@ -3008,7 +3029,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         if let Some(w) = win_rescale.upgrade() {
                             let factor = ipc::parse_gui_scale(&target_scale);
                             w.set_gui_scale(target_scale.into());
-                            std::env::set_var("SLINT_SCALE_FACTOR", format!("{:.2}", factor));
                             apply_gui_scale_to_window(&w, factor);
                         }
                     });
@@ -3331,7 +3351,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         }
         if is_maximized {
-            main_window.window().set_size(slint::PhysicalSize::new(1920, 1080));
             main_window.window().set_maximized(true);
         } else if let Some(pos) = args.iter().position(|a| a == "--width") {
             if let Some(w_str) = args.get(pos + 1) {
@@ -3343,7 +3362,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         main_window.show()?;
         if is_maximized {
-            main_window.window().set_size(slint::PhysicalSize::new(1920, 1080));
             main_window.window().set_maximized(true);
         }
 
@@ -6262,7 +6280,6 @@ fn apply_mod_filter(
             } else if k == "gui_scale" {
                 let v_ui = v.clone();
                 let factor = ipc::parse_gui_scale(&v);
-                std::env::set_var("SLINT_SCALE_FACTOR", format!("{:.2}", factor));
                 let _ = slint::invoke_from_event_loop(move || {
                     if let Some(w) = win_weak.upgrade() {
                         w.set_gui_scale(v_ui.clone().into());
@@ -6356,7 +6373,6 @@ fn apply_mod_filter(
                     let next_str = next_scale.to_string();
                     win.set_gui_scale(next_scale.into());
                     let factor = ipc::parse_gui_scale(next_scale);
-                    std::env::set_var("SLINT_SCALE_FACTOR", format!("{:.2}", factor));
                     apply_gui_scale_to_window(&win, factor);
                     push_toast(&win, "gui-zoom", "GUI Scale", &format!("Zoom set to {}", next_scale), "info");
 
@@ -8408,36 +8424,51 @@ mod tests {
 
     #[test]
     fn test_dynamic_rescaling_logical_size_computation() {
-        let compute_logical = |phys_w: u32, phys_h: u32, factor: f32| -> (f32, f32) {
-            (phys_w as f32 / factor, phys_h as f32 / factor)
+        let compute_compound_logical = |phys_w: u32, phys_h: u32, base_scale: f32, factor: f32| -> (f32, f32, f32) {
+            let effective = (base_scale * factor).max(0.5);
+            (phys_w as f32 / effective, phys_h as f32 / effective, effective)
         };
 
-        // Standard unmaximized window (1080x720)
-        let (log_w_100, log_h_100) = compute_logical(1080, 720, 1.0);
-        let (log_w_125, log_h_125) = compute_logical(1080, 720, 1.25);
-        let (log_w_150, log_h_150) = compute_logical(1080, 720, 1.5);
+        // Standard unmaximized window (1080x720) at 1.0x native DPI
+        let (log_w_100, log_h_100, eff_100) = compute_compound_logical(1080, 720, 1.0, 1.0);
+        let (log_w_125, log_h_125, eff_125) = compute_compound_logical(1080, 720, 1.0, 1.25);
+        let (log_w_150, log_h_150, eff_150) = compute_compound_logical(1080, 720, 1.0, 1.5);
 
         assert_eq!((log_w_100, log_h_100), (1080.0, 720.0));
         assert_eq!((log_w_125, log_h_125), (864.0, 576.0));
         assert_eq!((log_w_150, log_h_150), (720.0, 480.0));
 
-        // When multiplied by factor, physical coverage is invariant (exact physical bounds)
-        assert_eq!(log_w_100 * 1.0, 1080.0);
-        assert_eq!(log_w_125 * 1.25, 1080.0);
-        assert_eq!(log_w_150 * 1.5, 1080.0);
+        // Invariant: logical * effective_scale equals exact physical bounds (0px offset)
+        assert_eq!(log_w_100 * eff_100, 1080.0);
+        assert_eq!(log_w_125 * eff_125, 1080.0);
+        assert_eq!(log_w_150 * eff_150, 1080.0);
 
-        // Maximized 1080p display (1920x1080)
-        let (max_w_100, max_h_100) = compute_logical(1920, 1080, 1.0);
-        let (max_w_125, max_h_125) = compute_logical(1920, 1080, 1.25);
-        let (max_w_150, max_h_150) = compute_logical(1920, 1080, 1.5);
+        // Non-16:9 16:10 display (1920x1200) with 1.25x High-DPI monitor scaling
+        let (w1610_100, h1610_100, eff1610_100) = compute_compound_logical(1920, 1200, 1.25, 1.0);
+        let (w1610_125, h1610_125, eff1610_125) = compute_compound_logical(1920, 1200, 1.25, 1.25);
+        let (w1610_150, h1610_150, _eff1610_150) = compute_compound_logical(1920, 1200, 1.25, 1.5);
 
-        assert_eq!((max_w_100, max_h_100), (1920.0, 1080.0));
-        assert_eq!((max_w_125, max_h_125), (1536.0, 864.0));
-        assert_eq!((max_w_150, max_h_150), (1280.0, 720.0));
+        assert_eq!((w1610_100, h1610_100), (1536.0, 960.0));
+        assert_eq!((w1610_125, h1610_125), (1228.8, 768.0));
+        assert_eq!((w1610_150, h1610_150), (1024.0, 640.0));
+        assert_eq!((w1610_100 * eff1610_100).round(), 1920.0);
+        assert_eq!((h1610_100 * eff1610_100).round(), 1200.0);
+        assert_eq!((w1610_125 * eff1610_125).round(), 1920.0);
+        assert_eq!((h1610_125 * eff1610_125).round(), 1200.0);
 
-        assert_eq!(max_w_100 * 1.0, 1920.0);
-        assert_eq!(max_w_125 * 1.25, 1920.0);
-        assert_eq!(max_w_150 * 1.5, 1920.0);
+        // Non-16:9 3:2 display (2256x1504 Surface Laptop) with 1.5x High-DPI scaling
+        let (w32_100, h32_100, eff32_100) = compute_compound_logical(2256, 1504, 1.5, 1.0);
+        let (w32_125, _h32_125, eff32_125) = compute_compound_logical(2256, 1504, 1.5, 1.25);
+        assert_eq!((w32_100, h32_100), (1504.0, 1002.6667));
+        assert_eq!((w32_100 * eff32_100).round(), 2256.0);
+        assert_eq!((h32_100 * eff32_100).round(), 1504.0);
+        assert_eq!((w32_125 * eff32_125).round(), 2256.0);
+
+        // Base scale factor atomic store and retrieve
+        set_base_scale_factor(1.75);
+        assert_eq!(get_base_scale_factor(), 1.75);
+        set_base_scale_factor(1.0); // Reset for other tests
+        assert_eq!(get_base_scale_factor(), 1.0);
     }
 
     #[test]
