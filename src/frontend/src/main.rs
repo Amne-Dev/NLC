@@ -2669,6 +2669,7 @@ pub fn GetWindowTextLengthW(hWnd: isize) -> i32;
 }
 
 #[cfg(not(target_os = "windows"))]
+#[allow(dead_code)]
 mod win32 {
     pub fn is_maximized() -> bool { false }
     pub fn maximize_window() {}

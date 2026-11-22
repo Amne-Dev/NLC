@@ -82,12 +82,12 @@ fn test_zero_rounded_corners_in_sidebar_addons_mode() {
 
     let content = std::fs::read_to_string(&sidebar_slint_path).expect("read sidebar.slint");
 
-    // Ensure sidebar has no non-zero border-radius in the addons section
+    // Ensure sidebar has no non-zero border-radius in the addons tree section
     let addons_section_idx = content
-        .find(r#"if root.sidebar-mode == "addons""#)
-        .expect("sidebar-mode == 'addons' must exist in sidebar.slint");
+        .find(r#"text: "Addons";"#)
+        .expect("text: 'Addons'; must exist in sidebar.slint");
 
-    let addons_section = &content[addons_section_idx..addons_section_idx + 1200];
+    let addons_section = &content[addons_section_idx..addons_section_idx + 1800];
     for (line_idx, line) in addons_section.lines().enumerate() {
         let trimmed = line.trim();
         if trimmed.starts_with("//") {
@@ -113,10 +113,10 @@ fn test_sidebar_slint_addons_mode_structure_and_back_navigation() {
     let sidebar_slint_path = get_frontend_dir().join("ui/sidebar.slint");
     let content = std::fs::read_to_string(&sidebar_slint_path).expect("read sidebar.slint");
 
-    // 1. sidebar-mode property declaration
+    // 1. addons-tree-expanded property declaration
     assert!(
-        content.contains(r#"in-out property <string> sidebar-mode: "main";"#),
-        "sidebar.slint must declare sidebar-mode property with default 'main'"
+        content.contains(r#"in-out property <bool> addons-tree-expanded: false;"#),
+        "sidebar.slint must declare addons-tree-expanded property"
     );
 
     // 2. current-addons-source property declaration
@@ -131,35 +131,23 @@ fn test_sidebar_slint_addons_mode_structure_and_back_navigation() {
         "sidebar.slint must declare callback select-addons-source(string);"
     );
 
-    // 4. In main mode, NavItem for Addons transitions to 'addons' mode
+    // 4. In tree navigation, clicking Addons toggles addons-tree-expanded and selects tab
     assert!(
-        content.contains(r#"root.set-sidebar-mode("addons");"#),
-        "sidebar.slint must transition sidebar mode to 'addons' when Addons is clicked"
+        content.contains(r#"root.addons-tree-expanded = !root.addons-tree-expanded;"#),
+        "sidebar.slint must toggle addons-tree-expanded when Addons is clicked"
     );
     assert!(
         content.contains(r#"root.select-tab("Addons");"#),
         "sidebar.slint must select Addons tab when Addons nav item is clicked"
     );
 
-    // 5. In addons mode, Back NavItem exists and reverts to main mode and Play tab
+    // 5. Addons tree section has animated clipping container
     assert!(
-        content.contains(r#"if root.sidebar-mode == "addons":"#),
-        "sidebar.slint must have 'if root.sidebar-mode == \"addons\"' block"
-    );
-    assert!(
-        content.contains(r#"text: "← Back""#),
-        "sidebar.slint addons mode must have '← Back' button"
-    );
-    assert!(
-        content.contains(r#"root.set-sidebar-mode("main");"#),
-        "Back button must call set-sidebar-mode('main')"
+        content.contains(r#"height: root.addons-tree-expanded ? 158px : 0px;"#),
+        "sidebar.slint addons tree must have height bound to addons-tree-expanded"
     );
 
-    // 6. 4 source categories exist in sidebar addons mode
-    assert!(
-        content.contains(r#"title: "ADDON SOURCES""#),
-        "sidebar.slint must render 'ADDON SOURCES' CategoryHeader"
-    );
+    // 6. 4 source categories exist in sidebar addons tree
     assert!(
         content.contains(r#"text: "All Addons""#),
         "sidebar.slint must have 'All Addons' item"
